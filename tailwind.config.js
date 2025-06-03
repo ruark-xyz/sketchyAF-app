@@ -36,6 +36,10 @@ export default {
         info: '#3B82F6',
       },
       fontFamily: {
+        // Design system fonts
+        montserrat: ['Montserrat', 'sans-serif'],
+        poppins: ['Poppins', 'sans-serif'],
+        // Existing fonts
         heading: ['"Architects Daughter"', 'cursive'],
         body: ['"Patrick Hand"', 'cursive'],
         readable: ['Nunito', 'sans-serif'],

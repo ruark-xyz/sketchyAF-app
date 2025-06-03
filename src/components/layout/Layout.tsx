@@ -16,6 +16,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   // Check if current route is an auth page
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
+
+  const isDrawPage = ['/draw'].includes(location.pathname);
   
   // Initialize banner state based on localStorage
   useEffect(() => {
@@ -51,7 +53,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         ref={headerRef}
         className="fixed top-0 left-0 w-full z-50"
       >
-        {isBannerActive && !isAuthPage && (
+        {isBannerActive && !isAuthPage && !isDrawPage && (
           <Banner 
             isDismissible={true}
             onDismiss={handleBannerDismiss}
@@ -68,7 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Banner>
         )}
         
-        <Navbar />
+        {!isDrawPage && <Navbar />}
       </div>
       
       {/* Content with dynamic padding based on header height */}
