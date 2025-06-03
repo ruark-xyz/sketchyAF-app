@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles */
+html, body {
+  @apply antialiased;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-body text-dark overflow-x-hidden bg-cream bg-grid-pattern;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-heading font-bold;
+}
+
+p {
+  @apply font-body;
+}
+
+.readable-text {
+  @apply font-readable;
+}
+
+/* Optional: Custom focus styles for accessibility */
+:focus {
+  @apply outline-none ring-2 ring-primary ring-opacity-50;
+}
+
+/* Animation utilities */
+.animate-fade-up {
+  @apply motion-reduce:translate-y-0 motion-reduce:opacity-100;
+}
+
+/* Custom border for sketch effect */
+.sketch-border {
+  position: relative;
+}
+
+.sketch-border::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border: 2px solid black;
+  border-radius: inherit;
+  transform: rotate(-0.5deg);
+  pointer-events: none;
+}
+
+/* Hand-drawn button effect */
+.hand-drawn {
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
