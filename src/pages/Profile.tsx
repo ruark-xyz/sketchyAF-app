@@ -5,13 +5,15 @@ import {
   User, Mail, Lock, CreditCard, FileText, ExternalLink, 
   Edit2, Plus, Trash2, Download, CheckCircle, Settings, 
   Star, Calendar, AlertCircle, Package, MessageSquare,
-  ToggleLeft, ToggleRight
+  ToggleLeft, ToggleRight, Globe
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
+import CountrySelect from '../components/ui/CountrySelect';
 import { userPaymentMethods, userBillingHistory, boosterPacks } from '../data/mockData';
 import BoosterPacksGrid from '../components/sections/BoosterPacksGrid';
+import { Country } from '../types';
 
 // Tabs
 const tabs = [
@@ -29,7 +31,7 @@ const Profile: React.FC = () => {
   const [email, setEmail] = useState('');
   const [allowComments, setAllowComments] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { currentUser, isLoggedIn } = useAuth();
+  const { currentUser, isLoggedIn, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const boosterPacksRef = useRef<HTMLDivElement>(null);
   
@@ -49,7 +51,7 @@ const Profile: React.FC = () => {
   
   const handleSaveUsername = () => {
     // In a real app, this would call an API to update the username
-    console.log('Saving username:', username);
+    updateUserProfile({ username });
     setIsEditingUsername(false);
     setSuccessMessage('Username updated successfully!');
     
@@ -63,7 +65,7 @@ const Profile: React.FC = () => {
   
   const handleSaveEmail = () => {
     // In a real app, this would call an API to update the email
-    console.log('Saving email:', email);
+    updateUserProfile({ email });
     setIsEditingEmail(false);
     setSuccessMessage('Email updated successfully!');
     
@@ -118,6 +120,17 @@ const Profile: React.FC = () => {
   const handleRemovePaymentMethod = (id: string) => {
     // In a real app, this would call an API to remove the payment method
     console.log('Remove payment method:', id);
+  };
+  
+  const handleCountryChange = (country: Country) => {
+    // Update the user's country
+    updateUserProfile({ country });
+    setSuccessMessage('Country updated successfully!');
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
   };
   
   // Format date
@@ -326,6 +339,26 @@ const Profile: React.FC = () => {
                         <span className="ml-2 text-xs bg-success text-white px-2 py-1 rounded-full">Verified</span>
                       </div>
                     )}
+                  </div>
+                  
+                  {/* Country Section */}
+                  <div className="mb-6 border-b border-light-gray pb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-heading font-semibold">Country</h3>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <Globe size={20} className="text-medium-gray mr-2 flex-shrink-0" />
+                      <CountrySelect 
+                        value={currentUser.country}
+                        onChange={handleCountryChange}
+                        placeholder="Select your country"
+                        className="flex-grow max-w-md"
+                      />
+                    </div>
+                    <p className="mt-2 text-sm text-medium-gray">
+                      Your country will be displayed on your public profile and the leaderboard
+                    </p>
                   </div>
                   
                   {/* Password Section */}

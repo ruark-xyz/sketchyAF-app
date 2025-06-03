@@ -4,6 +4,7 @@
  */
 
 import { FeatureCard, Testimonial, BoosterPack, LeaderboardEntry, TopDrawing, SubscriptionBenefit, BoosterPackBadge, PaymentMethod, BillingTransaction, UserPublicProfile, UserGameStats, UserAchievement, UserSubmission, BoosterPackUsage, FavoriteStencil, PartnerInfo } from '../types';
+import { countries } from './mockCountries';
 
 // Features for the homepage
 export const gameFeatures: FeatureCard[] = [
@@ -262,21 +263,21 @@ export const boosterPacks: BoosterPack[] = [
 
 // Leaderboard data for the leaderboard page
 export const leaderboardData: LeaderboardEntry[] = [
-  { id: 1, rank: 1, username: "SketchLord", score: 9876 },
-  { id: 2, rank: 2, username: "ArtisticTroll", score: 9542 },
-  { id: 3, rank: 3, username: "DrawMaster64", score: 9127 },
-  { id: 4, rank: 4, username: "PencilPusher", score: 8965 },
-  { id: 5, rank: 5, username: "DoodleQueen", score: 8732 },
-  { id: 6, rank: 6, username: "ScribbleMaster", score: 8567 },
-  { id: 7, rank: 7, username: "InkSlinger", score: 8421 },
-  { id: 8, rank: 8, username: "CanvasCrazy", score: 8198 },
-  { id: 9, rank: 9, username: "BrushBoss", score: 7954 },
-  { id: 10, rank: 10, username: "SketchKing", score: 7823 },
-  { id: 11, rank: 11, username: "DrawingDiva", score: 7645 },
-  { id: 12, rank: 12, username: "ArtAttack", score: 7532 },
-  { id: 13, rank: 13, username: "PicassoJr", score: 7321 },
-  { id: 14, rank: 14, username: "DoodleDemon", score: 7198 },
-  { id: 15, rank: 15, username: "SketchVandal", score: 7054 }
+  { id: 1, rank: 1, username: "SketchLord", score: 9876, country: countries[0] }, // US
+  { id: 2, rank: 2, username: "ArtisticTroll", score: 9542, country: countries[1] }, // UK
+  { id: 3, rank: 3, username: "DrawMaster64", score: 9127, country: countries[2] }, // Canada
+  { id: 4, rank: 4, username: "PencilPusher", score: 8965, country: countries[3] }, // Australia
+  { id: 5, rank: 5, username: "DoodleQueen", score: 8732, country: countries[4] }, // Germany
+  { id: 6, rank: 6, username: "ScribbleMaster", score: 8567, country: countries[5] }, // France
+  { id: 7, rank: 7, username: "InkSlinger", score: 8421, country: countries[6] }, // Japan
+  { id: 8, rank: 8, username: "CanvasCrazy", score: 8198, country: countries[8] }, // India
+  { id: 9, rank: 9, username: "BrushBoss", score: 7954, country: countries[9] }, // Brazil
+  { id: 10, rank: 10, username: "SketchKing", score: 7823, country: countries[0] }, // US
+  { id: 11, rank: 11, username: "DrawingDiva", score: 7645, country: countries[10] }, // Mexico
+  { id: 12, rank: 12, username: "ArtAttack", score: 7532, country: countries[11] }, // Italy
+  { id: 13, rank: 13, username: "PicassoJr", score: 7321, country: countries[12] }, // Spain
+  { id: 14, rank: 14, username: "DoodleDemon", score: 7198, country: countries[13] }, // South Korea
+  { id: 15, rank: 15, username: "SketchVandal", score: 7054, country: countries[1] }  // UK
 ];
 
 // Subscription benefits for the premium page
@@ -473,7 +474,8 @@ export const publicProfileData: UserPublicProfile = {
   isPremium: true,
   followers: 1248,
   following: 356,
-  commentsAllowed: true
+  commentsAllowed: true,
+  country: countries[0] // US
 };
 
 // User Game Stats
