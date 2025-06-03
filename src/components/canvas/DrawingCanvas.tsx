@@ -117,7 +117,7 @@ const DrawingCanvas: React.FC = () => {
 
       {/* Color palette popup - shows above toolbar when active */}
       {showColorPalette && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex flex-wrap justify-center gap-5 p-6 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg max-w-xs">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex flex-wrap justify-center gap-5 p-6 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg max-w-xs z-50">
           {colorPalette.map((color) => (
             <button
               key={color}
@@ -136,7 +136,7 @@ const DrawingCanvas: React.FC = () => {
 
       {/* Brush size popup - shows above toolbar when active */}
       {showBrushSizes && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex gap-3 p-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex gap-3 p-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg z-50">
           {brushSizes.map((size) => (
             <button
               key={size}
@@ -225,8 +225,8 @@ const DrawingCanvas: React.FC = () => {
       </div>
 
       {/* Status indicator - using design system typography and colors */}
-      <div className="fixed top-6 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-white/95 backdrop-blur-md rounded-lg shadow-sm">
-        <span className="text-sm font-medium font-poppins text-[#666666]">
+      <div className="fixed bottom-28 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-white/95 backdrop-blur-md rounded-lg shadow-sm">
+        <span className="text-xs font-medium font-poppins text-[#666666]">
           {isDrawMode ? 'Drawing' : 'Erasing'} • {currentBrushSize}px
         </span>
       </div>
