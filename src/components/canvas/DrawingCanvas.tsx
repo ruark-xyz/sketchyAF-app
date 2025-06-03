@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Canvas, PencilBrush } from 'fabric';
+import { Pencil, Eraser, Trash2 } from 'lucide-react';
 
 // Phase 1 color palette - using design system colors
 const colorPalette = [
@@ -166,12 +167,16 @@ const DrawingCanvas: React.FC = () => {
           onClick={toggleDrawEraseMode}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center text-lg font-semibold font-montserrat transition-all duration-150 ease-out ${
             isDrawMode 
-              ? 'bg-[#EF4444] text-white shadow-md hover:bg-[#DC2626] active:bg-[#B91C1C]' 
-              : 'bg-[#FF3366] text-white shadow-md hover:bg-[#E62E5A] active:bg-[#CC2951]'
+              ? 'bg-primary text-white shadow-md hover:bg-primary/80 active:bg-primary/90' 
+              : 'bg-primary text-white shadow-md hover:bg-primary/80 active:bg-primary/90'
           }`}
           aria-label={isDrawMode ? 'Switch to eraser mode' : 'Switch to drawing mode'}
         >
-          {isDrawMode ? '🧽' : '✏️'}
+          {isDrawMode ? (
+            <Eraser size={20} className="transform rotate-[-2deg]" />
+          ) : (
+            <Pencil size={20} className="transform rotate-[3deg]" />
+          )}
         </button>
 
         {/* Colors button - shows current color and opens palette */}
@@ -179,7 +184,7 @@ const DrawingCanvas: React.FC = () => {
           onClick={toggleColorPalette}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center border-2 transition-all duration-150 ease-out ${
             showColorPalette
-              ? 'border-[#FF3366] bg-[#FF336610] shadow-md'
+              ? 'border-primary bg-primary/10 shadow-md'
               : 'border-[#CCCCCC] hover:border-[#666666]'
           }`}
           aria-label="Open color palette"
@@ -195,7 +200,7 @@ const DrawingCanvas: React.FC = () => {
           onClick={toggleBrushSizes}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center border-2 transition-all duration-150 ease-out ${
             showBrushSizes
-              ? 'border-[#FF3366] bg-[#FF336610] shadow-md'
+              ? 'border-primary bg-primary/10 shadow-md'
               : 'border-[#CCCCCC] hover:border-[#666666]'
           }`}
           aria-label="Open brush size selector"
@@ -215,7 +220,7 @@ const DrawingCanvas: React.FC = () => {
           className="min-w-11 min-h-11 rounded-lg flex items-center justify-center text-lg font-semibold font-montserrat transition-all duration-150 ease-out bg-transparent border-2 border-[#666666] text-[#666666] hover:bg-[#66666610] active:bg-[#66666620]"
           aria-label="Clear canvas"
         >
-          🗑️
+          <Trash2 size={20} className="transform rotate-[1deg]" />
         </button>
       </div>
 
