@@ -23,6 +23,7 @@ const DrawingCanvas: React.FC = () => {
   const [currentColor, setCurrentColor] = useState('#121212');
   const [currentBrushSize, setCurrentBrushSize] = useState(5);
   const [showColorPalette, setShowColorPalette] = useState(false);
+  const [showBrushSizes, setShowBrushSizes] = useState(false);
 
   // Initialize Fabric.js canvas
   useEffect(() => {
@@ -81,6 +82,7 @@ const DrawingCanvas: React.FC = () => {
 
   const selectBrushSize = (size: number) => {
     setCurrentBrushSize(size);
+    setShowBrushSizes(false); // Dismiss brush sizes after selection
   };
 
   const clearCanvas = () => {
@@ -93,6 +95,14 @@ const DrawingCanvas: React.FC = () => {
 
   const toggleColorPalette = () => {
     setShowColorPalette(!showColorPalette);
+    // Close brush sizes if open
+    if (showBrushSizes) setShowBrushSizes(false);
+  };
+
+  const toggleBrushSizes = () => {
+    setShowBrushSizes(!showBrushSizes);
+    // Close color palette if open
+    if (showColorPalette) setShowColorPalette(false);
   };
 
   return (
@@ -106,12 +116,12 @@ const DrawingCanvas: React.FC = () => {
 
       {/* Color palette popup - shows above toolbar when active */}
       {showColorPalette && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 grid grid-cols-4 gap-3 p-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex flex-wrap justify-center gap-5 p-6 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg max-w-xs">
           {colorPalette.map((color) => (
             <button
               key={color}
               onClick={() => selectColor(color)}
-              className={`w-12 h-12 rounded-full border-2 transition-all duration-150 ease-out ${
+              className={`w-11 h-11 rounded-full border-2 transition-all duration-150 ease-out ${
                 currentColor === color 
                   ? 'border-[#333333] scale-110 shadow-md' 
                   : 'border-[#CCCCCC] hover:border-[#666666]'
@@ -119,6 +129,32 @@ const DrawingCanvas: React.FC = () => {
               style={{ backgroundColor: color }}
               aria-label={`Select ${color} color`}
             />
+          ))}
+        </div>
+      )}
+
+      {/* Brush size popup - shows above toolbar when active */}
+      {showBrushSizes && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex gap-3 p-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg">
+          {brushSizes.map((size) => (
+            <button
+              key={size}
+              onClick={() => selectBrushSize(size)}
+              className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
+                currentBrushSize === size 
+                  ? 'bg-[#FF336610] ring-2 ring-[#FF3366]' 
+                  : 'hover:bg-[#F8F8F8]'
+              }`}
+              aria-label={`Select brush size ${size}px`}
+            >
+              <div
+                className="bg-[#121212] rounded-full"
+                style={{
+                  width: `${Math.min(size + 2, 16)}px`,
+                  height: `${Math.min(size + 2, 16)}px`,
+                }}
+              />
+            </button>
           ))}
         </div>
       )}
@@ -154,6 +190,25 @@ const DrawingCanvas: React.FC = () => {
           />
         </button>
 
+        {/* Brush size button - shows current size and opens brush sizes */}
+        <button
+          onClick={toggleBrushSizes}
+          className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center border-2 transition-all duration-150 ease-out ${
+            showBrushSizes
+              ? 'border-[#FF3366] bg-[#FF336610] shadow-md'
+              : 'border-[#CCCCCC] hover:border-[#666666]'
+          }`}
+          aria-label="Open brush size selector"
+        >
+          <div
+            className="bg-[#121212] rounded-full"
+            style={{
+              width: `${Math.min(currentBrushSize + 2, 16)}px`,
+              height: `${Math.min(currentBrushSize + 2, 16)}px`,
+            }}
+          />
+        </button>
+
         {/* Clear button - using design system secondary button style */}
         <button
           onClick={clearCanvas}
@@ -162,30 +217,6 @@ const DrawingCanvas: React.FC = () => {
         >
           🗑️
         </button>
-      </div>
-
-      {/* Brush size selector - using design system spacing and shadows */}
-      <div className="fixed right-6 top-1/2 transform -translate-y-1/2 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg">
-        {brushSizes.map((size) => (
-          <button
-            key={size}
-            onClick={() => selectBrushSize(size)}
-            className={`w-11 h-11 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
-              currentBrushSize === size 
-                ? 'bg-[#FF336610] ring-2 ring-[#FF3366]' 
-                : 'hover:bg-[#F8F8F8]'
-            }`}
-            aria-label={`Select brush size ${size}px`}
-          >
-            <div
-              className="bg-[#121212] rounded-full"
-              style={{
-                width: `${Math.min(size + 2, 16)}px`,
-                height: `${Math.min(size + 2, 16)}px`,
-              }}
-            />
-          </button>
-        ))}
       </div>
 
       {/* Status indicator - using design system typography and colors */}
