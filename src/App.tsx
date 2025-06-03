@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
+import Draw from './pages/Draw';
 import Premium from './pages/Premium';
 import Leaderboard from './pages/Leaderboard';
 import ArtGallery from './pages/ArtGallery';
@@ -35,6 +36,7 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/draw" element={<Draw />} />
             <Route path="/premium" element={<Premium />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/art" element={<ArtGallery />} />
