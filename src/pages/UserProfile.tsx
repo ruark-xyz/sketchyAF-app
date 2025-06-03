@@ -12,7 +12,8 @@ import {
   Sparkles,
   TrendingUp,
   Share2,
-  Shield
+  Shield,
+  Globe
 } from 'lucide-react';
 import Seo from '../components/utils/Seo';
 import Button from '../components/ui/Button';
@@ -104,6 +105,15 @@ const UserProfile: React.FC = () => {
                     {publicProfileData.displayName}
                   </h1>
                   <p className="text-primary font-heading mb-3">@{publicProfileData.username}</p>
+                  
+                  {/* Country display */}
+                  {publicProfileData.country && (
+                    <div className="flex items-center justify-center mb-3">
+                      <Globe size={16} className="text-medium-gray mr-1" />
+                      <span className="text-2xl mr-1">{publicProfileData.country.flag}</span>
+                      <span className="text-medium-gray">{publicProfileData.country.name}</span>
+                    </div>
+                  )}
                   
                   {publicProfileData.bio && (
                     <p className="text-medium-gray mb-4">{publicProfileData.bio}</p>

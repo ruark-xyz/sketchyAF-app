@@ -50,6 +50,7 @@ export interface LeaderboardEntry {
   rank: number;
   username: string;
   score: number;
+  country?: Country; // Added country field
 }
 
 export interface TopDrawing {
@@ -89,6 +90,12 @@ export interface BillingTransaction {
   invoiceUrl: string;
 }
 
+export interface Country {
+  code: string;
+  name: string;
+  flag: string;
+}
+
 export interface UserPublicProfile {
   username: string;
   displayName: string;
@@ -99,6 +106,7 @@ export interface UserPublicProfile {
   followers: number;
   following: number;
   commentsAllowed?: boolean;
+  country?: Country; // Added country field
 }
 
 export interface UserGameStats {
