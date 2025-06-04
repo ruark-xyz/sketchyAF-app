@@ -161,8 +161,8 @@ export const gameFeatures = [
     color: "#33CCFF"
   },
   {
-    title: "Battle Royale Mode",
-    description: "Compete in 100-player lobbies where only the funniest survive. Rise through the ranks to become the ultimate Sketch Lord.",
+    title: "Leaderboard Battles",
+    description: "Compete in lobbies where only the funniest survive. Rise through the global ranks to become the ultimate Sketch Lord.",
     icon: "Trophy",
     color: "#FFCC00"
   },
