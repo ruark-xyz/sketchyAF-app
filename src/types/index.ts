@@ -154,3 +154,23 @@ export interface FavoriteStencil {
   packName: string;
   usageCount: number;
 }
+
+// Roadmap types
+export interface RoadmapCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface RoadmapItem {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  category: string;
+  targetQuarter: string;
+  targetYear: number;
+  status: 'planned' | 'in-progress' | 'completed' | 'delayed';
+  likes: number;
+  likedByUsers: string[]; // Array of user IDs who liked this item
+}

@@ -15,6 +15,8 @@ import ForgotPassword from './pages/Auth/ForgotPassword';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import BoosterPackDetail from './pages/BoosterPackDetail';
+import Roadmap from './pages/Roadmap';
+import RoadmapDetail from './pages/RoadmapDetail';
 import { AuthProvider } from './context/AuthContext';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -49,6 +51,8 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/user/:username" element={<UserProfile />} />
             <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
+            <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
           </Routes>
         </Layout>
       </AuthProvider>
