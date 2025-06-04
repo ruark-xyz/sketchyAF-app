@@ -4,8 +4,11 @@ import EmailSignup from '../components/sections/EmailSignup';
 import FeatureSection from '../components/sections/FeatureSection';
 import TestimonialSection from '../components/sections/TestimonialSection';
 import BottomCTA from '../components/sections/BottomCTA';
+import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
 import { gameFeatures, testimonials } from '../data/mockData';
+import { motion } from 'framer-motion';
+import { Route } from 'lucide-react';
 
 const Home: React.FC = () => {
   const featuresRef = useRef<HTMLDivElement>(null);
@@ -25,6 +28,29 @@ const Home: React.FC = () => {
       </div>
       
       <EmailSignup ref={emailSignupRef} />
+      
+      {/* Roadmap Link Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="py-12 bg-white text-center border-y-2 border-dark"
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Route size={36} className="mb-4 text-primary mx-auto" />
+          <h2 className="font-heading font-bold text-2xl md:text-3xl text-dark mb-4 transform rotate-[-1deg]">
+            Curious about what's coming next?
+          </h2>
+          <p className="text-dark text-lg font-body mb-6">
+            Check out our public roadmap to see what we're planning to build next,
+            and vote for the features you're most excited about!
+          </p>
+          <Button variant="secondary" to="/roadmap">
+            View Our Roadmap
+          </Button>
+        </div>
+      </motion.section>
       
       <TestimonialSection testimonials={testimonials} />
       

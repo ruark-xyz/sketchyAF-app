@@ -33,6 +33,9 @@ const Footer: React.FC = () => {
             <Link to="/art" className="block font-body text-lg hover:text-accent transition-colors">
               Art
             </Link>
+            <Link to="/roadmap" className="block font-body text-lg hover:text-accent transition-colors">
+              Roadmap
+            </Link>
           </FooterSection>
 
           {/* Legal */}

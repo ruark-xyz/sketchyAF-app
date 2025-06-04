@@ -3,7 +3,7 @@
  * In a production environment, this would be replaced with API calls.
  */
 
-import { FeatureCard, Testimonial, BoosterPack, LeaderboardEntry, TopDrawing, SubscriptionBenefit, BoosterPackBadge, PaymentMethod, BillingTransaction, UserPublicProfile, UserGameStats, UserAchievement, UserSubmission, BoosterPackUsage, FavoriteStencil, PartnerInfo } from '../types';
+import { FeatureCard, Testimonial, BoosterPack, LeaderboardEntry, TopDrawing, SubscriptionBenefit, BoosterPackBadge, PaymentMethod, BillingTransaction, UserPublicProfile, UserGameStats, UserAchievement, UserSubmission, BoosterPackUsage, FavoriteStencil, PartnerInfo, RoadmapCategory, RoadmapItem } from '../types';
 import { countries } from './mockCountries';
 
 // Features for the homepage
@@ -666,5 +666,182 @@ export const favoriteStencils: FavoriteStencil[] = [
     packId: "premium-chaos",
     packName: "Premium Chaos",
     usageCount: 15
+  }
+];
+
+// Roadmap Categories
+export const roadmapCategories: RoadmapCategory[] = [
+  {
+    id: "gameplay",
+    name: "Gameplay",
+    color: "#FF3366" // Primary color
+  },
+  {
+    id: "social",
+    name: "Social Features",
+    color: "#33CCFF" // Secondary color
+  },
+  {
+    id: "premium",
+    name: "Premium Content",
+    color: "#FFCC00" // Accent color
+  },
+  {
+    id: "technical",
+    name: "Technical Improvements",
+    color: "#22C55E" // Success green
+  },
+  {
+    id: "mobile",
+    name: "Mobile App",
+    color: "#8A4FFF" // Purple
+  }
+];
+
+// Roadmap Items
+export const roadmapItems: RoadmapItem[] = [
+  {
+    id: "team-battles",
+    title: "Team Battle Mode",
+    description: "Compete in teams of 3-5 players against other teams. Each player gets to draw part of the prompt in turns, creating a collaborative masterpiece.",
+    image: "https://images.pexels.com/photos/8929237/pexels-photo-8929237.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "gameplay",
+    targetQuarter: "Q3",
+    targetYear: 2025,
+    status: "planned",
+    likes: 156,
+    likedByUsers: []
+  },
+  {
+    id: "daily-challenges",
+    title: "Daily Challenges",
+    description: "A new challenge every day with special themes, unique constraints, and bonus rewards for participants and winners.",
+    image: "https://images.pexels.com/photos/7291995/pexels-photo-7291995.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "gameplay",
+    targetQuarter: "Q2",
+    targetYear: 2025,
+    status: "in-progress",
+    likes: 249,
+    likedByUsers: []
+  },
+  {
+    id: "social-groups",
+    title: "Social Groups & Clans",
+    description: "Create or join groups with friends and compete in group leaderboards. Organize private drawing sessions and share exclusive content.",
+    image: "https://images.pexels.com/photos/6146931/pexels-photo-6146931.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "social",
+    targetQuarter: "Q3",
+    targetYear: 2025,
+    status: "planned",
+    likes: 187,
+    likedByUsers: []
+  },
+  {
+    id: "live-events",
+    title: "Live Drawing Events",
+    description: "Scheduled live events with hundreds of participants competing simultaneously. Special themes and celebrity guest judges.",
+    image: "https://images.pexels.com/photos/8038906/pexels-photo-8038906.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "premium",
+    targetQuarter: "Q4",
+    targetYear: 2025,
+    status: "planned",
+    likes: 201,
+    likedByUsers: []
+  },
+  {
+    id: "animation-tools",
+    title: "Basic Animation Tools",
+    description: "Create simple animated drawings with frame-by-frame controls. Add movement to your sketches and export as GIFs.",
+    image: "https://images.pexels.com/photos/4931342/pexels-photo-4931342.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "premium",
+    targetQuarter: "Q1",
+    targetYear: 2026,
+    status: "planned",
+    likes: 312,
+    likedByUsers: []
+  },
+  {
+    id: "offline-mode",
+    title: "Offline Drawing Mode",
+    description: "Create drawings without an internet connection. Sync and share when you're back online.",
+    image: "https://images.pexels.com/photos/5473955/pexels-photo-5473955.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "technical",
+    targetQuarter: "Q2",
+    targetYear: 2025,
+    status: "in-progress",
+    likes: 97,
+    likedByUsers: []
+  },
+  {
+    id: "ar-drawing",
+    title: "AR Drawing Mode",
+    description: "Draw in augmented reality! Point your camera at the world and add your sketches to real-life scenes.",
+    image: "https://images.pexels.com/photos/8546873/pexels-photo-8546873.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "mobile",
+    targetQuarter: "Q1",
+    targetYear: 2026,
+    status: "planned",
+    likes: 276,
+    likedByUsers: []
+  },
+  {
+    id: "custom-brushes",
+    title: "Custom Brush Creator",
+    description: "Design and save your own custom brushes with unique textures, patterns, and behaviors.",
+    image: "https://images.pexels.com/photos/6693661/pexels-photo-6693661.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "premium",
+    targetQuarter: "Q3",
+    targetYear: 2025,
+    status: "planned",
+    likes: 184,
+    likedByUsers: []
+  },
+  {
+    id: "localization",
+    title: "Expanded Language Support",
+    description: "Adding support for 10+ new languages including Japanese, Korean, Portuguese, and more.",
+    image: "https://images.pexels.com/photos/5412270/pexels-photo-5412270.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "technical",
+    targetQuarter: "Q4",
+    targetYear: 2025,
+    status: "planned",
+    likes: 63,
+    likedByUsers: []
+  },
+  {
+    id: "apple-watch",
+    title: "Apple Watch App",
+    description: "Draw directly on your Apple Watch! Perfect for quick sketches and viewing notifications.",
+    image: "https://images.pexels.com/photos/393047/pexels-photo-393047.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "mobile",
+    targetQuarter: "Q2",
+    targetYear: 2026,
+    status: "planned",
+    likes: 148,
+    likedByUsers: []
+  },
+  {
+    id: "nft-marketplace",
+    title: "NFT Marketplace",
+    description: "Turn your best drawings into NFTs and sell them directly within the app. Includes certificate of authenticity.",
+    image: "https://images.pexels.com/photos/8370752/pexels-photo-8370752.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "premium",
+    targetQuarter: "Q2",
+    targetYear: 2026,
+    status: "planned",
+    likes: 89,
+    likedByUsers: []
+  },
+  {
+    id: "streaming-integration",
+    title: "Twitch & YouTube Integration",
+    description: "Stream your drawing sessions directly to Twitch or YouTube. Viewers can vote and comment in real-time.",
+    image: "https://images.pexels.com/photos/9072216/pexels-photo-9072216.jpeg?auto=compress&cs=tinysrgb&w=600",
+    category: "social",
+    targetQuarter: "Q4",
+    targetYear: 2025,
+    status: "planned",
+    likes: 215,
+    likedByUsers: []
   }
 ];
