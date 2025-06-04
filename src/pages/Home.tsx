@@ -15,7 +15,7 @@ const Home: React.FC = () => {
     <>
       <Seo 
         title="The Wildly Entertaining Drawing Game"
-        description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and guessing!"
+        description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!"
       />
       
       <HeroSection scrollToRef={emailSignupRef} />
