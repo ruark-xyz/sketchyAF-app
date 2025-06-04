@@ -241,7 +241,7 @@ const undoActionAtom = atom(
       
       // Load previous state
       let resolved = false;
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         const handleSuccess = () => {
           if (resolved) return;
           resolved = true;
@@ -251,13 +251,33 @@ const undoActionAtom = atom(
           resolve();
         };
         
+        // Add timeout fallback for when fabric.js doesn't call the callback
+        const timeoutId = setTimeout(() => {
+          if (!resolved) {
+            handleSuccess();
+          }
+        }, 200);
+        
         try {
+          // Parse and validate the state first
+          try {
+            JSON.parse(previousState);
+          } catch {
+            clearTimeout(timeoutId);
+            reject(new Error('Invalid canvas state'));
+            return;
+          }
+          
           canvas.loadFromJSON(previousState, () => {
-            // Add delay to ensure all async operations complete
-            setTimeout(handleSuccess, 100);
+            clearTimeout(timeoutId);
+            setTimeout(handleSuccess, 50);
           });
-        } catch {
-          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (!resolved) {
+            resolved = true;
+            reject(error);
+          }
         }
       });
       
@@ -305,7 +325,7 @@ const redoActionAtom = atom(
       
       // Load next state
       let resolved = false;
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         const handleSuccess = () => {
           if (resolved) return;
           resolved = true;
@@ -320,12 +340,33 @@ const redoActionAtom = atom(
           resolve();
         };
         
+        // Add timeout fallback for when fabric.js doesn't call the callback
+        const timeoutId = setTimeout(() => {
+          if (!resolved) {
+            handleSuccess();
+          }
+        }, 200);
+        
         try {
+          // Parse and validate the state first
+          try {
+            JSON.parse(nextState);
+          } catch {
+            clearTimeout(timeoutId);
+            reject(new Error('Invalid canvas state'));
+            return;
+          }
+          
           canvas.loadFromJSON(nextState, () => {
+            clearTimeout(timeoutId);
             setTimeout(handleSuccess, 100);
           });
-        } catch {
-          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (!resolved) {
+            resolved = true;
+            reject(error);
+          }
         }
       });
       
