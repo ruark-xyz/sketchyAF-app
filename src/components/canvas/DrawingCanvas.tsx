@@ -10,7 +10,7 @@ const MAX_HISTORY_MOBILE = 5;
 const DEBOUNCE_DELAY = 300;
 
 // Device detection atom
-export const isMobileAtom = atom(() => {
+const isMobileAtom = atom(() => {
   if (typeof window === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
@@ -18,7 +18,7 @@ export const isMobileAtom = atom(() => {
 });
 
 // Dynamic max history based on device
-export const maxHistoryAtom = atom((get) => 
+const maxHistoryAtom = atom((get) => 
   get(isMobileAtom) ? MAX_HISTORY_MOBILE : MAX_HISTORY_DESKTOP
 );
 
@@ -36,20 +36,20 @@ const showColorPaletteAtom = atom(false);
 const showBrushSizesAtom = atom(false);
 
 // Core history atoms
-export const historyStackAtom = atom<string[]>([]);
-export const redoStackAtom = atom<string[]>([]);
-export const currentStateIndexAtom = atom(-1);
-export const isUndoingAtom = atom(false);
-export const isRedoingAtom = atom(false);
+const historyStackAtom = atom<string[]>([]);
+const redoStackAtom = atom<string[]>([]);
+const currentStateIndexAtom = atom(-1);
+const isUndoingAtom = atom(false);
+const isRedoingAtom = atom(false);
 
 // History management derived atoms
-export const canUndoAtom = atom((get) => {
+const canUndoAtom = atom((get) => {
   const currentIndex = get(currentStateIndexAtom);
   const isUndoing = get(isUndoingAtom);
   return currentIndex > 0 && !isUndoing;
 });
 
-export const canRedoAtom = atom((get) => {
+const canRedoAtom = atom((get) => {
   const redoStack = get(redoStackAtom);
   const isRedoing = get(isRedoingAtom);
   return redoStack.length > 0 && !isRedoing;
@@ -67,21 +67,23 @@ const brushConfigAtom = atom((get) => ({
 // Timeout storage for debouncing
 let debouncedSaveTimeout: number | null = null;
 
+// Define proper types for fabric.js events
+interface FabricPathEvent {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  path: any;
+}
+
 // Debounced history save atom
-export const debouncedSaveHistoryAtom = atom(
+const debouncedSaveHistoryAtom = atom(
   null,
   (get, set, canvas: Canvas) => {
     // Don't save history during undo/redo operations
     if (get(isUndoingAtom) || get(isRedoingAtom)) {
-      console.log('🚫 [HISTORY] Skipping debounced save - undo/redo in progress');
       return;
     }
     
-    console.log('🔄 [HISTORY] Debounced save triggered');
-    
     // Clear any existing timeout
     if (debouncedSaveTimeout) {
-      console.log('⏰ [HISTORY] Clearing existing debounced timeout');
       clearTimeout(debouncedSaveTimeout);
     }
 
@@ -89,23 +91,21 @@ export const debouncedSaveHistoryAtom = atom(
     debouncedSaveTimeout = setTimeout(() => {
       // Double-check we're not in undo/redo when timeout executes
       if (get(isUndoingAtom) || get(isRedoingAtom)) {
-        console.log('🚫 [HISTORY] Skipping debounced save execution - undo/redo in progress');
         return;
       }
-      
-      console.log('💾 [HISTORY] Executing debounced save');
       
       const canvasState = JSON.stringify(canvas.toJSON());
       const currentIndex = get(currentStateIndexAtom);
       const maxHistory = get(maxHistoryAtom);
       const historyStackBefore = get(historyStackAtom);
       
-      console.log('📊 [HISTORY] Before save:', {
-        currentIndex,
-        maxHistory,
-        historyLength: historyStackBefore.length,
-        canvasObjectCount: canvas.getObjects().length
-      });
+      // Check for duplicate state (prevent saving if state hasn't changed)
+      if (historyStackBefore.length > 0) {
+        const lastSavedState = historyStackBefore[historyStackBefore.length - 1];
+        if (canvasState === lastSavedState) {
+          return;
+        }
+      }
       
       set(historyStackAtom, (prevStack) => {
         // Remove any states after current index (for new branches)
@@ -113,66 +113,36 @@ export const debouncedSaveHistoryAtom = atom(
         // Add new state
         const updatedStack = [...newStack, canvasState];
         // Keep only the last maxHistory states
-        const finalStack = updatedStack.slice(-maxHistory);
-        
-        console.log('📚 [HISTORY] Stack updated:', {
-          beforeLength: prevStack.length,
-          afterSlice: newStack.length,
-          afterAdd: updatedStack.length,
-          finalLength: finalStack.length,
-          newStateObjectCount: JSON.parse(canvasState).objects?.length || 0
-        });
-        
-        return finalStack;
+        return updatedStack.slice(-maxHistory);
       });
       
       set(currentStateIndexAtom, (prevIndex) => {
         const newIndex = prevIndex + 1;
-        const finalIndex = Math.min(newIndex, maxHistory - 1);
-        
-        console.log('🎯 [HISTORY] Index updated:', {
-          prevIndex,
-          newIndex,
-          finalIndex
-        });
-        
-        return finalIndex;
+        return Math.min(newIndex, maxHistory - 1);
       });
       
       // Clear redo stack when new action is performed
-      set(redoStackAtom, (prevRedo) => {
-        console.log('🗑️ [HISTORY] Clearing redo stack, had:', prevRedo.length, 'states');
-        return [];
-      });
+      set(redoStackAtom, []);
       
       // Trigger haptic feedback on mobile
       if (get(isMobileAtom) && navigator.vibrate) {
         navigator.vibrate(25);
-        console.log('📳 [MOBILE] Haptic feedback triggered');
       }
-      
-      console.log('✅ [HISTORY] Debounced save completed');
     }, DEBOUNCE_DELAY);
-    
-    console.log(`⏱️ [HISTORY] Debounced save scheduled for ${DEBOUNCE_DELAY}ms`);
   }
 );
 
 // Immediate history save atom (for critical actions)
-export const immediateHistorySaveAtom = atom(
+const immediateHistorySaveAtom = atom(
   null,
   (get, set, canvas: Canvas) => {
     // Don't save history during undo/redo operations
     if (get(isUndoingAtom) || get(isRedoingAtom)) {
-      console.log('🚫 [HISTORY] Skipping immediate save - undo/redo in progress');
       return;
     }
     
-    console.log('⚡ [HISTORY] Immediate save triggered');
-    
     // Cancel any pending debounced save
     if (debouncedSaveTimeout) {
-      console.log('⏰ [HISTORY] Cancelling pending debounced save for immediate save');
       clearTimeout(debouncedSaveTimeout);
     }
     
@@ -181,196 +151,194 @@ export const immediateHistorySaveAtom = atom(
     const maxHistory = get(maxHistoryAtom);
     const historyStackBefore = get(historyStackAtom);
     
-    console.log('📊 [HISTORY] Immediate save state:', {
-      currentIndex,
-      maxHistory,
-      historyLength: historyStackBefore.length,
-      canvasObjectCount: canvas.getObjects().length
-    });
+    // Check for duplicate state (prevent saving if state hasn't changed)
+    if (historyStackBefore.length > 0) {
+      const lastSavedState = historyStackBefore[historyStackBefore.length - 1];
+      if (canvasState === lastSavedState) {
+        return;
+      }
+    }
     
     set(historyStackAtom, (prevStack) => {
       const newStack = prevStack.slice(0, currentIndex + 1);
       const updatedStack = [...newStack, canvasState];
-      const finalStack = updatedStack.slice(-maxHistory);
-      
-      console.log('📚 [HISTORY] Immediate stack update:', {
-        beforeLength: prevStack.length,
-        finalLength: finalStack.length
-      });
-      
-      return finalStack;
+      return updatedStack.slice(-maxHistory);
     });
     
-    set(currentStateIndexAtom, (prevIndex) => {
-      const newIndex = Math.min(prevIndex + 1, maxHistory - 1);
-      console.log('🎯 [HISTORY] Immediate index update:', prevIndex, '->', newIndex);
-      return newIndex;
-    });
+    set(currentStateIndexAtom, (prevIndex) => 
+      Math.min(prevIndex + 1, maxHistory - 1)
+    );
     
     set(redoStackAtom, []);
-    console.log('✅ [HISTORY] Immediate save completed');
+  }
+);
+
+// Store event handler references for enabling/disabling
+let canvasEventHandlers: {
+  debouncedSave?: () => void;
+  immediateSave?: () => void;
+  pathCreated?: (e: FabricPathEvent) => void;
+  objectAdded?: () => void;
+  objectRemoved?: () => void;
+} = {};
+
+// Helper atom to disable/enable canvas event listeners
+const toggleCanvasEventsAtom = atom(
+  null,
+  (get, set, { canvas, enabled }: { canvas: Canvas; enabled: boolean }) => {
+    if (!canvas || !canvasEventHandlers.debouncedSave) return;
+    
+    if (enabled) {
+      // Re-enable event listeners
+      canvas.on('path:created', canvasEventHandlers.pathCreated!);
+      canvas.on('object:added', canvasEventHandlers.objectAdded!);
+      canvas.on('object:removed', canvasEventHandlers.objectRemoved!);
+    } else {
+      // Disable event listeners
+      canvas.off('path:created', canvasEventHandlers.pathCreated!);
+      canvas.off('object:added', canvasEventHandlers.objectAdded!);
+      canvas.off('object:removed', canvasEventHandlers.objectRemoved!);
+    }
   }
 );
 
 // Undo action atom with enhanced error handling
-export const undoActionAtom = atom(
+const undoActionAtom = atom(
   null,
   async (get, set, canvas: Canvas) => {
-    console.log('↶ [UNDO] Undo action initiated');
-    
     const canUndo = get(canUndoAtom);
     const currentIndex = get(currentStateIndexAtom);
     const historyStack = get(historyStackAtom);
-    const redoStackBefore = get(redoStackAtom);
-    
-    console.log('📊 [UNDO] Current state:', {
-      canUndo,
-      currentIndex,
-      historyLength: historyStack.length,
-      redoLength: redoStackBefore.length,
-      currentCanvasObjects: canvas.getObjects().length
-    });
     
     if (!canUndo || !canvas) {
-      console.log('❌ [UNDO] Cannot undo - conditions not met');
       return false;
     }
     
     try {
       set(isUndoingAtom, true);
-      console.log('🔄 [UNDO] Setting undoing state to true');
+      
+      // Disable canvas event listeners to prevent history corruption
+      set(toggleCanvasEventsAtom, { canvas, enabled: false });
       
       // Provide haptic feedback on mobile
       if (get(isMobileAtom) && navigator.vibrate) {
         navigator.vibrate(50);
-        console.log('📳 [UNDO] Mobile haptic feedback triggered');
       }
       
       const previousState = historyStack[currentIndex - 1];
       const currentState = historyStack[currentIndex];
       
       if (!previousState) {
-        console.error('❌ [UNDO] No previous state found at index:', currentIndex - 1);
         return false;
       }
       
-      console.log('📄 [UNDO] States:', {
-        previousStateObjects: JSON.parse(previousState).objects?.length || 0,
-        currentStateObjects: JSON.parse(currentState).objects?.length || 0,
-        targetIndex: currentIndex - 1
-      });
-      
       // Add current state to redo stack
-      set(redoStackAtom, (prev) => {
-        const newRedo = [...prev, currentState];
-        console.log('➕ [UNDO] Added to redo stack, new length:', newRedo.length);
-        return newRedo;
-      });
+      set(redoStackAtom, (prev) => [...prev, currentState]);
+      
+      // Clear canvas before loading previous state
+      canvas.clear();
+      canvas.backgroundColor = '#ffffff';
       
       // Load previous state
-      console.log('🔄 [UNDO] Loading previous state...');
+      let resolved = false;
       await new Promise<void>((resolve) => {
-        canvas.loadFromJSON(previousState, () => {
-          console.log('✅ [UNDO] Canvas loaded from JSON');
+        const handleSuccess = () => {
+          if (resolved) return;
+          resolved = true;
+          
           canvas.renderAll();
-          console.log('🎨 [UNDO] Canvas rendered, new object count:', canvas.getObjects().length);
-          
-          set(currentStateIndexAtom, (prev) => {
-            const newIndex = prev - 1;
-            console.log('🎯 [UNDO] Index decremented:', prev, '->', newIndex);
-            return newIndex;
-          });
-          
+          set(currentStateIndexAtom, (prev) => prev - 1);
           resolve();
-        });
+        };
+        
+        try {
+          canvas.loadFromJSON(previousState, () => {
+            // Add delay to ensure all async operations complete
+            setTimeout(handleSuccess, 100);
+          });
+        } catch {
+          return false;
+        }
       });
       
-      console.log('✅ [UNDO] Undo completed successfully');
       return true;
-    } catch (error) {
-      console.error('❌ [UNDO] Undo failed with error:', error);
+    } catch {
       return false;
     } finally {
+      // Re-enable canvas event listeners after a small delay to let fabric.js finish
+      setTimeout(() => {
+        set(toggleCanvasEventsAtom, { canvas, enabled: true });
+      }, 10);
+      
       set(isUndoingAtom, false);
-      console.log('🔄 [UNDO] Setting undoing state to false');
     }
   }
 );
 
 // Redo action atom with enhanced error handling
-export const redoActionAtom = atom(
+const redoActionAtom = atom(
   null,
   async (get, set, canvas: Canvas) => {
-    console.log('↷ [REDO] Redo action initiated');
-    
     const canRedo = get(canRedoAtom);
     const redoStack = get(redoStackAtom);
-    const currentIndex = get(currentStateIndexAtom);
-    
-    console.log('📊 [REDO] Current state:', {
-      canRedo,
-      currentIndex,
-      redoLength: redoStack.length,
-      currentCanvasObjects: canvas.getObjects().length
-    });
     
     if (!canRedo || !canvas) {
-      console.log('❌ [REDO] Cannot redo - conditions not met');
       return false;
     }
     
     try {
       set(isRedoingAtom, true);
-      console.log('🔄 [REDO] Setting redoing state to true');
+      
+      // Disable canvas event listeners to prevent history corruption
+      set(toggleCanvasEventsAtom, { canvas, enabled: false });
       
       // Provide haptic feedback on mobile
       if (get(isMobileAtom) && navigator.vibrate) {
         navigator.vibrate(50);
-        console.log('📳 [REDO] Mobile haptic feedback triggered');
       }
       
       const nextState = redoStack[redoStack.length - 1];
-      console.log('📄 [REDO] Next state objects:', JSON.parse(nextState).objects?.length || 0);
+      
+      // Clear canvas before loading next state
+      canvas.clear();
+      canvas.backgroundColor = '#ffffff';
       
       // Load next state
-      console.log('🔄 [REDO] Loading next state...');
+      let resolved = false;
       await new Promise<void>((resolve) => {
-        canvas.loadFromJSON(nextState, () => {
-          console.log('✅ [REDO] Canvas loaded from JSON');
+        const handleSuccess = () => {
+          if (resolved) return;
+          resolved = true;
+          
           canvas.renderAll();
-          console.log('🎨 [REDO] Canvas rendered, new object count:', canvas.getObjects().length);
           
           // Update history stacks
-          set(historyStackAtom, (prev) => {
-            const newHistory = [...prev, nextState];
-            console.log('📚 [REDO] History stack updated, new length:', newHistory.length);
-            return newHistory;
-          });
-          
-          set(redoStackAtom, (prev) => {
-            const newRedo = prev.slice(0, -1);
-            console.log('📚 [REDO] Redo stack updated, new length:', newRedo.length);
-            return newRedo;
-          });
-          
-          set(currentStateIndexAtom, (prev) => {
-            const newIndex = prev + 1;
-            console.log('🎯 [REDO] Index incremented:', prev, '->', newIndex);
-            return newIndex;
-          });
+          set(historyStackAtom, (prev) => [...prev, nextState]);
+          set(redoStackAtom, (prev) => prev.slice(0, -1));
+          set(currentStateIndexAtom, (prev) => prev + 1);
           
           resolve();
-        });
+        };
+        
+        try {
+          canvas.loadFromJSON(nextState, () => {
+            setTimeout(handleSuccess, 100);
+          });
+        } catch {
+          return false;
+        }
       });
       
-      console.log('✅ [REDO] Redo completed successfully');
       return true;
-    } catch (error) {
-      console.error('❌ [REDO] Redo failed with error:', error);
+    } catch {
       return false;
     } finally {
+      // Re-enable canvas event listeners after a small delay to let fabric.js finish
+      setTimeout(() => {
+        set(toggleCanvasEventsAtom, { canvas, enabled: true });
+      }, 10);
+      
       set(isRedoingAtom, false);
-      console.log('🔄 [REDO] Setting redoing state to false');
     }
   }
 );
@@ -411,58 +379,50 @@ const initializeCanvasAtom = atom(
 
     // Set up event listeners for history management
     const debouncedSave = () => {
-      console.log('🎨 [CANVAS] Triggering debounced save');
       set(debouncedSaveHistoryAtom, fabricCanvas);
     };
     const immediateSave = () => {
-      console.log('🎨 [CANVAS] Triggering immediate save');
       set(immediateHistorySaveAtom, fabricCanvas);
     };
 
-    fabricCanvas.on('path:created', (e) => {
+    const pathCreatedHandler = (e: FabricPathEvent) => {
       const path = e.path;
-      console.log('✏️ [CANVAS] Path created:', {
-        pathType: path.type,
-        totalObjects: fabricCanvas.getObjects().length
-      });
-      
       path.set({
         strokeLineCap: 'round',
         strokeLineJoin: 'round'
       });
-      
       debouncedSave();
-    });
+    };
     
-    fabricCanvas.on('object:added', (e) => {
-      console.log('➕ [CANVAS] Object added:', {
-        objectType: e.target?.type,
-        totalObjects: fabricCanvas.getObjects().length
-      });
+    const objectAddedHandler = () => {
       immediateSave();
-    });
+    };
     
-    fabricCanvas.on('object:removed', (e) => {
-      console.log('➖ [CANVAS] Object removed:', {
-        objectType: e.target?.type,
-        totalObjects: fabricCanvas.getObjects().length
-      });
+    const objectRemovedHandler = () => {
       immediateSave();
-    });
+    };
+
+    // Store event handler references for later use
+    canvasEventHandlers = {
+      debouncedSave,
+      immediateSave,
+      pathCreated: pathCreatedHandler,
+      objectAdded: objectAddedHandler,
+      objectRemoved: objectRemovedHandler
+    };
+
+    // Attach event listeners
+    fabricCanvas.on('path:created', pathCreatedHandler);
+    fabricCanvas.on('object:added', objectAddedHandler);
+    fabricCanvas.on('object:removed', objectRemovedHandler);
 
     set(canvasAtom, fabricCanvas);
     set(isInitializedAtom, true);
     
     // Save initial state
     const initialState = JSON.stringify(fabricCanvas.toJSON());
-    console.log('🆕 [INIT] Saving initial canvas state:', {
-      objectCount: fabricCanvas.getObjects().length
-    });
-    
     set(historyStackAtom, [initialState]);
     set(currentStateIndexAtom, 0);
-    
-    console.log('✅ [INIT] Canvas initialization completed');
     
     return fabricCanvas;
   }
@@ -537,7 +497,7 @@ const clearCanvasAtom = atom(
 );
 
 // Custom hook for undo/redo functionality
-export const useUndoRedo = (canvas: Canvas | null) => {
+const useUndoRedo = (canvas: Canvas | null) => {
   const [, undo] = useAtom(undoActionAtom);
   const [, redo] = useAtom(redoActionAtom);
   
