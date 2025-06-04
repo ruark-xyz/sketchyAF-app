@@ -179,8 +179,8 @@ export const gameFeatures = [
     color: "#3B82F6"
   },
   {
-    title: "Daily Challenges",
-    description: "New themed challenges every day with exclusive rewards. Monday might be 'Celebrity Disasters,' while Friday brings 'Draw It With Your Eyes Closed.'",
+    title: "Trending Prompts",
+    description: "Our SketchyAF AI brings new prompts every week. Did a celebrity blow up at a convience store? Did a politician sext a reporter? Our trend engine will find it and generate new prompts for your amusement",
     icon: "Calendar",
     color: "#A855F7"
   }
