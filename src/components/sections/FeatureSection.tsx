@@ -57,7 +57,7 @@ const FeatureSection: React.FC<FeatureSectionProps> = ({ features }) => {
             Why SketchyAF?
           </h2>
           <p className="font-body text-dark text-xl max-w-2xl mx-auto">
-            Because drawing stick figures has never been this entertaining. 
+            Because drawing with stick figures and boosters has never been this entertaining. 
             Or this profitable for our shareholders.
           </p>
         </motion.div>
