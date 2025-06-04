@@ -83,7 +83,7 @@ export const testimonials: Testimonial[] = [
     name: "Sophia L.",
     avatar: "https://randomuser.me/api/portraits/women/8.jpg",
     rating: 4,
-    text: "The Battle Royale mode is addictive. I've stayed up way too late trying to become the Sketch Lord."
+    text: "The leaderboard is addictive. I've stayed up way too late trying to become the Sketch Lord."
   }
 ];
 
