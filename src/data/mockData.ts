@@ -10,7 +10,7 @@ import { countries } from './mockCountries';
 export const gameFeatures: FeatureCard[] = [
   {
     title: "Quick & Chaotic Gameplay",
-    description: "Jump into 60-second rounds of frantic drawing and guessing. No artistic skills required – in fact, the worse you are, the funnier it gets!",
+    description: "Jump into 60-second rounds of frantic drawing and fun. No artistic skills required – in fact, the worse you are, the funnier it gets!",
     icon: "Zap",
     color: "#FF3366"
   },
@@ -21,8 +21,8 @@ export const gameFeatures: FeatureCard[] = [
     color: "#33CCFF"
   },
   {
-    title: "Battle Royale Mode",
-    description: "Compete in 100-player lobbies where only the funniest survive. Rise through the ranks to become the ultimate Sketch Lord.",
+    title: "Leaderboard Battles",
+    description: "Compete in lobbies where only the funniest survive. Rise through the global ranks to become the ultimate Sketch Lord.",
     icon: "Trophy",
     color: "#FFCC00",
     isComingSoon: true
@@ -40,8 +40,8 @@ export const gameFeatures: FeatureCard[] = [
     color: "#3B82F6"
   },
   {
-    title: "Daily Challenges",
-    description: "New themed challenges every day with exclusive rewards. Monday might be 'Celebrity Disasters,' while Friday brings 'Draw It With Your Eyes Closed.'",
+    title: "Trending Prompts",
+    description: "Our SketchyAF AI brings new prompts every week. Did a celebrity blow up at a convience store? Did a politician sext a reporter? Our trend engine will find it and generate new prompts for your amusement",
     icon: "Calendar",
     color: "#A855F7",
     isSubscriberPerk: true
@@ -83,7 +83,7 @@ export const testimonials: Testimonial[] = [
     name: "Sophia L.",
     avatar: "https://randomuser.me/api/portraits/women/8.jpg",
     rating: 4,
-    text: "The Battle Royale mode is addictive. I've stayed up way too late trying to become the Sketch Lord."
+    text: "The leaderboard is addictive. I've stayed up way too late trying to become the Sketch Lord."
   }
 ];
 
