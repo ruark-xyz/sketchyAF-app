@@ -343,11 +343,30 @@ const redoActionAtom = atom(
   }
 );
 
-// Canvas initialization atom
+// Canvas initialization atom with proper cleanup
 const initializeCanvasAtom = atom(
   null,
   (get, set, canvasElement: HTMLCanvasElement) => {
-    if (get(isInitializedAtom)) return get(canvasAtom);
+    // Check if we already have a canvas and it's the same element
+    const existingCanvas = get(canvasAtom);
+    const isInitialized = get(isInitializedAtom);
+    
+    if (isInitialized && existingCanvas && existingCanvas.getElement() === canvasElement) {
+      return existingCanvas;
+    }
+    
+    // Dispose of existing canvas if it exists
+    if (existingCanvas) {
+      try {
+        existingCanvas.dispose();
+      } catch (error) {
+        console.warn('Error disposing existing canvas:', error);
+      }
+    }
+
+    // Reset states
+    set(isInitializedAtom, false);
+    set(canvasAtom, null);
 
     const fabricCanvas = new Canvas(canvasElement, {
       isDrawingMode: true,
@@ -545,12 +564,47 @@ const colorPalette = [
 // Brush sizes for Phase 1
 const brushSizes = [2, 5, 10, 15];
 
+// Add cleanup atom
+const cleanupCanvasAtom = atom(
+  null,
+  (get, set) => {
+    const canvas = get(canvasAtom);
+    if (canvas) {
+      try {
+        // Clear any pending timeouts
+        if (debouncedSaveTimeout) {
+          clearTimeout(debouncedSaveTimeout);
+          debouncedSaveTimeout = null;
+        }
+        
+        // Remove event listeners
+        window.removeEventListener('resize', () => {});
+        
+        // Dispose canvas
+        canvas.dispose();
+      } catch (error) {
+        console.warn('Error during canvas cleanup:', error);
+      }
+    }
+    
+    // Reset all atoms
+    set(canvasAtom, null);
+    set(isInitializedAtom, false);
+    set(historyStackAtom, []);
+    set(redoStackAtom, []);
+    set(currentStateIndexAtom, -1);
+    set(isUndoingAtom, false);
+    set(isRedoingAtom, false);
+  }
+);
+
 const DrawingCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Jotai state hooks
   const canvas = useAtomValue(canvasAtom);
   const [, initializeCanvas] = useAtom(initializeCanvasAtom);
+  const [, cleanupCanvas] = useAtom(cleanupCanvasAtom);
   const isDrawMode = useAtomValue(isDrawModeAtom);
   const currentColor = useAtomValue(currentColorAtom);
   const currentBrushSize = useAtomValue(currentBrushSizeAtom);
@@ -569,11 +623,17 @@ const DrawingCanvas: React.FC = () => {
   // Undo/redo functionality
   const { undo, redo, canUndo, canRedo, isUndoing, isRedoing } = useUndoRedo(canvas);
 
-  // Initialize Fabric.js canvas
+  // Initialize Fabric.js canvas with proper cleanup
   useEffect(() => {
     if (!canvasRef.current) return;
+    
     initializeCanvas(canvasRef.current);
-  }, [initializeCanvas]);
+    
+    // Cleanup function
+    return () => {
+      cleanupCanvas();
+    };
+  }, [initializeCanvas, cleanupCanvas]);
 
   // Update brush when settings change
   useEffect(() => {
