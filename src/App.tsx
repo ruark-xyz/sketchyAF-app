@@ -28,7 +28,7 @@ function App() {
       {/* Default SEO that will be overridden by page-specific SEO */}
       <Seo 
         title="SketchyAF - The Wildly Entertaining Drawing Game"
-        description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and guessing!"
+        description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!"
       />
       
       {/* Wrap entire app with AuthProvider */}
