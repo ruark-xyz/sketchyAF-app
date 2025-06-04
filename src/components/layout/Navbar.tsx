@@ -11,6 +11,7 @@ const navItems: NavItem[] = [
   { label: 'Premium', path: '/premium' },
   { label: 'Leaderboard', path: '/leaderboard' },
   { label: 'Art', path: '/art' },
+  { label: 'Roadmap', path: '/roadmap' },
 ];
 
 const Navbar: React.FC = () => {
