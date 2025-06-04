@@ -1,6 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Canvas, PencilBrush } from 'fabric';
-import { Pencil, Eraser, Trash2 } from 'lucide-react';
+import { Pencil, Eraser, Trash2, Undo2, Redo2 } from 'lucide-react';
+import debounce from 'lodash.debounce';
+
+// Maximum number of states to store (from PRD requirements)
+const MAX_HISTORY = 10;
 
 // Phase 1 color palette - using design system colors
 const colorPalette = [
@@ -25,6 +29,33 @@ const DrawingCanvas: React.FC = () => {
   const [currentBrushSize, setCurrentBrushSize] = useState(5);
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [showBrushSizes, setShowBrushSizes] = useState(false);
+  
+  // History management
+  const [historyStack, setHistoryStack] = useState<string[]>([]);
+  const [redoStack, setRedoStack] = useState<string[]>([]);
+  const [currentStateIndex, setCurrentStateIndex] = useState(-1);
+
+  // Debounced save function to prevent excessive history entries
+  const debouncedSaveToHistory = useCallback(
+    debounce((canvasState: string) => {
+      setHistoryStack(prevStack => {
+        const newStack = [...prevStack.slice(0, currentStateIndex + 1), canvasState];
+        // Keep only the last MAX_HISTORY states
+        return newStack.slice(-MAX_HISTORY);
+      });
+      setCurrentStateIndex(prevIndex => Math.min(prevIndex + 1, MAX_HISTORY - 1));
+      // Clear redo stack when new action is performed
+      setRedoStack([]);
+    }, 300),
+    [currentStateIndex]
+  );
+
+  // Save current state to history
+  const saveToHistory = useCallback(() => {
+    if (!canvas) return;
+    const canvasState = JSON.stringify(canvas.toJSON());
+    debouncedSaveToHistory(canvasState);
+  }, [canvas, debouncedSaveToHistory]);
 
   // Initialize Fabric.js canvas
   useEffect(() => {
@@ -53,7 +84,17 @@ const DrawingCanvas: React.FC = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    // Set up event listeners for history management
+    fabricCanvas.on('path:created', saveToHistory);
+    fabricCanvas.on('object:added', saveToHistory);
+    fabricCanvas.on('object:removed', saveToHistory);
+
     setCanvas(fabricCanvas);
+    
+    // Save initial state
+    const initialState = JSON.stringify(fabricCanvas.toJSON());
+    setHistoryStack([initialState]);
+    setCurrentStateIndex(0);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
@@ -72,18 +113,34 @@ const DrawingCanvas: React.FC = () => {
     canvas.isDrawingMode = true;
   }, [canvas, isDrawMode, currentColor, currentBrushSize]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyboard = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+  }, []);
+
   const toggleDrawEraseMode = () => {
     setIsDrawMode(!isDrawMode);
   };
 
   const selectColor = (color: string) => {
     setCurrentColor(color);
-    setShowColorPalette(false); // Dismiss palette after selection
+    setShowColorPalette(false);
   };
 
   const selectBrushSize = (size: number) => {
     setCurrentBrushSize(size);
-    setShowBrushSizes(false); // Dismiss brush sizes after selection
+    setShowBrushSizes(false);
   };
 
   const clearCanvas = () => {
@@ -91,18 +148,59 @@ const DrawingCanvas: React.FC = () => {
       canvas.clear();
       canvas.backgroundColor = '#ffffff';
       canvas.renderAll();
+      saveToHistory();
     }
+  };
+
+  const handleUndo = () => {
+    if (!canvas || currentStateIndex <= 0) return;
+
+    // Provide haptic feedback on mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+
+    const currentState = historyStack[currentStateIndex];
+    const previousState = historyStack[currentStateIndex - 1];
+
+    // Add current state to redo stack
+    setRedoStack(prev => [...prev, currentState]);
+    
+    // Load previous state
+    canvas.loadFromJSON(previousState, () => {
+      canvas.renderAll();
+      setCurrentStateIndex(currentStateIndex - 1);
+    });
+  };
+
+  const handleRedo = () => {
+    if (!canvas || redoStack.length === 0) return;
+
+    // Provide haptic feedback on mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+
+    const nextState = redoStack[redoStack.length - 1];
+    
+    // Load next state
+    canvas.loadFromJSON(nextState, () => {
+      canvas.renderAll();
+      
+      // Update history stacks
+      setHistoryStack(prev => [...prev.slice(0, currentStateIndex + 1), nextState]);
+      setRedoStack(prev => prev.slice(0, -1));
+      setCurrentStateIndex(currentStateIndex + 1);
+    });
   };
 
   const toggleColorPalette = () => {
     setShowColorPalette(!showColorPalette);
-    // Close brush sizes if open
     if (showBrushSizes) setShowBrushSizes(false);
   };
 
   const toggleBrushSizes = () => {
     setShowBrushSizes(!showBrushSizes);
-    // Close color palette if open
     if (showColorPalette) setShowColorPalette(false);
   };
 
@@ -162,7 +260,7 @@ const DrawingCanvas: React.FC = () => {
 
       {/* Mobile-first toolbar - using design system spacing and shadows */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 px-6 py-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg">
-        {/* Draw/Erase toggle - shows what you'll switch TO */}
+        {/* Draw/Erase toggle */}
         <button
           onClick={toggleDrawEraseMode}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center text-lg font-semibold font-montserrat transition-all duration-150 ease-out ${
@@ -179,7 +277,35 @@ const DrawingCanvas: React.FC = () => {
           )}
         </button>
 
-        {/* Colors button - shows current color and opens palette */}
+        {/* Undo button */}
+        <button
+          onClick={handleUndo}
+          disabled={currentStateIndex <= 0}
+          className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
+            currentStateIndex <= 0
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-primary/10'
+          }`}
+          aria-label="Undo last action"
+        >
+          <Undo2 size={20} />
+        </button>
+
+        {/* Redo button */}
+        <button
+          onClick={handleRedo}
+          disabled={redoStack.length === 0}
+          className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
+            redoStack.length === 0
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-primary/10'
+          }`}
+          aria-label="Redo last undone action"
+        >
+          <Redo2 size={20} />
+        </button>
+
+        {/* Colors button */}
         <button
           onClick={toggleColorPalette}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center border-2 transition-all duration-150 ease-out ${
@@ -195,7 +321,7 @@ const DrawingCanvas: React.FC = () => {
           />
         </button>
 
-        {/* Brush size button - shows current size and opens brush sizes */}
+        {/* Brush size button */}
         <button
           onClick={toggleBrushSizes}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center border-2 transition-all duration-150 ease-out ${
@@ -214,7 +340,7 @@ const DrawingCanvas: React.FC = () => {
           />
         </button>
 
-        {/* Clear button - using design system secondary button style */}
+        {/* Clear button */}
         <button
           onClick={clearCanvas}
           className="min-w-11 min-h-11 rounded-lg flex items-center justify-center text-lg font-semibold font-montserrat transition-all duration-150 ease-out bg-transparent border-2 border-[#666666] text-[#666666] hover:bg-[#66666610] active:bg-[#66666620]"
@@ -224,7 +350,7 @@ const DrawingCanvas: React.FC = () => {
         </button>
       </div>
 
-      {/* Status indicator - using design system typography and colors */}
+      {/* Status indicator */}
       <div className="fixed bottom-28 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-white/95 backdrop-blur-md rounded-lg shadow-sm">
         <span className="text-xs font-medium font-poppins text-[#666666]">
           {isDrawMode ? 'Drawing' : 'Erasing'} • {currentBrushSize}px
@@ -234,4 +360,4 @@ const DrawingCanvas: React.FC = () => {
   );
 };
 
-export default DrawingCanvas; 
+export default DrawingCanvas;
