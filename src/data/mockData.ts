@@ -10,7 +10,7 @@ import { countries } from './mockCountries';
 export const gameFeatures: FeatureCard[] = [
   {
     title: "Quick & Chaotic Gameplay",
-    description: "Jump into 60-second rounds of frantic drawing and guessing. No artistic skills required – in fact, the worse you are, the funnier it gets!",
+    description: "Jump into 60-second rounds of frantic drawing and fun. No artistic skills required – in fact, the worse you are, the funnier it gets!",
     icon: "Zap",
     color: "#FF3366"
   },
