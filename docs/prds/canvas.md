@@ -24,21 +24,68 @@ This PRD defines the core mobile-first drawing experience for SketchyAF - enabli
 
 ## 🛠️ Technical Architecture
 
-### Fabric.js Canvas Setup
-```javascript
-const canvas = new fabric.Canvas('sketchy-canvas', {
-  isDrawingMode: true,
-  backgroundColor: '#fff',
-  selection: false,
-  allowTouchScrolling: false,
-  containerClass: 'canvas-container'
-});
+### State Management with Jotai
+```typescript
+// Install Jotai for atomic state management
+// npm install jotai
 
-// Mobile optimizations
-canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-canvas.freeDrawingBrush.width = 5;
-canvas.freeDrawingBrush.color = "#000000";
-canvas.freeDrawingBrush.decimate = 2; // Smooth mobile drawing
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { atomWithReset, atomWithDefault, atomWithStorage } from 'jotai/utils'
+import { loadable, unwrap } from 'jotai/utils'
+
+// Core canvas atoms
+const canvasAtom = atom<fabric.Canvas | null>(null)
+const isInitializedAtom = atom(false)
+
+// Drawing mode atoms
+const isDrawModeAtom = atomWithDefault(atom(true))
+const currentColorAtom = atomWithStorage('sketchy-color', '#121212')
+const currentBrushSizeAtom = atomWithStorage('sketchy-brush-size', 5)
+
+// UI state atoms
+const showColorPaletteAtom = atom(false)
+const showBrushSizesAtom = atom(false)
+const isLoadingAtom = atom(false)
+```
+
+### Fabric.js Canvas Setup
+```typescript
+const initializeCanvasAtom = atom(
+  null,
+  (get, set, canvasElement: HTMLCanvasElement) => {
+    if (get(isInitializedAtom)) return get(canvasAtom)
+
+    const fabricCanvas = new fabric.Canvas(canvasElement, {
+      isDrawingMode: true,
+      backgroundColor: '#ffffff',
+      selection: false,
+      allowTouchScrolling: false,
+      containerClass: 'canvas-container'
+    })
+
+    // Mobile optimizations
+    fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas)
+    fabricCanvas.freeDrawingBrush.width = get(currentBrushSizeAtom)
+    fabricCanvas.freeDrawingBrush.color = get(currentColorAtom)
+    fabricCanvas.freeDrawingBrush.decimate = 2 // Smooth mobile drawing
+
+    // Set up canvas sizing
+    const resizeCanvas = () => {
+      fabricCanvas.setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    }
+
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+
+    set(canvasAtom, fabricCanvas)
+    set(isInitializedAtom, true)
+    
+    return fabricCanvas
+  }
+)
 ```
 
 ### Layer Architecture
@@ -61,6 +108,626 @@ const userLayer = new fabric.Group([], {
 });
 ```
 
+## 🔄 **Comprehensive Undo/Redo System with Jotai**
+
+### Core Undo State Architecture
+```typescript
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { atomWithReset, atomWithDefault } from 'jotai/utils'
+import { unwrap } from 'jotai/utils'
+import debounce from 'lodash.debounce'
+
+// History stack configuration
+const MAX_HISTORY_DESKTOP = 10
+const MAX_HISTORY_MOBILE = 5
+const DEBOUNCE_DELAY = 300
+
+// Core history atoms
+export const historyStackAtom = atom<string[]>([])
+export const redoStackAtom = atom<string[]>([])
+export const currentStateIndexAtom = atom(-1)
+export const isUndoingAtom = atom(false)
+export const isRedoingAtom = atom(false)
+
+// Device detection atom
+export const isMobileAtom = atom(() => {
+  if (typeof window === 'undefined') return false
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  ) || window.innerWidth < 768
+})
+
+// Dynamic max history based on device
+export const maxHistoryAtom = atom((get) => 
+  get(isMobileAtom) ? MAX_HISTORY_MOBILE : MAX_HISTORY_DESKTOP
+)
+
+// History management derived atoms
+export const canUndoAtom = atom((get) => {
+  const currentIndex = get(currentStateIndexAtom)
+  const isUndoing = get(isUndoingAtom)
+  return currentIndex > 0 && !isUndoing
+})
+
+export const canRedoAtom = atom((get) => {
+  const redoStack = get(redoStackAtom)
+  const isRedoing = get(isRedoingAtom)
+  return redoStack.length > 0 && !isRedoing
+})
+
+// History analytics atom
+export const historyAnalyticsAtom = atom((get) => {
+  const historyStack = get(historyStackAtom)
+  const redoStack = get(redoStackAtom)
+  const currentIndex = get(currentStateIndexAtom)
+  const maxHistory = get(maxHistoryAtom)
+  
+  return {
+    totalStates: historyStack.length,
+    redoStates: redoStack.length,
+    currentIndex,
+    maxHistory,
+    memoryUsage: historyStack.length / maxHistory,
+    canUndo: get(canUndoAtom),
+    canRedo: get(canRedoAtom)
+  }
+})
+```
+
+### Advanced History Management with Debouncing
+```typescript
+// Debounced history save atom
+export const debouncedSaveHistoryAtom = atom(
+  null,
+  (get, set, canvas: fabric.Canvas) => {
+    // Clear any existing timeout
+    if (debouncedSaveHistoryAtom._timeoutId) {
+      clearTimeout(debouncedSaveHistoryAtom._timeoutId)
+    }
+
+    // Set new timeout for debounced save
+    debouncedSaveHistoryAtom._timeoutId = setTimeout(() => {
+      const canvasState = JSON.stringify(canvas.toJSON())
+      const currentIndex = get(currentStateIndexAtom)
+      const maxHistory = get(maxHistoryAtom)
+      
+      set(historyStackAtom, (prevStack) => {
+        // Remove any states after current index (for new branches)
+        const newStack = prevStack.slice(0, currentIndex + 1)
+        // Add new state
+        const updatedStack = [...newStack, canvasState]
+        // Keep only the last maxHistory states
+        return updatedStack.slice(-maxHistory)
+      })
+      
+      set(currentStateIndexAtom, (prevIndex) => {
+        const newIndex = prevIndex + 1
+        return Math.min(newIndex, maxHistory - 1)
+      })
+      
+      // Clear redo stack when new action is performed
+      set(redoStackAtom, [])
+      
+      // Trigger haptic feedback on mobile
+      if (get(isMobileAtom) && navigator.vibrate) {
+        navigator.vibrate(25)
+      }
+    }, DEBOUNCE_DELAY)
+  }
+)
+
+// Immediate history save atom (for critical actions)
+export const immediateHistorySaveAtom = atom(
+  null,
+  (get, set, canvas: fabric.Canvas) => {
+    // Cancel any pending debounced save
+    if (debouncedSaveHistoryAtom._timeoutId) {
+      clearTimeout(debouncedSaveHistoryAtom._timeoutId)
+    }
+    
+    const canvasState = JSON.stringify(canvas.toJSON())
+    const currentIndex = get(currentStateIndexAtom)
+    const maxHistory = get(maxHistoryAtom)
+    
+    set(historyStackAtom, (prevStack) => {
+      const newStack = prevStack.slice(0, currentIndex + 1)
+      const updatedStack = [...newStack, canvasState]
+      return updatedStack.slice(-maxHistory)
+    })
+    
+    set(currentStateIndexAtom, (prevIndex) => 
+      Math.min(prevIndex + 1, maxHistory - 1)
+    )
+    
+    set(redoStackAtom, [])
+  }
+)
+```
+
+### Undo/Redo Action Atoms
+```typescript
+// Undo action atom with enhanced error handling
+export const undoActionAtom = atom(
+  null,
+  async (get, set, canvas: fabric.Canvas) => {
+    const canUndo = get(canUndoAtom)
+    const currentIndex = get(currentStateIndexAtom)
+    const historyStack = get(historyStackAtom)
+    
+    if (!canUndo || !canvas) return false
+    
+    try {
+      set(isUndoingAtom, true)
+      
+      // Provide haptic feedback on mobile
+      if (get(isMobileAtom) && navigator.vibrate) {
+        navigator.vibrate(50)
+      }
+      
+      const previousState = historyStack[currentIndex - 1]
+      const currentState = historyStack[currentIndex]
+      
+      // Add current state to redo stack
+      set(redoStackAtom, (prev) => [...prev, currentState])
+      
+      // Load previous state
+      await new Promise<void>((resolve, reject) => {
+        canvas.loadFromJSON(previousState, () => {
+          canvas.renderAll()
+          set(currentStateIndexAtom, (prev) => prev - 1)
+          resolve()
+        }, (err) => reject(err))
+      })
+      
+      return true
+    } catch (error) {
+      console.error('Undo failed:', error)
+      return false
+    } finally {
+      set(isUndoingAtom, false)
+    }
+  }
+)
+
+// Redo action atom with enhanced error handling
+export const redoActionAtom = atom(
+  null,
+  async (get, set, canvas: fabric.Canvas) => {
+    const canRedo = get(canRedoAtom)
+    const redoStack = get(redoStackAtom)
+    
+    if (!canRedo || !canvas) return false
+    
+    try {
+      set(isRedoingAtom, true)
+      
+      // Provide haptic feedback on mobile
+      if (get(isMobileAtom) && navigator.vibrate) {
+        navigator.vibrate(50)
+      }
+      
+      const nextState = redoStack[redoStack.length - 1]
+      
+      // Load next state
+      await new Promise<void>((resolve, reject) => {
+        canvas.loadFromJSON(nextState, () => {
+          canvas.renderAll()
+          
+          // Update history stacks
+          set(historyStackAtom, (prev) => [...prev, nextState])
+          set(redoStackAtom, (prev) => prev.slice(0, -1))
+          set(currentStateIndexAtom, (prev) => prev + 1)
+          resolve()
+        }, (err) => reject(err))
+      })
+      
+      return true
+    } catch (error) {
+      console.error('Redo failed:', error)
+      return false
+    } finally {
+      set(isRedoingAtom, false)
+    }
+  }
+)
+```
+
+### Memory Management Atoms
+```typescript
+// Memory monitoring atom
+export const memoryStatsAtom = atom((get) => {
+  const historyStack = get(historyStackAtom)
+  const redoStack = get(redoStackAtom)
+  
+  // Calculate approximate memory usage
+  const historySize = JSON.stringify(historyStack).length
+  const redoSize = JSON.stringify(redoStack).length
+  const totalSize = historySize + redoSize
+  
+  return {
+    historySize: (historySize / 1024).toFixed(2) + ' KB',
+    redoSize: (redoSize / 1024).toFixed(2) + ' KB',
+    totalSize: (totalSize / 1024).toFixed(2) + ' KB',
+    historyCount: historyStack.length,
+    redoCount: redoStack.length
+  }
+})
+
+// Memory cleanup atom
+export const memoryCleanupAtom = atom(
+  null,
+  (get, set) => {
+    const isMobile = get(isMobileAtom)
+    const maxHistory = get(maxHistoryAtom)
+    
+    // Aggressive cleanup for mobile
+    if (isMobile) {
+      set(historyStackAtom, (prev) => prev.slice(-Math.floor(maxHistory * 0.7)))
+      set(redoStackAtom, (prev) => prev.slice(-Math.floor(maxHistory * 0.3)))
+    }
+    
+    // Force garbage collection if available
+    if (window.gc) {
+      window.gc()
+    }
+  }
+)
+
+// Auto memory management atom with monitoring
+export const autoMemoryManagementAtom = atom(
+  null,
+  (get, set) => {
+    // Monitor memory usage periodically
+    const checkMemory = () => {
+      if ('memory' in performance) {
+        const memInfo = performance.memory as any
+        const usedMB = memInfo.usedJSHeapSize / 1024 / 1024
+        
+        // Trigger cleanup if memory usage is high
+        if (usedMB > 50) { // 50MB threshold
+          set(memoryCleanupAtom)
+        }
+      }
+    }
+    
+    // Set up periodic memory monitoring
+    const intervalId = setInterval(checkMemory, 30000) // Every 30 seconds
+    
+    return () => clearInterval(intervalId)
+  }
+)
+```
+
+### History Persistence with Local Storage
+```typescript
+import { atomWithStorage } from 'jotai/utils'
+
+// Persistent history atoms (for recovery)
+export const persistentHistoryAtom = atomWithStorage<string[]>(
+  'sketchy-history',
+  [],
+  {
+    getItem: (key: string) => {
+      try {
+        const item = localStorage.getItem(key)
+        return item ? JSON.parse(item) : []
+      } catch {
+        return []
+      }
+    },
+    setItem: (key: string, value: string[]) => {
+      try {
+        // Only store last 3 states for persistence (mobile-friendly)
+        const limitedHistory = value.slice(-3)
+        localStorage.setItem(key, JSON.stringify(limitedHistory))
+      } catch (error) {
+        console.warn('Failed to save history to localStorage:', error)
+      }
+    },
+    removeItem: (key: string) => localStorage.removeItem(key)
+  }
+)
+
+// Auto-sync history to persistent storage
+export const syncHistoryToPersistentAtom = atom(
+  null,
+  (get, set) => {
+    const historyStack = get(historyStackAtom)
+    set(persistentHistoryAtom, historyStack)
+  }
+)
+
+// Recovery atom to restore from persistent storage
+export const recoverHistoryAtom = atom(
+  null,
+  (get, set, canvas: fabric.Canvas) => {
+    const persistentHistory = get(persistentHistoryAtom)
+    
+    if (persistentHistory.length > 0) {
+      set(historyStackAtom, persistentHistory)
+      set(currentStateIndexAtom, persistentHistory.length - 1)
+      
+      // Load the latest state
+      const latestState = persistentHistory[persistentHistory.length - 1]
+      canvas.loadFromJSON(latestState, () => {
+        canvas.renderAll()
+      })
+    }
+  }
+)
+```
+
+### React Hooks for Undo/Redo Integration
+```typescript
+// Custom hook for undo/redo functionality
+export const useUndoRedo = (canvas: fabric.Canvas | null) => {
+  const [, undo] = useAtom(undoActionAtom)
+  const [, redo] = useAtom(redoActionAtom)
+  const [, saveHistory] = useAtom(debouncedSaveHistoryAtom)
+  const [, immediateSave] = useAtom(immediateHistorySaveAtom)
+  
+  const canUndo = useAtomValue(canUndoAtom)
+  const canRedo = useAtomValue(canRedoAtom)
+  const isUndoing = useAtomValue(isUndoingAtom)
+  const isRedoing = useAtomValue(isRedoingAtom)
+  const analytics = useAtomValue(historyAnalyticsAtom)
+  
+  const handleUndo = useCallback(async () => {
+    if (canvas && canUndo) {
+      return await undo(canvas)
+    }
+    return false
+  }, [canvas, canUndo, undo])
+  
+  const handleRedo = useCallback(async () => {
+    if (canvas && canRedo) {
+      return await redo(canvas)
+    }
+    return false
+  }, [canvas, canRedo, redo])
+  
+  const handleSaveHistory = useCallback(() => {
+    if (canvas) {
+      saveHistory(canvas)
+    }
+  }, [canvas, saveHistory])
+  
+  const handleImmediateSave = useCallback(() => {
+    if (canvas) {
+      immediateSave(canvas)
+    }
+  }, [canvas, immediateSave])
+  
+  return {
+    undo: handleUndo,
+    redo: handleRedo,
+    saveHistory: handleSaveHistory,
+    immediateSave: handleImmediateSave,
+    canUndo,
+    canRedo,
+    isUndoing,
+    isRedoing,
+    analytics
+  }
+}
+
+// Custom hook for keyboard shortcuts
+export const useUndoRedoKeyboard = (canvas: fabric.Canvas | null) => {
+  const { undo, redo } = useUndoRedo(canvas)
+  
+  useEffect(() => {
+    const handleKeyboard = async (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        await undo()
+      } else if (
+        ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')
+      ) {
+        e.preventDefault()
+        await redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyboard)
+    return () => window.removeEventListener('keydown', handleKeyboard)
+  }, [undo, redo])
+}
+```
+
+### Canvas Event Integration
+```typescript
+// Canvas event handler setup with Jotai
+export const setupCanvasHistoryEvents = (
+  canvas: fabric.Canvas,
+  saveHistory: () => void,
+  immediateSave: () => void
+) => {
+  // Debounced events (frequent actions)
+  canvas.on('path:created', saveHistory)
+  canvas.on('object:modified', saveHistory)
+  canvas.on('object:moved', saveHistory)
+  canvas.on('object:scaled', saveHistory)
+  canvas.on('object:rotated', saveHistory)
+  
+  // Immediate save events (critical actions)
+  canvas.on('object:added', immediateSave)
+  canvas.on('object:removed', immediateSave)
+  canvas.on('canvas:cleared', immediateSave)
+  
+  // Mobile-specific events
+  if ('ontouchstart' in window) {
+    canvas.on('touch:gesture', saveHistory)
+    canvas.on('touch:drag', saveHistory)
+  }
+  
+  return () => {
+    // Cleanup function
+    canvas.off('path:created', saveHistory)
+    canvas.off('object:modified', saveHistory)
+    canvas.off('object:moved', saveHistory)
+    canvas.off('object:scaled', saveHistory)
+    canvas.off('object:rotated', saveHistory)
+    canvas.off('object:added', immediateSave)
+    canvas.off('object:removed', immediateSave)
+    canvas.off('canvas:cleared', immediateSave)
+    
+    if ('ontouchstart' in window) {
+      canvas.off('touch:gesture', saveHistory)
+      canvas.off('touch:drag', saveHistory)
+    }
+  }
+}
+```
+
+### Performance Monitoring and Analytics
+```typescript
+// Performance tracking atoms
+export const undoRedoPerformanceAtom = atom({
+  undoTimes: [] as number[],
+  redoTimes: [] as number[],
+  averageUndoTime: 0,
+  averageRedoTime: 0,
+  slowOperations: 0
+})
+
+// Performance tracking wrapper
+export const trackUndoRedoPerformance = (
+  operation: 'undo' | 'redo',
+  fn: () => Promise<boolean>
+) => {
+  return async (get: any, set: any, ...args: any[]) => {
+    const startTime = performance.now()
+    
+    try {
+      const result = await fn.call(null, get, set, ...args)
+      const endTime = performance.now()
+      const duration = endTime - startTime
+      
+      // Track performance metrics
+      set(undoRedoPerformanceAtom, (prev) => {
+        const times = operation === 'undo' ? prev.undoTimes : prev.redoTimes
+        const newTimes = [...times, duration].slice(-10) // Keep last 10 measurements
+        
+        const average = newTimes.reduce((a, b) => a + b, 0) / newTimes.length
+        const slowOps = duration > 100 ? prev.slowOperations + 1 : prev.slowOperations
+        
+        return {
+          ...prev,
+          [operation === 'undo' ? 'undoTimes' : 'redoTimes']: newTimes,
+          [operation === 'undo' ? 'averageUndoTime' : 'averageRedoTime']: average,
+          slowOperations: slowOps
+        }
+      })
+      
+      return result
+    } catch (error) {
+      console.error(`${operation} performance tracking failed:`, error)
+      throw error
+    }
+  }
+}
+```
+
+### Mobile-Optimized Undo/Redo UI Components
+```typescript
+// Mobile undo/redo button component
+const UndoRedoButtons: React.FC = () => {
+  const canvas = useAtomValue(canvasAtom)
+  const { undo, redo, canUndo, canRedo, isUndoing, isRedoing } = useUndoRedo(canvas)
+  const isMobile = useAtomValue(isMobileAtom)
+  
+  return (
+    <>
+      {/* Undo button */}
+      <button
+        onClick={undo}
+        disabled={!canUndo || isUndoing}
+        className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
+          !canUndo || isUndoing
+            ? 'opacity-50 cursor-not-allowed'
+            : 'hover:bg-primary/10 active:scale-95'
+        }`}
+        aria-label="Undo last action"
+        style={{
+          touchAction: 'manipulation', // Mobile optimization
+          WebkitTapHighlightColor: 'transparent'
+        }}
+      >
+        <Undo2 
+          size={isMobile ? 22 : 20} 
+          className={isUndoing ? 'animate-spin' : ''}
+        />
+      </button>
+
+      {/* Redo button */}
+      <button
+        onClick={redo}
+        disabled={!canRedo || isRedoing}
+        className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
+          !canRedo || isRedoing
+            ? 'opacity-50 cursor-not-allowed'
+            : 'hover:bg-primary/10 active:scale-95'
+        }`}
+        aria-label="Redo last undone action"
+        style={{
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent'
+        }}
+      >
+        <Redo2 
+          size={isMobile ? 22 : 20} 
+          className={isRedoing ? 'animate-spin' : ''}
+        />
+      </button>
+    </>
+  )
+}
+
+// History analytics display (development/debug)
+const HistoryAnalytics: React.FC = () => {
+  const analytics = useAtomValue(historyAnalyticsAtom)
+  const memoryStats = useAtomValue(memoryStatsAtom)
+  const performance = useAtomValue(undoRedoPerformanceAtom)
+  
+  if (process.env.NODE_ENV !== 'development') return null
+  
+  return (
+    <div className="fixed top-4 right-4 bg-black/80 text-white p-2 rounded text-xs font-mono">
+      <div>History: {analytics.totalStates}/{analytics.maxHistory}</div>
+      <div>Redo: {analytics.redoStates}</div>
+      <div>Memory: {memoryStats.totalSize}</div>
+      <div>Avg Undo: {performance.averageUndoTime.toFixed(1)}ms</div>
+      <div>Avg Redo: {performance.averageRedoTime.toFixed(1)}ms</div>
+    </div>
+  )
+}
+```
+
+### Undo/Redo Feature Requirements Summary
+
+**Core Functionality:**
+- ✅ **Atomic State Management**: Using Jotai for predictable, reactive state updates
+- ✅ **Debounced History Saving**: Prevents excessive history entries during rapid drawing
+- ✅ **Mobile-Optimized Memory**: Reduced history stack for mobile devices (5 vs 10 states)
+- ✅ **Haptic Feedback**: Touch vibration for mobile undo/redo actions
+- ✅ **Error Handling**: Robust error recovery for failed operations
+- ✅ **Performance Tracking**: Real-time monitoring of undo/redo performance
+- ✅ **Persistence**: Auto-save history to localStorage for session recovery
+- ✅ **Memory Management**: Automatic cleanup and garbage collection
+
+**Mobile-First Optimizations:**
+- ✅ **Touch-Optimized UI**: Larger touch targets and proper touch handling
+- ✅ **Memory Conservation**: Aggressive memory management for mobile devices
+- ✅ **Performance Monitoring**: Track slow operations and optimize accordingly
+- ✅ **Gesture Support**: Keyboard shortcuts with mobile considerations
+
+**Advanced Features:**
+- ✅ **Analytics Integration**: Track usage patterns and performance metrics
+- ✅ **Recovery System**: Automatic recovery from crashes or page refreshes
+- ✅ **Branching History**: Proper handling of new actions after undo
+- ✅ **State Validation**: Ensure canvas state integrity across operations
+
 ## 🎨 Feature Specifications
 
 ### 1. Freehand Drawing
@@ -71,20 +738,41 @@ const userLayer = new fabric.Group([], {
 - Pressure sensitivity detection (if available)
 
 **Implementation:**
-```javascript
-// Drawing mode configuration
-canvas.isDrawingMode = true;
-canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+```typescript
+// Drawing state atoms
+const drawingModeAtom = atom(true)
+const brushConfigAtom = atom((get) => ({
+  width: get(currentBrushSizeAtom),
+  color: get(currentColorAtom),
+  strokeLineCap: 'round' as const,
+  strokeLineJoin: 'round' as const,
+  decimate: get(isMobileAtom) ? 2 : 1 // Mobile optimization
+}))
 
-// Mobile optimizations
-canvas.on('path:created', function(e) {
-  const path = e.path;
-  path.set({ 
-    strokeLineCap: 'round',
-    strokeLineJoin: 'round'
-  });
-  addToHistory();
-});
+// Drawing mode configuration with Jotai
+const initializeDrawingAtom = atom(
+  null,
+  (get, set, canvas: fabric.Canvas) => {
+    const isDrawMode = get(drawingModeAtom)
+    const brushConfig = get(brushConfigAtom)
+    
+    canvas.isDrawingMode = true
+    const brush = new fabric.PencilBrush(canvas)
+    Object.assign(brush, brushConfig)
+    canvas.freeDrawingBrush = brush
+    
+    // Set up history tracking
+    const { saveHistory } = get(undoRedoHooksAtom)
+    canvas.on('path:created', (e) => {
+      const path = e.path
+      path.set({
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round'
+      })
+      saveHistory()
+    })
+  }
+)
 ```
 
 ### 2. Eraser Tool
@@ -94,51 +782,37 @@ canvas.on('path:created', function(e) {
 - Consistent eraser size with brush size
 
 **Implementation:**
-```javascript
-function toggleEraser(isEraserMode) {
-  if (isEraserMode) {
-    canvas.freeDrawingBrush = new fabric.EraserBrush(canvas);
-    canvas.freeDrawingBrush.width = currentBrushSize;
-  } else {
-    canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-    canvas.freeDrawingBrush.width = currentBrushSize;
-    canvas.freeDrawingBrush.color = currentColor;
-  }
-}
-```
+```typescript
+// Eraser atoms
+const eraserModeAtom = atom(false)
+const eraserConfigAtom = atom((get) => ({
+  width: get(currentBrushSizeAtom),
+  strokeLineCap: 'round' as const,
+  strokeLineJoin: 'round' as const
+}))
 
-### 3. Undo/Redo System
-**Requirements:**
-- Maximum 10 states to conserve memory
-- Visual undo/redo buttons
-- Keyboard shortcuts (Ctrl+Z, Ctrl+Y)
-
-**Implementation:**
-```javascript
-const historyStack = [];
-const redoStack = [];
-const MAX_HISTORY = 10;
-
-function addToHistory() {
-  const state = canvas.toJSON();
-  historyStack.push(state);
-  
-  if (historyStack.length > MAX_HISTORY) {
-    historyStack.shift();
-  }
-  
-  redoStack.length = 0; // Clear redo stack
-}
-
-function undo() {
-  if (historyStack.length > 1) {
-    const currentState = historyStack.pop();
-    redoStack.push(currentState);
+// Toggle eraser mode atom
+const toggleEraserAtom = atom(
+  (get) => get(eraserModeAtom),
+  (get, set, canvas: fabric.Canvas) => {
+    const isEraser = !get(eraserModeAtom)
+    set(eraserModeAtom, isEraser)
     
-    const previousState = historyStack[historyStack.length - 1];
-    canvas.loadFromJSON(previousState, canvas.renderAll.bind(canvas));
+    if (isEraser) {
+      const brush = new fabric.EraserBrush(canvas)
+      Object.assign(brush, get(eraserConfigAtom))
+      canvas.freeDrawingBrush = brush
+    } else {
+      const brush = new fabric.PencilBrush(canvas)
+      Object.assign(brush, get(brushConfigAtom))
+      canvas.freeDrawingBrush = brush
+    }
+    
+    // Save state change
+    const { immediateSave } = get(undoRedoHooksAtom)
+    immediateSave()
   }
-}
+)
 ```
 
 ### 4. Color Selector
@@ -149,8 +823,9 @@ function undo() {
 - Current color indicator with brand styling
 
 **Color Palette (Brand-Aligned):**
-```javascript
-const colorPalette = [
+```typescript
+// Color management atoms
+const colorPaletteAtom = atom([
   '#121212', // Black (design system)
   '#FFFFFF', // White (design system)
   '#FF3366', // Primary brand color
@@ -163,7 +838,22 @@ const colorPalette = [
   '#666666', // Medium gray
   '#333333', // Dark gray
   '#CCCCCC'  // Light gray
-];
+])
+
+// Color selection atom
+const selectColorAtom = atom(
+  null,
+  (get, set, color: string) => {
+    set(currentColorAtom, color)
+    set(showColorPaletteAtom, false)
+    
+    // Update brush color if in drawing mode
+    const canvas = get(canvasAtom)
+    if (canvas && canvas.freeDrawingBrush && !get(eraserModeAtom)) {
+      canvas.freeDrawingBrush.color = color
+    }
+  }
+)
 ```
 
 ### 5. Brush Size Control
@@ -173,16 +863,22 @@ const colorPalette = [
 - Consistent sizing across tools
 
 **Implementation:**
-```javascript
-const brushSizes = [2, 5, 10, 15];
-let currentBrushSize = 5;
-
-function setBrushSize(size) {
-  currentBrushSize = size;
-  if (canvas.freeDrawingBrush) {
-    canvas.freeDrawingBrush.width = size;
+```typescript
+// Brush size atoms
+const brushSizesAtom = atom([2, 5, 10, 15])
+const selectBrushSizeAtom = atom(
+  null,
+  (get, set, size: number) => {
+    set(currentBrushSizeAtom, size)
+    set(showBrushSizesAtom, false)
+    
+    // Update current brush size
+    const canvas = get(canvasAtom)
+    if (canvas && canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.width = size
+    }
   }
-}
+)
 ```
 
 ### 6. Booster Stencil System
@@ -193,31 +889,58 @@ function setBrushSize(size) {
 - Masking for "color within lines"
 
 **Implementation:**
-```javascript
-function addBoosterStencil(imageUrl) {
-  fabric.Image.fromURL(imageUrl, function(img) {
-    img.set({
-      left: canvas.width / 2,
-      top: canvas.height / 2,
-      originX: 'center',
-      originY: 'center',
-      selectable: true,
-      evented: true,
-      erasable: false,
-      opacity: 0.7
-    });
-    
-    canvas.add(img);
-    canvas.bringToFront(img);
-  });
-}
+```typescript
+// Stencil management atoms
+const stencilAtom = atom<fabric.Image | null>(null)
+const stencilLockedAtom = atom(false)
 
-function lockStencil(stencil, isLocked) {
-  stencil.set({
-    selectable: !isLocked,
-    evented: !isLocked
-  });
-}
+const addBoosterStencilAtom = atom(
+  null,
+  (get, set, imageUrl: string) => {
+    const canvas = get(canvasAtom)
+    if (!canvas) return
+    
+    fabric.Image.fromURL(imageUrl, (img) => {
+      img.set({
+        left: canvas.width / 2,
+        top: canvas.height / 2,
+        originX: 'center',
+        originY: 'center',
+        selectable: true,
+        evented: true,
+        erasable: false,
+        opacity: 0.7
+      })
+      
+      canvas.add(img)
+      canvas.bringToFront(img)
+      set(stencilAtom, img)
+      
+      // Save to history
+      const { immediateSave } = get(undoRedoHooksAtom)
+      immediateSave()
+    })
+  }
+)
+
+const lockStencilAtom = atom(
+  null,
+  (get, set, isLocked: boolean) => {
+    const stencil = get(stencilAtom)
+    if (!stencil) return
+    
+    stencil.set({
+      selectable: !isLocked,
+      evented: !isLocked
+    })
+    
+    set(stencilLockedAtom, isLocked)
+    
+    // Save state change
+    const { immediateSave } = get(undoRedoHooksAtom)
+    immediateSave()
+  }
+)
 ```
 
 ## 📱 Mobile UX Specifications (Primary Focus)
