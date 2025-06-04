@@ -18,7 +18,7 @@ const isMobileAtom = atom(() => {
 });
 
 // Dynamic max history based on device
-const maxHistoryAtom = atom((get) => 
+const maxHistoryAtom = atom((get) =>
   get(isMobileAtom) ? MAX_HISTORY_MOBILE : MAX_HISTORY_DESKTOP
 );
 
@@ -81,7 +81,7 @@ const debouncedSaveHistoryAtom = atom(
     if (get(isUndoingAtom) || get(isRedoingAtom)) {
       return;
     }
-    
+
     // Clear any existing timeout
     if (debouncedSaveTimeout) {
       clearTimeout(debouncedSaveTimeout);
@@ -93,12 +93,12 @@ const debouncedSaveHistoryAtom = atom(
       if (get(isUndoingAtom) || get(isRedoingAtom)) {
         return;
       }
-      
+
       const canvasState = JSON.stringify(canvas.toJSON());
       const currentIndex = get(currentStateIndexAtom);
       const maxHistory = get(maxHistoryAtom);
       const historyStackBefore = get(historyStackAtom);
-      
+
       // Check for duplicate state (prevent saving if state hasn't changed)
       if (historyStackBefore.length > 0) {
         const lastSavedState = historyStackBefore[historyStackBefore.length - 1];
@@ -106,7 +106,7 @@ const debouncedSaveHistoryAtom = atom(
           return;
         }
       }
-      
+
       set(historyStackAtom, (prevStack) => {
         // Remove any states after current index (for new branches)
         const newStack = prevStack.slice(0, currentIndex + 1);
@@ -115,15 +115,15 @@ const debouncedSaveHistoryAtom = atom(
         // Keep only the last maxHistory states
         return updatedStack.slice(-maxHistory);
       });
-      
+
       set(currentStateIndexAtom, (prevIndex) => {
         const newIndex = prevIndex + 1;
         return Math.min(newIndex, maxHistory - 1);
       });
-      
+
       // Clear redo stack when new action is performed
       set(redoStackAtom, []);
-      
+
       // Trigger haptic feedback on mobile
       if (get(isMobileAtom) && navigator.vibrate) {
         navigator.vibrate(25);
@@ -140,17 +140,17 @@ const immediateHistorySaveAtom = atom(
     if (get(isUndoingAtom) || get(isRedoingAtom)) {
       return;
     }
-    
+
     // Cancel any pending debounced save
     if (debouncedSaveTimeout) {
       clearTimeout(debouncedSaveTimeout);
     }
-    
+
     const canvasState = JSON.stringify(canvas.toJSON());
     const currentIndex = get(currentStateIndexAtom);
     const maxHistory = get(maxHistoryAtom);
     const historyStackBefore = get(historyStackAtom);
-    
+
     // Check for duplicate state (prevent saving if state hasn't changed)
     if (historyStackBefore.length > 0) {
       const lastSavedState = historyStackBefore[historyStackBefore.length - 1];
@@ -158,17 +158,17 @@ const immediateHistorySaveAtom = atom(
         return;
       }
     }
-    
+
     set(historyStackAtom, (prevStack) => {
       const newStack = prevStack.slice(0, currentIndex + 1);
       const updatedStack = [...newStack, canvasState];
       return updatedStack.slice(-maxHistory);
     });
-    
-    set(currentStateIndexAtom, (prevIndex) => 
+
+    set(currentStateIndexAtom, (prevIndex) =>
       Math.min(prevIndex + 1, maxHistory - 1)
     );
-    
+
     set(redoStackAtom, []);
   }
 );
@@ -187,7 +187,7 @@ const toggleCanvasEventsAtom = atom(
   null,
   (get, set, { canvas, enabled }: { canvas: Canvas; enabled: boolean }) => {
     if (!canvas || !canvasEventHandlers.debouncedSave) return;
-    
+
     if (enabled) {
       // Re-enable event listeners
       canvas.on('path:created', canvasEventHandlers.pathCreated!);
@@ -209,55 +209,55 @@ const undoActionAtom = atom(
     const canUndo = get(canUndoAtom);
     const currentIndex = get(currentStateIndexAtom);
     const historyStack = get(historyStackAtom);
-    
+
     if (!canUndo || !canvas) {
       return false;
     }
-    
+
     try {
       set(isUndoingAtom, true);
-      
+
       // Disable canvas event listeners to prevent history corruption
       set(toggleCanvasEventsAtom, { canvas, enabled: false });
-      
+
       // Provide haptic feedback on mobile
       if (get(isMobileAtom) && navigator.vibrate) {
         navigator.vibrate(50);
       }
-      
+
       const previousState = historyStack[currentIndex - 1];
       const currentState = historyStack[currentIndex];
-      
+
       if (!previousState) {
         return false;
       }
-      
+
       // Add current state to redo stack
       set(redoStackAtom, (prev) => [...prev, currentState]);
-      
+
       // Clear canvas before loading previous state
       canvas.clear();
       canvas.backgroundColor = '#ffffff';
-      
+
       // Load previous state
       let resolved = false;
       await new Promise<void>((resolve, reject) => {
         const handleSuccess = () => {
           if (resolved) return;
           resolved = true;
-          
+
           canvas.renderAll();
           set(currentStateIndexAtom, (prev) => prev - 1);
           resolve();
         };
-        
+
         // Add timeout fallback for when fabric.js doesn't call the callback
         const timeoutId = setTimeout(() => {
           if (!resolved) {
             handleSuccess();
           }
         }, 200);
-        
+
         try {
           // Parse and validate the state first
           try {
@@ -267,7 +267,7 @@ const undoActionAtom = atom(
             reject(new Error('Invalid canvas state'));
             return;
           }
-          
+
           canvas.loadFromJSON(previousState, () => {
             clearTimeout(timeoutId);
             setTimeout(handleSuccess, 50);
@@ -280,7 +280,7 @@ const undoActionAtom = atom(
           }
         }
       });
-      
+
       return true;
     } catch {
       return false;
@@ -289,7 +289,7 @@ const undoActionAtom = atom(
       setTimeout(() => {
         set(toggleCanvasEventsAtom, { canvas, enabled: true });
       }, 10);
-      
+
       set(isUndoingAtom, false);
     }
   }
@@ -301,52 +301,52 @@ const redoActionAtom = atom(
   async (get, set, canvas: Canvas) => {
     const canRedo = get(canRedoAtom);
     const redoStack = get(redoStackAtom);
-    
+
     if (!canRedo || !canvas) {
       return false;
     }
-    
+
     try {
       set(isRedoingAtom, true);
-      
+
       // Disable canvas event listeners to prevent history corruption
       set(toggleCanvasEventsAtom, { canvas, enabled: false });
-      
+
       // Provide haptic feedback on mobile
       if (get(isMobileAtom) && navigator.vibrate) {
         navigator.vibrate(50);
       }
-      
+
       const nextState = redoStack[redoStack.length - 1];
-      
+
       // Clear canvas before loading next state
       canvas.clear();
       canvas.backgroundColor = '#ffffff';
-      
+
       // Load next state
       let resolved = false;
       await new Promise<void>((resolve, reject) => {
         const handleSuccess = () => {
           if (resolved) return;
           resolved = true;
-          
+
           canvas.renderAll();
-          
+
           // Update history stacks
           set(historyStackAtom, (prev) => [...prev, nextState]);
           set(redoStackAtom, (prev) => prev.slice(0, -1));
           set(currentStateIndexAtom, (prev) => prev + 1);
-          
+
           resolve();
         };
-        
+
         // Add timeout fallback for when fabric.js doesn't call the callback
         const timeoutId = setTimeout(() => {
           if (!resolved) {
             handleSuccess();
           }
         }, 200);
-        
+
         try {
           // Parse and validate the state first
           try {
@@ -356,7 +356,7 @@ const redoActionAtom = atom(
             reject(new Error('Invalid canvas state'));
             return;
           }
-          
+
           canvas.loadFromJSON(nextState, () => {
             clearTimeout(timeoutId);
             setTimeout(handleSuccess, 100);
@@ -369,7 +369,7 @@ const redoActionAtom = atom(
           }
         }
       });
-      
+
       return true;
     } catch {
       return false;
@@ -378,7 +378,7 @@ const redoActionAtom = atom(
       setTimeout(() => {
         set(toggleCanvasEventsAtom, { canvas, enabled: true });
       }, 10);
-      
+
       set(isRedoingAtom, false);
     }
   }
@@ -391,11 +391,11 @@ const initializeCanvasAtom = atom(
     // Check if we already have a canvas and it's the same element
     const existingCanvas = get(canvasAtom);
     const isInitialized = get(isInitializedAtom);
-    
+
     if (isInitialized && existingCanvas && existingCanvas.getElement() === canvasElement) {
       return existingCanvas;
     }
-    
+
     // Dispose of existing canvas if it exists
     if (existingCanvas) {
       try {
@@ -453,11 +453,11 @@ const initializeCanvasAtom = atom(
       });
       debouncedSave();
     };
-    
+
     const objectAddedHandler = () => {
       immediateSave();
     };
-    
+
     const objectRemovedHandler = () => {
       immediateSave();
     };
@@ -478,12 +478,12 @@ const initializeCanvasAtom = atom(
 
     set(canvasAtom, fabricCanvas);
     set(isInitializedAtom, true);
-    
+
     // Save initial state
     const initialState = JSON.stringify(fabricCanvas.toJSON());
     set(historyStackAtom, [initialState]);
     set(currentStateIndexAtom, 0);
-    
+
     return fabricCanvas;
   }
 );
@@ -494,22 +494,22 @@ const toggleEraserAtom = atom(
   (get, set, canvas: Canvas) => {
     const isDrawMode = !get(isDrawModeAtom);
     set(isDrawModeAtom, isDrawMode);
-    
+
     const brush = new PencilBrush(canvas);
     brush.width = get(currentBrushSizeAtom);
     brush.strokeLineCap = 'round';
     brush.strokeLineJoin = 'round';
     brush.decimate = get(isMobileAtom) ? 2 : 1;
-    
+
     if (isDrawMode) {
       brush.color = get(currentColorAtom);
     } else {
       // Use white color for erasing effect
       brush.color = '#ffffff';
     }
-    
+
     canvas.freeDrawingBrush = brush;
-    
+
     // Save state change
     set(immediateHistorySaveAtom, canvas);
   }
@@ -521,7 +521,7 @@ const selectColorAtom = atom(
   (get, set, color: string) => {
     set(currentColorAtom, color);
     set(showColorPaletteAtom, false);
-    
+
     // Update brush color if in drawing mode
     const canvas = get(canvasAtom);
     if (canvas && canvas.freeDrawingBrush && get(isDrawModeAtom)) {
@@ -536,7 +536,7 @@ const selectBrushSizeAtom = atom(
   (get, set, size: number) => {
     set(currentBrushSizeAtom, size);
     set(showBrushSizesAtom, false);
-    
+
     // Update current brush size
     const canvas = get(canvasAtom);
     if (canvas && canvas.freeDrawingBrush) {
@@ -560,26 +560,26 @@ const clearCanvasAtom = atom(
 const useUndoRedo = (canvas: Canvas | null) => {
   const [, undo] = useAtom(undoActionAtom);
   const [, redo] = useAtom(redoActionAtom);
-  
+
   const canUndo = useAtomValue(canUndoAtom);
   const canRedo = useAtomValue(canRedoAtom);
   const isUndoing = useAtomValue(isUndoingAtom);
   const isRedoing = useAtomValue(isRedoingAtom);
-  
+
   const handleUndo = useCallback(async () => {
     if (canvas && canUndo) {
       return await undo(canvas);
     }
     return false;
   }, [canvas, canUndo, undo]);
-  
+
   const handleRedo = useCallback(async () => {
     if (canvas && canRedo) {
       return await redo(canvas);
     }
     return false;
   }, [canvas, canRedo, redo]);
-  
+
   return {
     undo: handleUndo,
     redo: handleRedo,
@@ -617,17 +617,17 @@ const cleanupCanvasAtom = atom(
           clearTimeout(debouncedSaveTimeout);
           debouncedSaveTimeout = null;
         }
-        
+
         // Remove event listeners
         window.removeEventListener('resize', () => {});
-        
+
         // Dispose canvas
         canvas.dispose();
       } catch (error) {
         console.warn('Error during canvas cleanup:', error);
       }
     }
-    
+
     // Reset all atoms
     set(canvasAtom, null);
     set(isInitializedAtom, false);
@@ -641,7 +641,7 @@ const cleanupCanvasAtom = atom(
 
 const DrawingCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   // Jotai state hooks
   const canvas = useAtomValue(canvasAtom);
   const [, initializeCanvas] = useAtom(initializeCanvasAtom);
@@ -652,7 +652,7 @@ const DrawingCanvas: React.FC = () => {
   const showColorPalette = useAtomValue(showColorPaletteAtom);
   const showBrushSizes = useAtomValue(showBrushSizesAtom);
   const isMobile = useAtomValue(isMobileAtom);
-  
+
   // Action atoms
   const [, toggleEraser] = useAtom(toggleEraserAtom);
   const [, selectColor] = useAtom(selectColorAtom);
@@ -660,16 +660,16 @@ const DrawingCanvas: React.FC = () => {
   const [, clearCanvas] = useAtom(clearCanvasAtom);
   const setShowColorPalette = useSetAtom(showColorPaletteAtom);
   const setShowBrushSizes = useSetAtom(showBrushSizesAtom);
-  
+
   // Undo/redo functionality
   const { undo, redo, canUndo, canRedo, isUndoing, isRedoing } = useUndoRedo(canvas);
 
   // Initialize Fabric.js canvas with proper cleanup
   useEffect(() => {
     if (!canvasRef.current) return;
-    
+
     initializeCanvas(canvasRef.current);
-    
+
     // Cleanup function
     return () => {
       cleanupCanvas();
@@ -685,14 +685,14 @@ const DrawingCanvas: React.FC = () => {
     brush.strokeLineCap = 'round';
     brush.strokeLineJoin = 'round';
     brush.decimate = isMobile ? 2 : 1;
-    
+
     if (isDrawMode) {
       brush.color = currentColor;
     } else {
       // Use white color for erasing effect
       brush.color = '#ffffff';
     }
-    
+
     canvas.freeDrawingBrush = brush;
     canvas.isDrawingMode = true;
   }, [canvas, isDrawMode, currentColor, currentBrushSize, isMobile]);
@@ -752,7 +752,7 @@ const DrawingCanvas: React.FC = () => {
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
-        style={{ 
+        style={{
           touchAction: 'none',
           WebkitTapHighlightColor: 'transparent'
         }}
@@ -766,11 +766,11 @@ const DrawingCanvas: React.FC = () => {
               key={color}
               onClick={() => handleSelectColor(color)}
               className={`w-11 h-11 rounded-full border-2 transition-all duration-150 ease-out ${
-                currentColor === color 
-                  ? 'border-[#FF3366] scale-110 shadow-md ring-2 ring-[#FF3366]/30' 
+                currentColor === color
+                  ? 'border-[#FF3366] scale-110 shadow-md ring-2 ring-[#FF3366]/30'
                   : 'border-[#CCCCCC] hover:border-[#666666] hover:scale-105'
               }`}
-              style={{ 
+              style={{
                 backgroundColor: color,
                 touchAction: 'manipulation'
               }}
@@ -788,8 +788,8 @@ const DrawingCanvas: React.FC = () => {
               key={size}
               onClick={() => handleSelectBrushSize(size)}
               className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all duration-150 ease-out ${
-                currentBrushSize === size 
-                  ? 'bg-[#FF3366]/10 ring-2 ring-[#FF3366]' 
+                currentBrushSize === size
+                  ? 'bg-[#FF3366]/10 ring-2 ring-[#FF3366]'
                   : 'hover:bg-[#F8F8F8] active:scale-95'
               }`}
               style={{ touchAction: 'manipulation' }}
@@ -813,8 +813,8 @@ const DrawingCanvas: React.FC = () => {
         <button
           onClick={handleToggleDrawEraseMode}
           className={`min-w-11 min-h-11 rounded-lg flex items-center justify-center text-lg font-semibold font-montserrat transition-all duration-150 ease-out ${
-            isDrawMode 
-              ? 'bg-primary text-white shadow-md hover:bg-primary/80 active:scale-95' 
+            isDrawMode
+              ? 'bg-primary text-white shadow-md hover:bg-primary/80 active:scale-95'
               : 'bg-primary text-white shadow-md hover:bg-primary/80 active:scale-95'
           }`}
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
@@ -839,8 +839,8 @@ const DrawingCanvas: React.FC = () => {
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           aria-label="Undo last action"
         >
-          <Undo2 
-            size={isMobile ? 22 : 20} 
+          <Undo2
+            size={isMobile ? 22 : 20}
             className={isUndoing ? 'animate-spin' : ''}
           />
         </button>
@@ -857,8 +857,8 @@ const DrawingCanvas: React.FC = () => {
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           aria-label="Redo last undone action"
         >
-          <Redo2 
-            size={isMobile ? 22 : 20} 
+          <Redo2
+            size={isMobile ? 22 : 20}
             className={isRedoing ? 'animate-spin' : ''}
           />
         </button>
