@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Heart, ChevronRight, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { RoadmapItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -81,9 +82,12 @@ const RoadmapItemCard: React.FC<RoadmapItemCardProps> = ({ item, onLike, isLiked
             <span>{item.likes.toLocaleString()}</span>
           </button>
           
-          <span className="text-primary text-sm hover:underline flex items-center">
+          <Link 
+            to={`/roadmap/${item.id}`}
+            className="text-primary text-sm hover:underline flex items-center"
+          >
             Details <ChevronRight size={14} className="ml-1" />
-          </span>
+          </Link>
         </div>
       </div>
     </motion.div>
