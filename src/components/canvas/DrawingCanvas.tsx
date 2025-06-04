@@ -37,13 +37,23 @@ const DrawingCanvas: React.FC = () => {
 
   // Debounced save function to prevent excessive history entries
   const debouncedSaveToHistory = useCallback(
-    debounce((canvasState: string) => {
+    debounce((fabricCanvas: Canvas) => {
+      const canvasState = JSON.stringify(fabricCanvas.toJSON());
+      
       setHistoryStack(prevStack => {
-        const newStack = [...prevStack.slice(0, currentStateIndex + 1), canvasState];
+        // Remove any states after current index
+        const newStack = prevStack.slice(0, currentStateIndex + 1);
+        // Add new state
+        const updatedStack = [...newStack, canvasState];
         // Keep only the last MAX_HISTORY states
-        return newStack.slice(-MAX_HISTORY);
+        return updatedStack.slice(-MAX_HISTORY);
       });
-      setCurrentStateIndex(prevIndex => Math.min(prevIndex + 1, MAX_HISTORY - 1));
+      
+      setCurrentStateIndex(prevIndex => {
+        const newIndex = prevIndex + 1;
+        return Math.min(newIndex, MAX_HISTORY - 1);
+      });
+      
       // Clear redo stack when new action is performed
       setRedoStack([]);
     }, 300),
@@ -53,8 +63,7 @@ const DrawingCanvas: React.FC = () => {
   // Save current state to history
   const saveToHistory = useCallback(() => {
     if (!canvas) return;
-    const canvasState = JSON.stringify(canvas.toJSON());
-    debouncedSaveToHistory(canvasState);
+    debouncedSaveToHistory(canvas);
   }, [canvas, debouncedSaveToHistory]);
 
   // Initialize Fabric.js canvas
@@ -85,9 +94,9 @@ const DrawingCanvas: React.FC = () => {
     window.addEventListener('resize', resizeCanvas);
 
     // Set up event listeners for history management
-    fabricCanvas.on('path:created', saveToHistory);
-    fabricCanvas.on('object:added', saveToHistory);
-    fabricCanvas.on('object:removed', saveToHistory);
+    fabricCanvas.on('path:created', () => saveToHistory());
+    fabricCanvas.on('object:added', () => saveToHistory());
+    fabricCanvas.on('object:removed', () => saveToHistory());
 
     setCanvas(fabricCanvas);
     
@@ -160,16 +169,16 @@ const DrawingCanvas: React.FC = () => {
       navigator.vibrate(50);
     }
 
-    const currentState = historyStack[currentStateIndex];
     const previousState = historyStack[currentStateIndex - 1];
-
+    const currentState = historyStack[currentStateIndex];
+    
     // Add current state to redo stack
     setRedoStack(prev => [...prev, currentState]);
     
     // Load previous state
     canvas.loadFromJSON(previousState, () => {
       canvas.renderAll();
-      setCurrentStateIndex(currentStateIndex - 1);
+      setCurrentStateIndex(prev => prev - 1);
     });
   };
 
@@ -188,9 +197,9 @@ const DrawingCanvas: React.FC = () => {
       canvas.renderAll();
       
       // Update history stacks
-      setHistoryStack(prev => [...prev.slice(0, currentStateIndex + 1), nextState]);
+      setHistoryStack(prev => [...prev, nextState]);
       setRedoStack(prev => prev.slice(0, -1));
-      setCurrentStateIndex(currentStateIndex + 1);
+      setCurrentStateIndex(prev => prev + 1);
     });
   };
 
@@ -213,7 +222,7 @@ const DrawingCanvas: React.FC = () => {
         style={{ touchAction: 'none' }}
       />
 
-      {/* Color palette popup - shows above toolbar when active */}
+      {/* Color palette popup */}
       {showColorPalette && (
         <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex flex-wrap justify-center gap-5 p-6 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg max-w-xs z-50">
           {colorPalette.map((color) => (
@@ -232,7 +241,7 @@ const DrawingCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Brush size popup - shows above toolbar when active */}
+      {/* Brush size popup */}
       {showBrushSizes && (
         <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 flex gap-3 p-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg z-50">
           {brushSizes.map((size) => (
@@ -258,7 +267,7 @@ const DrawingCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Mobile-first toolbar - using design system spacing and shadows */}
+      {/* Mobile-first toolbar */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 px-6 py-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg">
         {/* Draw/Erase toggle */}
         <button
