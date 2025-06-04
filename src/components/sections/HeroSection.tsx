@@ -65,7 +65,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ scrollToRef }) => {
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
           >
             The weird, wildly entertaining drawing game perfect for killing time anywhere. 
-            Join 60-second rounds of frantic drawing and guessing!
+            Join 60-second rounds of frantic drawing and fun!
           </motion.p>
           
           <motion.div
