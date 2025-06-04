@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, Calendar, Clock, Thermometer, BarChart, Share2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Heart, Calendar, Clock, Thermometer, BarChart, Share2, AlertCircle, Info } from 'lucide-react';
 import { roadmapItems, roadmapCategories } from '../data/mockData';
 import { RoadmapItem } from '../types';
 import Button from '../components/ui/Button';
