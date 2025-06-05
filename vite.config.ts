@@ -11,4 +11,8 @@ export default defineConfig({
     copyPublicDir: true,
   },
   publicDir: 'public',
+  define: {
+    global: 'globalThis',
+    'process.env.IS_PREACT': JSON.stringify("false"),
+  },
 });

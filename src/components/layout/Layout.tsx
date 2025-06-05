@@ -17,7 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Check if current route is an auth page
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
 
-  const isDrawPage = ['/draw'].includes(location.pathname);
+  const isDrawPage = ['/draw', '/excalidraw'].includes(location.pathname);
   
   // Initialize banner state based on localStorage
   useEffect(() => {
@@ -81,7 +81,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
       
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && !isDrawPage && <Footer />}
     </div>
   );
 };
