@@ -9,6 +9,24 @@ const ExcalidrawCanvas: React.FC = () => {
 
   return (
     <div className="h-screen w-full relative">
+      {/* Hide library browse/upload elements while keeping the Library panel */}
+      <style>{`
+        /* Hide the instructional text about installing from public repository */
+        .excalidraw .library-menu-items__no-items__hint {
+          display: none !important;
+        }
+
+        /* Hide the "Browse libraries" button */
+        .excalidraw .library-menu-browse-button {
+          display: none !important;
+        }
+
+        /* Hide the library menu (three dots) that contains upload/import options */
+        .excalidraw .library-menu-dropdown-container {
+          display: none !important;
+        }
+      `}</style>
+
       <Excalidraw
         initialData={{
           elements: [],
