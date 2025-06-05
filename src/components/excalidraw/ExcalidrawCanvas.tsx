@@ -48,6 +48,16 @@ const ExcalidrawCanvas: React.FC = () => {
         .excalidraw .library-menu-dropdown-container {
           display: none !important;
         }
+
+        .excalidraw .library-menu-items-container__header--excal {
+          display: none !important;
+        }
+
+        .excalidraw .library-menu-items-container__header--excal + div {
+          display: none !important;
+        }
+
+
       `}</style>
 
       <Excalidraw
