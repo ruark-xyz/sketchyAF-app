@@ -57,6 +57,16 @@ const ExcalidrawCanvas: React.FC = () => {
           display: none !important;
         }
 
+        /* Hide more tools */
+        .excalidraw button[title="More tools"] {
+          display: none !important;
+        }
+
+        /* Hide main menu button */
+        .excalidraw .App-toolbar .dropdown-menu-button {
+          display: none !important;
+        }
+
 
       `}</style>
 
