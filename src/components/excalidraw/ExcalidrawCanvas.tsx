@@ -1,11 +1,34 @@
-import React from 'react';
-import { Excalidraw } from '@excalidraw/excalidraw';
+import React, { useRef } from 'react';
+import { Excalidraw, loadLibraryFromBlob } from '@excalidraw/excalidraw';
 import PerformanceMonitor from './PerformanceMonitor';
 import useMobileOptimization from '../../hooks/useMobileOptimization';
+import { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
 
 const ExcalidrawCanvas: React.FC = () => {
   // Apply mobile optimizations
   useMobileOptimization();
+
+  // Ref for Excalidraw API
+  const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+
+  // Function to load library from file
+  const loadLibraryFile = async (filename: string) => {
+    try {
+      const response = await fetch(`/libraries/${filename}`);
+      if (!response.ok) {
+        console.warn(`Failed to load library: ${filename}`);
+        return null;
+      }
+      const blob = await response.blob();
+      const libraryData = await loadLibraryFromBlob(blob);
+      return libraryData;
+    } catch (error) {
+      console.error(`Error loading library ${filename}:`, error);
+      return null;
+    }
+  };
+
+
 
   return (
     <div className="h-screen w-full relative">
@@ -28,9 +51,34 @@ const ExcalidrawCanvas: React.FC = () => {
       `}</style>
 
       <Excalidraw
+        excalidrawAPI={(api) => {
+          excalidrawAPIRef.current = api;
+          // Trigger library preloading when API becomes available
+          if (api) {
+            setTimeout(() => {
+              const preloadLibraries = async () => {
+                const libraryFiles = [
+                  'robots.excalidrawlib',
+                  // Add more library files here as needed
+                ];
+
+                for (const filename of libraryFiles) {
+                  const libraryData = await loadLibraryFile(filename);
+                  if (libraryData) {
+                    api.updateLibrary({
+                      libraryItems: libraryData || [],
+                      merge: true,
+                    });
+                  }
+                }
+              };
+              preloadLibraries();
+            }, 100); // Small delay to ensure API is ready
+          }
+        }}
         initialData={{
           elements: [],
-          appState: { 
+          appState: {
             viewBackgroundColor: "#ffffff",
           }
         }}
