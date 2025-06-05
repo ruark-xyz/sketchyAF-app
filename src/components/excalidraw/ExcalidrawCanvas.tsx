@@ -1,8 +1,13 @@
 import React, { useRef } from 'react';
-import { Excalidraw, loadLibraryFromBlob } from '@excalidraw/excalidraw';
+import { Excalidraw, loadSceneOrLibraryFromBlob, MIME_TYPES } from '@excalidraw/excalidraw';
 import PerformanceMonitor from './PerformanceMonitor';
 import useMobileOptimization from '../../hooks/useMobileOptimization';
 import { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
+
+// Type for legacy version 1 library format (used by robots.excalidrawlib)
+interface LegacyLibraryData {
+  library?: unknown[];
+}
 
 const ExcalidrawCanvas: React.FC = () => {
   // Apply mobile optimizations
@@ -11,7 +16,7 @@ const ExcalidrawCanvas: React.FC = () => {
   // Ref for Excalidraw API
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
 
-  // Function to load library from file
+  // Load library file and handle both version 1 and version 2 formats
   const loadLibraryFile = async (filename: string) => {
     try {
       const response = await fetch(`/libraries/${filename}`);
@@ -19,9 +24,18 @@ const ExcalidrawCanvas: React.FC = () => {
         console.warn(`Failed to load library: ${filename}`);
         return null;
       }
+
       const blob = await response.blob();
-      const libraryData = await loadLibraryFromBlob(blob);
-      return libraryData;
+
+      // Use loadSceneOrLibraryFromBlob which handles both version 1 and 2 library formats
+      const contents = await loadSceneOrLibraryFromBlob(blob, null, null);
+
+      if (contents.type === MIME_TYPES.excalidrawlib) {
+        return contents.data;
+      } else {
+        console.warn(`Unexpected content type for ${filename}:`, contents.type);
+        return null;
+      }
     } catch (error) {
       console.error(`Error loading library ${filename}:`, error);
       return null;
@@ -34,46 +48,22 @@ const ExcalidrawCanvas: React.FC = () => {
     <div className="h-screen w-full relative">
       {/* Hide library browse/upload elements while keeping the Library panel */}
       <style>{`
-        /* Hide the instructional text about installing from public repository */
-        .excalidraw .library-menu-items__no-items__hint {
-          display: none !important;
-        }
-
-        /* Hide the "Browse libraries" button */
-        .excalidraw .library-menu-browse-button {
-          display: none !important;
-        }
-
-        /* Hide the library menu (three dots) that contains upload/import options */
-        .excalidraw .library-menu-dropdown-container {
-          display: none !important;
-        }
-
-        .excalidraw .library-menu-items-container__header--excal {
-          display: none !important;
-        }
-
+        /* Library panel customizations */
+        .excalidraw .library-menu-items__no-items__hint,
+        .excalidraw .library-menu-browse-button,
+        .excalidraw .library-menu-dropdown-container,
+        .excalidraw .library-menu-items-container__header--excal,
         .excalidraw .library-menu-items-container__header--excal + div {
           display: none !important;
         }
 
-        /* Hide more tools */
-        .excalidraw button[title="More tools"] {
-          display: none !important;
-        }
-
-        /* Hide main menu button */
-        .excalidraw .App-toolbar .dropdown-menu-button {
-          display: none !important;
-        }
-        .excalidraw .main-menu-trigger {
-          display: none !important;
-        }
+        /* Toolbar customizations */
+        .excalidraw button[title="More tools"],
+        .excalidraw .App-toolbar .dropdown-menu-button,
+        .excalidraw .main-menu-trigger,
         .excalidraw .help-icon {
           display: none !important;
         }
-
-
       `}</style>
 
       <Excalidraw
@@ -85,16 +75,26 @@ const ExcalidrawCanvas: React.FC = () => {
               const preloadLibraries = async () => {
                 const libraryFiles = [
                   'robots.excalidrawlib',
+                  'shapes.excalidrawlib',
                   // Add more library files here as needed
                 ];
 
                 for (const filename of libraryFiles) {
                   const libraryData = await loadLibraryFile(filename);
-                  if (libraryData) {
-                    api.updateLibrary({
-                      libraryItems: libraryData || [],
-                      merge: true,
-                    });
+
+                  // Handle both version 1 (library) and version 2 (libraryItems) formats
+                  const items = libraryData?.libraryItems || (libraryData as LegacyLibraryData)?.library;
+
+                  if (items && items.length > 0) {
+                    try {
+                      api.updateLibrary({
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        libraryItems: items as any, // Type assertion needed for legacy v1 format compatibility
+                        merge: true,
+                      });
+                    } catch (error) {
+                      console.error(`Failed to load library ${filename}:`, error);
+                    }
                   }
                 }
               };
