@@ -66,6 +66,9 @@ const ExcalidrawCanvas: React.FC = () => {
         .excalidraw .App-toolbar .dropdown-menu-button {
           display: none !important;
         }
+        .excalidraw .main-menu-trigger {
+          display: none !important;
+        }
 
 
       `}</style>
