@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import Seo from '../components/utils/Seo';
 import Button from '../components/ui/Button';
+import BottomCTA from '../components/sections/BottomCTA';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import UserSubmissionCard from '../components/ui/UserSubmissionCard';
 import AchievementCard from '../components/ui/AchievementCard';
 import StatCard from '../components/ui/StatCard';
@@ -34,6 +36,10 @@ const UserProfile: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const [isFollowing, setIsFollowing] = useState(false);
   const [activeTab, setActiveTab] = useState<'recent' | 'popular' | 'winning'>('recent');
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   // In a real app, we would fetch the user data based on the username
   // For this mockup, we'll use our static data
@@ -373,7 +379,7 @@ const UserProfile: React.FC = () => {
             
             {/* Community Ranking Section (Premium only) */}
             {publicProfileData.isPremium && (
-              <div className="bg-white p-6 md:p-8 rounded-lg shadow-lg border-2 border-dark hand-drawn">
+              <div className="bg-white p-6 md:p-8 rounded-lg shadow-lg border-2 border-dark hand-drawn mb-8">
                 <div className="flex items-center mb-6">
                   <Star size={24} className="mr-2 text-primary" />
                   <h2 className="font-heading font-bold text-2xl">Community Ranking</h2>
@@ -414,6 +420,20 @@ const UserProfile: React.FC = () => {
           </motion.div>
         </div>
       </div>
+      
+      {/* Bottom CTA for Placeholder Notice */}
+      <BottomCTA 
+        heading="This Profile is a Preview!" 
+        subheading="This is a demonstration of what user profiles will look like when we launch. Sign up to be notified when SketchyAF goes live and you can create your own profile!"
+        buttonText="Get Notified When We Launch"
+        onEmailSignupClick={openEmailModal}
+      />
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
+      />
     </>
   );
 };
