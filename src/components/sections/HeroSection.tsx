@@ -1,14 +1,14 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import Button from '../ui/Button';
 import { ChevronDown } from 'lucide-react';
+import Button from '../ui/Button';
 
 interface HeroSectionProps {
   scrollToRef?: React.RefObject<HTMLElement>;
+  onEmailSignupClick?: () => void;
 }
 
-const HeroSection: React.FC<HeroSectionProps> = ({ scrollToRef }) => {
+const HeroSection: React.FC<HeroSectionProps> = ({ scrollToRef, onEmailSignupClick }) => {
   const scrollToContent = () => {
     if (scrollToRef && scrollToRef.current) {
       scrollToRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -77,7 +77,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ scrollToRef }) => {
             <Button 
               variant="primary" 
               size="lg" 
-              onClick={scrollToContent}
+              onClick={onEmailSignupClick}
             >
               Join a Game
             </Button>

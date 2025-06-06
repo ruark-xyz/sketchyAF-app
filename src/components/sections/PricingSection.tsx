@@ -10,9 +10,10 @@ interface PricingSectionProps {
     monthly: string;
     annual: string;
   };
+  onEmailSignupClick?: () => void;
 }
 
-const PricingSection: React.FC<PricingSectionProps> = ({ benefits, price }) => {
+const PricingSection: React.FC<PricingSectionProps> = ({ benefits, price, onEmailSignupClick }) => {
   return (
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,7 +49,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({ benefits, price }) => {
                 <div className="text-center">
                   <span className="font-heading font-bold text-4xl text-primary">{price.monthly}</span>
                   <span className="text-medium-gray ml-1">/month</span>
-                  <p className="text-sm mt-1 text-medium-gray">or {price.annual}/year (save 20%)</p>
+                  <p className="text-sm mt-1 text-medium-gray">or {price.annual}/year (save 25%)</p>
                 </div>
               </div>
               
@@ -84,9 +85,19 @@ const PricingSection: React.FC<PricingSectionProps> = ({ benefits, price }) => {
               </ul>
               
               <div className="text-center">
-                <Button variant="primary" size="lg" href="#">
-                  Get Premium Now
-                </Button>
+                {onEmailSignupClick ? (
+                  <Button 
+                    variant="primary" 
+                    size="lg" 
+                    onClick={onEmailSignupClick}
+                  >
+                    Get Premium Now
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="lg" href="#">
+                    Get Premium Now
+                  </Button>
+                )}
                 <p className="text-sm text-medium-gray mt-4">
                   No commitment. Cancel anytime.
                 </p>

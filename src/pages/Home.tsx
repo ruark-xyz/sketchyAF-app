@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import HeroSection from '../components/sections/HeroSection';
 import EmailSignup from '../components/sections/EmailSignup';
 import FeatureSection from '../components/sections/FeatureSection';
 import TestimonialSection from '../components/sections/TestimonialSection';
 import BottomCTA from '../components/sections/BottomCTA';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
 import { gameFeatures, testimonials } from '../data/mockData';
@@ -13,6 +14,10 @@ import { Route } from 'lucide-react';
 const Home: React.FC = () => {
   const featuresRef = useRef<HTMLDivElement>(null);
   const emailSignupRef = useRef<HTMLElement>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   return (
     <>
@@ -21,7 +26,10 @@ const Home: React.FC = () => {
         description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!"
       />
       
-      <HeroSection scrollToRef={emailSignupRef} />
+      <HeroSection 
+        scrollToRef={emailSignupRef} 
+        onEmailSignupClick={openEmailModal}
+      />
       
       <div ref={featuresRef}>
         <FeatureSection features={gameFeatures} />
@@ -58,8 +66,13 @@ const Home: React.FC = () => {
         heading="Ready to Get Sketchy?" 
         subheading="Join the drawing mayhem today and prove that stick figures can be art... sort of."
         buttonText="Join a Game"
-        buttonLink="#email-signup"
-        isExternalLink={false}
+        onEmailSignupClick={openEmailModal}
+      />
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
       />
     </>
   );

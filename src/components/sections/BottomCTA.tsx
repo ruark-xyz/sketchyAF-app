@@ -6,8 +6,9 @@ interface BottomCTAProps {
   heading: string;
   subheading?: string;
   buttonText: string;
-  buttonLink: string;
+  buttonLink?: string;
   isExternalLink?: boolean;
+  onEmailSignupClick?: () => void;
 }
 
 const BottomCTA: React.FC<BottomCTAProps> = ({
@@ -16,6 +17,7 @@ const BottomCTA: React.FC<BottomCTAProps> = ({
   buttonText,
   buttonLink,
   isExternalLink = false,
+  onEmailSignupClick,
 }) => {
   return (
     <section className="bg-secondary py-16 md:py-24 border-y-2 border-dark">
@@ -37,23 +39,34 @@ const BottomCTA: React.FC<BottomCTAProps> = ({
             </p>
           )}
           
-          {isExternalLink ? (
+          {/* Conditional rendering based on whether we have an email signup handler or a link */}
+          {onEmailSignupClick ? (
             <Button 
               variant="primary" 
               size="lg" 
-              href={buttonLink}
+              onClick={onEmailSignupClick}
             >
               {buttonText}
             </Button>
-          ) : (
-            <Button 
-              variant="primary" 
-              size="lg" 
-              to={buttonLink}
-            >
-              {buttonText}
-            </Button>
-          )}
+          ) : buttonLink ? (
+            isExternalLink ? (
+              <Button 
+                variant="primary" 
+                size="lg" 
+                href={buttonLink}
+              >
+                {buttonText}
+              </Button>
+            ) : (
+              <Button 
+                variant="primary" 
+                size="lg" 
+                to={buttonLink}
+              >
+                {buttonText}
+              </Button>
+            )
+          ) : null}
         </motion.div>
       </div>
     </section>
