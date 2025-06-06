@@ -46,19 +46,6 @@ const BoosterPackDetail: React.FC = () => {
     );
   }
   
-  // Determine badge color based on pack type
-  const getPriceBadgeColor = (type: string) => {
-    switch (type) {
-      case 'premium':
-        return 'bg-primary text-white';
-      case 'paid':
-        return 'bg-secondary text-white';
-      case 'free':
-      default:
-        return 'bg-success text-white';
-    }
-  };
-  
   // Fake statistics for the pack (in a real app, these would come from the backend)
   const packStats = {
     usageCount: Math.floor(Math.random() * 100000) + 50000,
@@ -108,14 +95,14 @@ const BoosterPackDetail: React.FC = () => {
                 />
               </div>
               <div className="md:w-2/3 p-6 md:p-8">
-                <div className="flex justify-between items-center mb-2">
-                  <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark">{pack.name}</h1>
-                  <span className={`px-4 py-1 text-sm font-semibold rounded-full ${getPriceBadgeColor(pack.type)}`}>
-                    {pack.price}
-                  </span>
-                </div>
+                <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-4">{pack.name}</h1>
                 
-                <p className="text-medium-gray text-lg mb-6">{pack.description}</p>
+                <p className="text-medium-gray text-lg mb-4">{pack.description}</p>
+                
+                {/* Placeholder note */}
+                <p className="text-sm text-medium-gray italic mb-6 bg-off-white p-3 rounded-lg border border-light-gray">
+                  🎨 Just a teaser—full chaos drops soon! This pack is still cooking in our creative kitchen.
+                </p>
                 
                 {/* Feature Badges */}
                 {pack.badges && pack.badges.length > 0 && (

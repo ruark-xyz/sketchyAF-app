@@ -45,7 +45,7 @@ const Premium: React.FC = () => {
               Explore Booster Packs
             </h2>
             <p className="text-medium-gray text-lg max-w-2xl mx-auto">
-              From meme collections to NSFW content, we've got packs for every occasion.
+              From meme collections to NSFW content, we've got packs for every occasion. Our packs are still baking in the meme oven. Take a sneak peek before launch!
               Click on a pack to see what's inside!
             </p>
           </div>
