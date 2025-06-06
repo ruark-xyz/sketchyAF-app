@@ -32,8 +32,8 @@ const Premium: React.FC = () => {
       <PricingSection 
         benefits={subscriptionBenefits}
         price={{
-          monthly: "$4.99",
-          annual: "$47.88"
+          monthly: "$1.99",
+          annual: "$17.90"
         }}
         onEmailSignupClick={openEmailModal}
       />
