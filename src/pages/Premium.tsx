@@ -1,13 +1,18 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import PremiumHero from '../components/sections/PremiumHero';
 import PricingSection from '../components/sections/PricingSection';
 import BoosterPacksGrid from '../components/sections/BoosterPacksGrid';
 import BottomCTA from '../components/sections/BottomCTA';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { boosterPacks, subscriptionBenefits } from '../data/mockData';
 
 const Premium: React.FC = () => {
   const boosterPacksRef = useRef<HTMLDivElement>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   const scrollToBoosterPacks = () => {
     if (boosterPacksRef.current) {
@@ -30,6 +35,7 @@ const Premium: React.FC = () => {
           monthly: "$4.99",
           annual: "$47.88"
         }}
+        onEmailSignupClick={openEmailModal}
       />
       
       <section id="booster-packs" ref={boosterPacksRef} className="py-16 bg-off-white">
@@ -52,8 +58,13 @@ const Premium: React.FC = () => {
         heading="Ready to Unlock Premium?"
         subheading="Get access to exclusive content and features that make the game even more entertaining."
         buttonText="Get Premium Now"
-        buttonLink="#"
-        isExternalLink={true}
+        onEmailSignupClick={openEmailModal}
+      />
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
       />
     </>
   );
