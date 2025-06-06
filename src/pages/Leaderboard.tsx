@@ -1,12 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import LeaderboardTable from '../components/ui/LeaderboardTable';
 import Button from '../components/ui/Button';
 import BottomCTA from '../components/sections/BottomCTA';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { leaderboardData } from '../data/mockData';
 
 const Leaderboard: React.FC = () => {
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
+
   return (
     <>
       <Seo 
@@ -47,7 +53,7 @@ const Leaderboard: React.FC = () => {
               <p className="text-medium-gray mb-4">
                 When we launch, you'll be able to compete against these artistic geniuses!
               </p>
-              <Button variant="primary" to="/#email-signup">
+              <Button variant="primary" onClick={openEmailModal}>
                 Join a Game & Prove It
               </Button>
             </div>
@@ -59,8 +65,13 @@ const Leaderboard: React.FC = () => {
         heading="Ready to Join the Ranks?" 
         subheading="Your terrible drawing skills could earn you a spot on this prestigious leaderboard."
         buttonText="Start Drawing Now"
-        buttonLink="/#email-signup"
-        isExternalLink={false}
+        onEmailSignupClick={openEmailModal}
+      />
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
       />
     </>
   );

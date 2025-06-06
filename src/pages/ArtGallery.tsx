@@ -3,12 +3,17 @@ import { motion } from 'framer-motion';
 import { Search, Filter } from 'lucide-react';
 import DrawingCard from '../components/ui/DrawingCard';
 import BottomCTA from '../components/sections/BottomCTA';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { topDrawingsData } from '../data/mockData';
 
 const ArtGallery: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   // Animation variants
   const containerVariants = {
@@ -129,8 +134,13 @@ const ArtGallery: React.FC = () => {
         heading="Think You Can Do Better?" 
         subheading="Join the game and show off your artistic skills (or lack thereof)."
         buttonText="Start Drawing Now"
-        buttonLink="/#email-signup"
-        isExternalLink={false}
+        onEmailSignupClick={openEmailModal}
+      />
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
       />
     </>
   );

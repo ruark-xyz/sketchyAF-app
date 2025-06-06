@@ -66,8 +66,7 @@ const Home: React.FC = () => {
         heading="Ready to Get Sketchy?" 
         subheading="Join the drawing mayhem today and prove that stick figures can be art... sort of."
         buttonText="Join a Game"
-        buttonLink="#email-signup"
-        isExternalLink={false}
+        onEmailSignupClick={openEmailModal}
       />
       
       {/* Email Signup Modal */}
