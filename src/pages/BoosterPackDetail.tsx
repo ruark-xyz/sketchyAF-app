@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Users, BarChart, Award, Star, Download, Globe, ExternalLink } from 'lucide-react';
 import Button from '../components/ui/Button';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { boosterPacks } from '../data/mockData';
 import { BoosterPack } from '../types';
@@ -11,6 +12,10 @@ const BoosterPackDetail: React.FC = () => {
   const { packId } = useParams<{ packId: string }>();
   const [pack, setPack] = useState<BoosterPack | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   useEffect(() => {
     // In a real app, this would be an API call
@@ -149,18 +154,27 @@ const BoosterPackDetail: React.FC = () => {
                   </div>
                 )}
                 
-                {/* CTA Button */}
+                {/* CTA Button - Updated to use EmailSignupModal */}
                 <div>
                   {pack.type === 'premium' ? (
-                    <Button variant="primary\" to="/premium">
+                    <Button 
+                      variant="primary" 
+                      onClick={openEmailModal}
+                    >
                       Become Premium AF
                     </Button>
                   ) : pack.type === 'paid' ? (
-                    <Button variant="primary" href="#">
+                    <Button 
+                      variant="primary" 
+                      onClick={openEmailModal}
+                    >
                       Buy for {pack.price}
                     </Button>
                   ) : (
-                    <Button variant="primary" href="#">
+                    <Button 
+                      variant="primary" 
+                      onClick={openEmailModal}
+                    >
                       Add to My Collection
                     </Button>
                   )}
@@ -361,6 +375,12 @@ const BoosterPackDetail: React.FC = () => {
           </motion.div>
         </div>
       </div>
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
+      />
     </>
   );
 };
