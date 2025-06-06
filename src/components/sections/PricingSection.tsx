@@ -49,7 +49,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({ benefits, price, onEmai
                 <div className="text-center">
                   <span className="font-heading font-bold text-4xl text-primary">{price.monthly}</span>
                   <span className="text-medium-gray ml-1">/month</span>
-                  <p className="text-sm mt-1 text-medium-gray">or {price.annual}/year (save 20%)</p>
+                  <p className="text-sm mt-1 text-medium-gray">or {price.annual}/year (save 25%)</p>
                 </div>
               </div>
               
