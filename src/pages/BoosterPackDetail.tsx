@@ -97,7 +97,12 @@ const BoosterPackDetail: React.FC = () => {
               <div className="md:w-2/3 p-6 md:p-8">
                 <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-4">{pack.name}</h1>
                 
-                <p className="text-medium-gray text-lg mb-6">{pack.description}</p>
+                <p className="text-medium-gray text-lg mb-4">{pack.description}</p>
+                
+                {/* Placeholder note */}
+                <p className="text-sm text-medium-gray italic mb-6 bg-off-white p-3 rounded-lg border border-light-gray">
+                  🎨 Just a teaser—full chaos drops soon! This pack is still cooking in our creative kitchen.
+                </p>
                 
                 {/* Feature Badges */}
                 {pack.badges && pack.badges.length > 0 && (
