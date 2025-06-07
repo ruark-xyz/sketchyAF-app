@@ -18,6 +18,7 @@ import BoosterPackDetail from './pages/BoosterPackDetail';
 import Roadmap from './pages/Roadmap';
 import RoadmapDetail from './pages/RoadmapDetail';
 import LobbyScreen from './pages/uiux/LobbyScreen';
+import PreRoundBriefingScreen from './pages/uiux/PreRoundBriefingScreen';
 import { AuthProvider } from './context/AuthContext';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -57,6 +58,7 @@ function App() {
             
             {/* UI/UX Concept Screens */}
             <Route path="/uiux/lobby" element={<LobbyScreen />} />
+            <Route path="/uiux/pre-round" element={<PreRoundBriefingScreen />} />
           </Routes>
         </Layout>
       </AuthProvider>
