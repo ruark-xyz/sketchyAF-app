@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Heart, ChevronRight, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RoadmapItem } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/OptimizedAuthContext';
 
 interface RoadmapItemCardProps {
   item: RoadmapItem;
