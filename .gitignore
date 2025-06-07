@@ -74,3 +74,7 @@ storybook-static
 
 # Cursor
 .cursor
+
+# Docs and AI stuff
+.ai/
+docs/private
