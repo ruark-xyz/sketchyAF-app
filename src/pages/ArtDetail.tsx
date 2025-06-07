@@ -7,7 +7,7 @@ import Input from '../components/ui/Input';
 import Seo from '../components/utils/Seo';
 import { topDrawingsData, boosterPacks } from '../data/mockData';
 import { TopDrawing, BoosterPack } from '../types';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/OptimizedAuthContext';
 
 const ArtDetail: React.FC = () => {
   const { drawingId } = useParams<{ drawingId: string }>();
