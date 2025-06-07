@@ -4,7 +4,7 @@ import { Menu, X, Pencil, UserCircle, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavItem } from '../../types';
 import Button from '../ui/Button';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/OptimizedAuthContext';
 
 const navItems: NavItem[] = [
   { label: 'Home', path: '/' },

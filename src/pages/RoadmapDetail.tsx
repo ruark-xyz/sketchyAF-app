@@ -6,7 +6,7 @@ import { roadmapItems, roadmapCategories } from '../data/mockData';
 import { RoadmapItem } from '../types';
 import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/OptimizedAuthContext';
 
 const RoadmapDetail: React.FC = () => {
   const { itemId } = useParams<{ itemId: string }>();

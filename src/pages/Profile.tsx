@@ -7,7 +7,7 @@ import {
   Star, Calendar, AlertCircle, Package, MessageSquare,
   ToggleLeft, ToggleRight, Globe
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/OptimizedAuthContext';
 import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
 import CountrySelect from '../components/ui/CountrySelect';

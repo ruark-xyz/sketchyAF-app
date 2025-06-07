@@ -6,7 +6,7 @@ import { roadmapItems, roadmapCategories } from '../data/mockData';
 import RoadmapItemCard from '../components/ui/RoadmapItemCard';
 import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/OptimizedAuthContext';
 
 const Roadmap: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');

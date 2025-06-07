@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, AlertCircle, ArrowLeft, UserPlus } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/OptimizedAuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
