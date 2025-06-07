@@ -12,7 +12,7 @@ describe('ErrorMessage Component', () => {
 
   it('shows retry button when onRetry is provided', () => {
     const mockRetry = jest.fn();
-    render(<ErrorMessage message="Test error" onRetry={mockRetry} />);
+    render(<ErrorMessage message="Test error\" onRetry={mockRetry} />);
     
     const retryButton = screen.getByRole('button', { name: /try again/i });
     expect(retryButton).toBeInTheDocument();
