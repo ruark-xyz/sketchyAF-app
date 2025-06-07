@@ -32,4 +32,4 @@ const GlobalLoadingOverlay: React.FC = () => {
   );
 };
 
-export default GlobalLoadingOverlay;</parameter>
+export default GlobalLoadingOverlay;

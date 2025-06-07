@@ -210,4 +210,4 @@ export const useGlobalState = (): GlobalContextType => {
   return context;
 };
 
-export default GlobalStateContext;</parameter>
+export default GlobalStateContext;

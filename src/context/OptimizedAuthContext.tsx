@@ -384,4 +384,4 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
-export default AuthContext;</parameter>
+export default AuthContext;
