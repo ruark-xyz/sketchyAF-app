@@ -8,12 +8,14 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "analyze:bundle": "npm run build && npx vite-bundle-analyzer dist",
+    "analyze:bundle": "ANALYZE=true npm run build",
     "build:analyze": "vite build --mode analyze",
     "build:libraries": "npx tsx scripts/build-libraries.ts",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "performance:audit": "lighthouse http://localhost:4173 --output html --output-path ./dist/lighthouse-report.html",
+    "performance:build": "npm run build && npm run preview & sleep 5 && npm run performance:audit"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.17.6",
@@ -45,6 +47,7 @@
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
     "jsdom": "^24.0.0",
+    "lighthouse": "^11.7.0",
     "postcss": "^8.4.35",
     "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^3.4.1",

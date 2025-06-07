@@ -1,0 +1,73 @@
+{
+  "name": "SketchyAF - The Wildly Entertaining Drawing Game",
+  "short_name": "SketchyAF",
+  "description": "A weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9f5eb",
+  "theme_color": "#4f57d2",
+  "orientation": "portrait-primary",
+  "categories": ["games", "entertainment", "social"],
+  "lang": "en",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "375x812",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Play Now",
+      "short_name": "Play",
+      "description": "Start a new drawing game",
+      "url": "/?action=play",
+      "icons": [
+        {
+          "src": "/play-icon.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Leaderboard",
+      "short_name": "Ranks",
+      "description": "View top players",
+      "url": "/leaderboard",
+      "icons": [
+        {
+          "src": "/leaderboard-icon.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

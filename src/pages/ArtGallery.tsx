@@ -9,14 +9,21 @@ import GridContainer from '../components/layout/GridContainer';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ErrorMessage from '../components/ui/ErrorMessage';
 import ContentCard from '../components/ui/ContentCard';
-import Seo from '../components/utils/Seo';
-import { useTopDrawings } from '../hooks/useApi';
+import EnhancedSeo from '../components/utils/EnhancedSeo';
+import PerformanceMonitor from '../components/performance/PerformanceMonitor';
+import { useTopDrawings } from '../hooks/useEnhancedApi';
 
 const ArtGallery: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const { data: drawings, loading, error, refetch } = useTopDrawings();
+  
+  // Use enhanced API hook with caching
+  const { data: drawings, loading, error, refetch, isCached, responseTime } = useTopDrawings({
+    cache: true,
+    cacheTTL: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: true,
+  });
   
   const openEmailModal = () => setIsEmailModalOpen(true);
   const closeEmailModal = () => setIsEmailModalOpen(false);
@@ -37,9 +44,16 @@ const ArtGallery: React.FC = () => {
 
   return (
     <>
-      <Seo 
+      <EnhancedSeo 
         title="Art Gallery - Community Masterpieces"
         description="Explore the funniest and most creative drawings from SketchyAF players. Vote for your favorites and see what crazy prompts inspired these masterpieces!"
+        keywords={['art gallery', 'drawings', 'community art', 'creative sketches', 'user submissions']}
+        structuredData={{
+          '@type': 'CollectionPage',
+          name: 'SketchyAF Art Gallery',
+          description: 'A collection of creative drawings from the SketchyAF community',
+          numberOfItems: drawings?.length || 0,
+        }}
       />
       
       <PageContainer background="off-white">
@@ -47,6 +61,14 @@ const ArtGallery: React.FC = () => {
           title="Art Gallery"
           subtitle="Explore the most creative, hilarious, and occasionally disturbing masterpieces from our community. Vote for your favorites or get inspired for your next drawing!"
         />
+        
+        {/* Performance indicator for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 text-xs text-gray-500 text-center">
+            {isCached ? '⚡ Loaded from cache' : '🌐 Fresh from server'} 
+            {responseTime && ` • ${responseTime.toFixed(1)}ms`}
+          </div>
+        )}
         
         {/* Search and Filter Controls */}
         <div className="mb-8 flex flex-col md:flex-row gap-4 justify-between">
@@ -128,6 +150,8 @@ const ArtGallery: React.FC = () => {
         isOpen={isEmailModalOpen} 
         onClose={closeEmailModal} 
       />
+      
+      <PerformanceMonitor />
     </>
   );
 };
