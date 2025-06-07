@@ -20,6 +20,7 @@ import RoadmapDetail from './pages/RoadmapDetail';
 import LobbyScreen from './pages/uiux/LobbyScreen';
 import PreRoundBriefingScreen from './pages/uiux/PreRoundBriefingScreen';
 import DrawingCanvasScreen from './pages/uiux/DrawingCanvasScreen';
+import VotingScreen from './pages/uiux/VotingScreen';
 import { AuthProvider } from './context/AuthContext';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -61,6 +62,7 @@ function App() {
             <Route path="/uiux/lobby" element={<LobbyScreen />} />
             <Route path="/uiux/pre-round" element={<PreRoundBriefingScreen />} />
             <Route path="/uiux/drawing" element={<DrawingCanvasScreen />} />
+            <Route path="/uiux/voting" element={<VotingScreen />} />
           </Routes>
         </Layout>
       </AuthProvider>
