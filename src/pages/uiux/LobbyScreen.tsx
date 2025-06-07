@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Users, Trophy, Lightbulb, X, Wifi, Share2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
 
@@ -15,10 +16,30 @@ const TIPS_AND_TRIVIA = [
 ];
 
 const RECENT_SKETCHES = [
-  "🐱 Someone just drew 'A cat having an existential crisis'",
-  "🚀 Winner: 'Astronaut eating spaghetti in zero gravity'",
-  "🦄 Epic sketch: 'Unicorn working in customer service'",
-  "🍕 Masterpiece: 'Pizza slice contemplating life choices'",
+  {
+    id: 1,
+    text: "🐱 Someone just drew 'A cat having an existential crisis'",
+    drawingUrl: 'https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=150',
+    drawingId: 1
+  },
+  {
+    id: 2,
+    text: "🚀 Winner: 'Astronaut eating spaghetti in zero gravity'",
+    drawingUrl: 'https://images.pexels.com/photos/1887946/pexels-photo-1887946.jpeg?auto=compress&cs=tinysrgb&w=150',
+    drawingId: 2
+  },
+  {
+    id: 3,
+    text: "🦄 Epic sketch: 'Unicorn working in customer service'",
+    drawingUrl: 'https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=150',
+    drawingId: 3
+  },
+  {
+    id: 4,
+    text: "🍕 Masterpiece: 'Pizza slice contemplating life choices'",
+    drawingUrl: 'https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=150',
+    drawingId: 4
+  },
 ];
 
 const LobbyScreen: React.FC = () => {
@@ -102,6 +123,8 @@ const LobbyScreen: React.FC = () => {
       alert('Invite link copied to clipboard!');
     }
   };
+
+  const currentSketchData = RECENT_SKETCHES[currentSketch];
 
   return (
     <>
@@ -267,19 +290,47 @@ const LobbyScreen: React.FC = () => {
               transition={{ duration: 0.5, delay: 0.4 }}
               className="bg-turquoise/20 rounded-lg border-2 border-turquoise p-4 hand-drawn"
             >
-              <h3 className="font-heading font-semibold text-dark mb-2">🎯 Recent Activity</h3>
+              <h3 className="font-heading font-semibold text-dark mb-3">🎯 Recent Activity</h3>
               
               <AnimatePresence mode="wait">
-                <motion.p
+                <motion.div
                   key={currentSketch}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.4 }}
-                  className="text-dark-gray text-sm"
+                  className="flex items-start space-x-3"
                 >
-                  {RECENT_SKETCHES[currentSketch]}
-                </motion.p>
+                  {/* Thumbnail */}
+                  <Link 
+                    to={`/art/${currentSketchData.drawingId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 group"
+                  >
+                    <motion.img 
+                      src={currentSketchData.drawingUrl} 
+                      alt="Recent winning sketch"
+                      className="w-12 h-12 rounded-lg border-2 border-turquoise object-cover group-hover:scale-110 transition-transform duration-200"
+                      whileHover={{ scale: 1.1 }}
+                    />
+                  </Link>
+                  
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-dark-gray text-sm">
+                      {currentSketchData.text}
+                    </p>
+                    <Link 
+                      to={`/art/${currentSketchData.drawingId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-turquoise hover:underline inline-flex items-center mt-1"
+                    >
+                      View artwork →
+                    </Link>
+                  </div>
+                </motion.div>
               </AnimatePresence>
             </motion.div>
 
