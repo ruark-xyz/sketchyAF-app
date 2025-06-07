@@ -17,47 +17,55 @@ import UserProfile from './pages/UserProfile';
 import BoosterPackDetail from './pages/BoosterPackDetail';
 import Roadmap from './pages/Roadmap';
 import RoadmapDetail from './pages/RoadmapDetail';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider } from './context/OptimizedAuthContext';
+import { GlobalStateProvider } from './context/GlobalStateContext';
+import ErrorBoundary from './components/error/ErrorBoundary';
+import NotificationManager from './components/ui/NotificationManager';
+import GlobalLoadingOverlay from './components/ui/GlobalLoadingOverlay';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
 
 function App() {
   return (
-    <Router>
-      {/* ScrollToTop component to handle scrolling to top on route change */}
-      <ScrollToTop />
-      
-      {/* Default SEO that will be overridden by page-specific SEO */}
-      <Seo 
-        title="SketchyAF - The Wildly Entertaining Drawing Game"
-        description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!"
-      />
-      
-      {/* Wrap entire app with AuthProvider */}
-      <AuthProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/excalidraw" element={<ExcalidrawDraw />} />
-            <Route path="/premium" element={<Premium />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/art" element={<ArtGallery />} />
-            <Route path="/art/:drawingId" element={<ArtDetail />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/user/:username" element={<UserProfile />} />
-            <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
-            <Route path="/roadmap" element={<Roadmap />} />
-            <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
-          </Routes>
-        </Layout>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <ScrollToTop />
+        
+        <Seo 
+          title="SketchyAF - The Wildly Entertaining Drawing Game"
+          description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!"
+        />
+        
+        <GlobalStateProvider>
+          <AuthProvider>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/excalidraw" element={<ExcalidrawDraw />} />
+                <Route path="/premium" element={<Premium />} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/art" element={<ArtGallery />} />
+                <Route path="/art/:drawingId" element={<ArtDetail />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/user/:username" element={<UserProfile />} />
+                <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
+                <Route path="/roadmap" element={<Roadmap />} />
+                <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
+              </Routes>
+            </Layout>
+            
+            <NotificationManager />
+            <GlobalLoadingOverlay />
+          </AuthProvider>
+        </GlobalStateProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
-export default App;
+export default App;</parameter>
