@@ -17,6 +17,7 @@ import UserProfile from './pages/UserProfile';
 import BoosterPackDetail from './pages/BoosterPackDetail';
 import Roadmap from './pages/Roadmap';
 import RoadmapDetail from './pages/RoadmapDetail';
+import LobbyScreen from './pages/uiux/LobbyScreen';
 import { AuthProvider } from './context/AuthContext';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -53,6 +54,9 @@ function App() {
             <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
             <Route path="/roadmap" element={<Roadmap />} />
             <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
+            
+            {/* UI/UX Concept Screens */}
+            <Route path="/uiux/lobby" element={<LobbyScreen />} />
           </Routes>
         </Layout>
       </AuthProvider>
