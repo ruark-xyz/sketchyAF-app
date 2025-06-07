@@ -78,3 +78,4 @@ storybook-static
 # Docs and AI stuff
 .ai/
 docs/private
+.github/instructions
