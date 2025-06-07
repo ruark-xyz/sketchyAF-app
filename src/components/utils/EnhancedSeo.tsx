@@ -80,10 +80,10 @@ const EnhancedSeo: React.FC<EnhancedSeoProps> = ({
       <meta property="og:description" content={description} />
       <meta property="og:url" content={currentUrl} />
       <meta property="og:locale" content={locale} />
-      {ogImage && <meta property="og:image" content={ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`} />}
+      {ogImage && <meta property="og:image\" content={ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`} />}
       {ogImage && <meta property="og:image:alt" content={title} />}
-      {ogImage && <meta property="og:image:width" content="1200" />}
-      {ogImage && <meta property="og:image:height" content="630" />}
+      {ogImage && <meta property="og:image:width\" content="1200" />}
+      {ogImage && <meta property="og:image:height\" content="630" />}
       
       {/* Twitter Card Meta Tags */}
       <meta name="twitter:card" content={twitterCard} />
@@ -91,7 +91,7 @@ const EnhancedSeo: React.FC<EnhancedSeoProps> = ({
       <meta name="twitter:creator" content="@sketchyaf" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      {ogImage && <meta name="twitter:image" content={ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`} />}
+      {ogImage && <meta name="twitter:image\" content={ogImage.startsWith('http') ? ogImage : `${baseUrl}${ogImage}`} />}
       {ogImage && <meta name="twitter:image:alt" content={title} />}
       
       {/* Additional Meta Tags for Mobile */}
