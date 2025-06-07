@@ -365,7 +365,7 @@ const PostGameScreen: React.FC = () => {
 
                   <div className="bg-turquoise/10 p-3 rounded-lg border border-turquoise/30">
                     <p className="text-xs text-center text-dark">
-                      💡 Share your drawings to earn bonus XP and climb the leaderboard faster!
+                      💡 Share your drawings to earn bonus XP on your next round and climb the leaderboard faster!
                     </p>
                   </div>
                 </div>
