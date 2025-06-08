@@ -454,7 +454,7 @@ const ResultsScreen: React.FC = () => {
                 className="w-full"
               >
                 <User size={20} className="mr-2" />
-               Track performance
+               See performance
               </Button>
 
               <Button 
