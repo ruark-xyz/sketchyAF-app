@@ -4,8 +4,27 @@ import { Clock, Users, Palette, CheckCircle, ArrowRight, Zap, Star } from 'lucid
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
 
+// TypeScript interfaces for better type safety
+interface Player {
+  id: number;
+  username: string;
+  avatar: string;
+  isReady: boolean;
+  isCurrentUser?: boolean;
+  level: number;
+  isPremium: boolean;
+}
+
+interface BoosterPack {
+  id: string;
+  name: string;
+  icon: string;
+  available: boolean;
+  isPremium?: boolean;
+}
+
 // Mock data for demo purposes
-const MOCK_PLAYERS = [
+const MOCK_PLAYERS: Player[] = [
   { 
     id: 1, 
     username: 'SketchLord', 
@@ -41,7 +60,7 @@ const MOCK_PLAYERS = [
   },
 ];
 
-const MOCK_BOOSTER_PACKS = [
+const MOCK_BOOSTER_PACKS: BoosterPack[] = [
   { id: 'meme-lords', name: 'Meme Lords', icon: '😂', available: true },
   { id: 'internet-classics', name: 'Internet Classics', icon: '🌐', available: true },
   { id: 'premium-chaos', name: 'Premium Chaos', icon: '⭐', available: false, isPremium: true },
@@ -57,7 +76,7 @@ const GAME_PROMPTS = [
 ];
 
 const PreRoundBriefingScreen: React.FC = () => {
-  const [players, setPlayers] = useState(MOCK_PLAYERS);
+  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
   const [selectedBoosterPack, setSelectedBoosterPack] = useState<string | null>(null);
   const [currentPrompt] = useState(GAME_PROMPTS[Math.floor(Math.random() * GAME_PROMPTS.length)]);
   const [countdown, setCountdown] = useState(15);
@@ -150,11 +169,46 @@ const PreRoundBriefingScreen: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] text-center"
+              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
             >
-              <h1 className="font-heading font-bold text-2xl text-dark mb-2 transform rotate-[-1deg]">
-                Your Prompt
-              </h1>
+              <div className="text-center mb-6">
+                <h1 className="font-heading font-bold text-2xl text-dark mb-2 transform rotate-[-1deg]">
+                  Your Prompt
+                </h1>
+                <p className="text-medium-gray">Get ready for some sketchy chaos!</p>
+              </div>
+
+              {/* Animated Loading Doodles */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <motion.div
+                    animate={{ 
+                      rotate: 360,
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ 
+                      rotate: { duration: 4, repeat: Infinity, ease: "linear" },
+                      scale: { duration: 2, repeat: Infinity }
+                    }}
+                    className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full"
+                  />
+                  <motion.div
+                    animate={{ 
+                      x: [-20, 20, -20],
+                      y: [-10, 10, -10]
+                    }}
+                    transition={{ 
+                      duration: 3, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl"
+                  >
+                    🎨
+                  </motion.div>
+                </div>
+              </div>
+
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -200,40 +254,48 @@ const PreRoundBriefingScreen: React.FC = () => {
                         : 'bg-orange/10 border-orange'
                     }`}
                   >
-                    <img 
-                      src={player.avatar} 
-                      alt={player.username}
-                      className="w-10 h-10 rounded-full border-2 border-dark mr-3"
-                    />
+                    <div className="relative mr-3">
+                      <img 
+                        src={player.avatar} 
+                        alt={player.username}
+                        className="w-10 h-10 rounded-full border-2 border-dark"
+                      />
+                      {/* Level badge on avatar */}
+                      <div className="absolute -bottom-1 -right-1 bg-dark text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-heading font-bold">
+                        {player.level}
+                      </div>
+                    </div>
+                    
                     <div className="flex-1 min-w-0">
+                      {/* Username with premium badge */}
                       <div className="flex items-center gap-1 mb-1">
                         <p className="font-heading font-semibold text-sm truncate">
                           {player.username}
                           {player.isCurrentUser && ' (You)'}
                         </p>
                         {player.isPremium && (
-                          <Star size={12} className="text-primary fill-primary flex-shrink-0" />
+                          <div className="bg-primary text-white px-2 py-0.5 rounded-full text-xs font-heading font-bold flex items-center">
+                            <Star size={8} className="mr-1 fill-white" />
+                            PRO
+                          </div>
                         )}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-medium-gray">
-                          Lv. {player.level}
-                        </span>
-                        <div className="flex items-center">
-                          {player.isReady ? (
-                            <>
-                              <CheckCircle size={12} className="text-green mr-1" />
-                              <span className="text-xs text-green">Ready</span>
-                            </>
-                          ) : (
-                            <>
-                              <Clock size={12} className="text-orange mr-1" />
-                              <span className="text-xs text-orange">
-                                {player.isCurrentUser ? 'Ready up!' : 'Waiting...'}
-                              </span>
-                            </>
-                          )}
-                        </div>
+                      
+                      {/* Ready status */}
+                      <div className="flex items-center">
+                        {player.isReady ? (
+                          <>
+                            <CheckCircle size={12} className="text-green mr-1" />
+                            <span className="text-xs text-green font-heading font-semibold">Ready</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock size={12} className="text-orange mr-1" />
+                            <span className="text-xs text-orange font-heading font-semibold">
+                              {player.isCurrentUser ? 'Ready up!' : 'Waiting...'}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </motion.div>
