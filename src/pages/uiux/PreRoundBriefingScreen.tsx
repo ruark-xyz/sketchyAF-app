@@ -6,10 +6,39 @@ import Seo from '../../components/utils/Seo';
 
 // Mock data for demo purposes
 const MOCK_PLAYERS = [
-  { id: 1, username: 'SketchLord', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', isReady: false },
-  { id: 2, username: 'DoodleQueen', avatar: 'https://randomuser.me/api/portraits/women/44.jpg', isReady: true },
-  { id: 3, username: 'ArtisticTroll', avatar: 'https://randomuser.me/api/portraits/men/15.jpg', isReady: true },
-  { id: 4, username: 'You', avatar: 'https://randomuser.me/api/portraits/women/63.jpg', isReady: false, isCurrentUser: true },
+  { 
+    id: 1, 
+    username: 'SketchLord', 
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg', 
+    isReady: false,
+    level: 47,
+    isPremium: true
+  },
+  { 
+    id: 2, 
+    username: 'DoodleQueen', 
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg', 
+    isReady: true,
+    level: 23,
+    isPremium: false
+  },
+  { 
+    id: 3, 
+    username: 'ArtisticTroll', 
+    avatar: 'https://randomuser.me/api/portraits/men/15.jpg', 
+    isReady: true,
+    level: 31,
+    isPremium: true
+  },
+  { 
+    id: 4, 
+    username: 'You', 
+    avatar: 'https://randomuser.me/api/portraits/women/63.jpg', 
+    isReady: false, 
+    isCurrentUser: true,
+    level: 12,
+    isPremium: false
+  },
 ];
 
 const MOCK_BOOSTER_PACKS = [
@@ -177,24 +206,34 @@ const PreRoundBriefingScreen: React.FC = () => {
                       className="w-10 h-10 rounded-full border-2 border-dark mr-3"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-heading font-semibold text-sm truncate">
-                        {player.username}
-                        {player.isCurrentUser && ' (You)'}
-                      </p>
-                      <div className="flex items-center">
-                        {player.isReady ? (
-                          <>
-                            <CheckCircle size={12} className="text-green mr-1" />
-                            <span className="text-xs text-green">Ready</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock size={12} className="text-orange mr-1" />
-                            <span className="text-xs text-orange">
-                              {player.isCurrentUser ? 'Ready up!' : 'Waiting...'}
-                            </span>
-                          </>
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="font-heading font-semibold text-sm truncate">
+                          {player.username}
+                          {player.isCurrentUser && ' (You)'}
+                        </p>
+                        {player.isPremium && (
+                          <Star size={12} className="text-primary fill-primary flex-shrink-0" />
                         )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-medium-gray">
+                          Lv. {player.level}
+                        </span>
+                        <div className="flex items-center">
+                          {player.isReady ? (
+                            <>
+                              <CheckCircle size={12} className="text-green mr-1" />
+                              <span className="text-xs text-green">Ready</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock size={12} className="text-orange mr-1" />
+                              <span className="text-xs text-orange">
+                                {player.isCurrentUser ? 'Ready up!' : 'Waiting...'}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -337,7 +376,8 @@ const PreRoundBriefingScreen: React.FC = () => {
                   }}
                   transition={{ 
                     duration: 0.8,
-                    repeat: Infinity
+                    repeat: Infinity,
+                    repeatDelay: 1
                   }}
                   className="font-heading font-bold text-6xl mb-4"
                 >
