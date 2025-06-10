@@ -5,6 +5,7 @@ import { RoadmapItem } from '../types';
 import { roadmapItems, roadmapCategories } from '../data/mockData';
 import RoadmapItemCard from '../components/ui/RoadmapItemCard';
 import Button from '../components/ui/Button';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,7 +14,11 @@ const Roadmap: React.FC = () => {
   const [activeStatus, setActiveStatus] = useState<string>('all');
   const [items, setItems] = useState<RoadmapItem[]>(roadmapItems);
   const [likedItems, setLikedItems] = useState<string[]>([]);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const { currentUser, isLoggedIn } = useAuth();
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   // Initialize likedItems from localStorage
   useEffect(() => {
@@ -241,12 +246,18 @@ const Roadmap: React.FC = () => {
               We're always looking for new ideas to make SketchyAF even better! If you have a feature you'd
               like to see that's not on our roadmap, let us know.
             </p>
-            <Button variant="primary" to="#">
+            <Button variant="primary" onClick={openEmailModal}>
               Submit a Feature Request
             </Button>
           </div>
         </div>
       </section>
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
+      />
     </>
   );
 };
