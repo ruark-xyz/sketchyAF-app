@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Heart, MessageSquare, Share2, Award, Calendar, Star, Package, Layers, UserCircle, Send, Trophy } from 'lucide-react';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
 import Seo from '../components/utils/Seo';
 import { topDrawingsData, boosterPacks } from '../data/mockData';
 import { TopDrawing, BoosterPack } from '../types';
@@ -237,12 +236,12 @@ const ArtDetail: React.FC = () => {
                   {isLoggedIn ? (
                     <form onSubmit={handleSubmitComment} className="mb-8">
                       <div className="flex gap-3">
-                        <Input
-                          name="comment"
+                        <input
+                          type="text"
                           placeholder="Add a comment..."
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
-                          wrapperClassName="flex-grow"
+                          className="flex-grow border border-light-gray p-2 rounded-md"
                         />
                         <Button 
                           type="submit" 
@@ -255,13 +254,16 @@ const ArtDetail: React.FC = () => {
                     </form>
                   ) : (
                     // DISABLED FOR LAUNCH - Show coming soon message instead of login CTA
-                    <div className="bg-off-white p-4 rounded-lg mb-8 text-center">
-                      <p className="mb-2">Comments coming soon!</p>
-                      <div className="bg-accent/20 px-3 py-1 rounded-full border border-accent inline-block">
+                    <div className="bg-off-white p-4 rounded-lg mb-8 text-center border-2 border-accent/30">
+                      <p className="mb-3 font-heading font-semibold text-dark">Comments coming soon!</p>
+                      <div className="bg-accent/20 px-4 py-2 rounded-full border border-accent inline-block">
                         <span className="text-sm font-heading font-bold text-dark">
                           🚀 Login & Comments Coming Soon!
                         </span>
                       </div>
+                      <p className="text-xs text-medium-gray mt-2">
+                        We're working hard to bring you the full SketchyAF experience
+                      </p>
                     </div>
                   )}
                   
