@@ -9,14 +9,20 @@ import ArtGallery from './pages/ArtGallery';
 import ArtDetail from './pages/ArtDetail';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
-import Login from './pages/Auth/Login';
-import Signup from './pages/Auth/Signup';
-import ForgotPassword from './pages/Auth/ForgotPassword';
+import Login from './pages/uiux/Login';
+import Signup from './pages/uiux/Signup';
+import ForgotPassword from './pages/uiux/ForgotPassword';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import BoosterPackDetail from './pages/BoosterPackDetail';
 import Roadmap from './pages/Roadmap';
 import RoadmapDetail from './pages/RoadmapDetail';
+import LobbyScreen from './pages/uiux/LobbyScreen';
+import PreRoundBriefingScreen from './pages/uiux/PreRoundBriefingScreen';
+import DrawingCanvasScreen from './pages/uiux/DrawingCanvasScreen';
+import VotingScreen from './pages/uiux/VotingScreen';
+import ResultsScreen from './pages/uiux/ResultsScreen';
+import PostGameScreen from './pages/uiux/PostGameScreen';
 import { AuthProvider } from './context/AuthContext';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -45,14 +51,22 @@ function App() {
             <Route path="/art/:drawingId" element={<ArtDetail />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/user/:username" element={<UserProfile />} />
             <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
             <Route path="/roadmap" element={<Roadmap />} />
             <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
+            
+            {/* UI/UX Concept Screens - Including moved auth pages */}
+            <Route path="/uiux/login" element={<Login />} />
+            <Route path="/uiux/signup" element={<Signup />} />
+            <Route path="/uiux/forgot-password" element={<ForgotPassword />} />
+            <Route path="/uiux/lobby" element={<LobbyScreen />} />
+            <Route path="/uiux/pre-round" element={<PreRoundBriefingScreen />} />
+            <Route path="/uiux/drawing" element={<DrawingCanvasScreen />} />
+            <Route path="/uiux/voting" element={<VotingScreen />} />
+            <Route path="/uiux/results" element={<ResultsScreen />} />
+            <Route path="/uiux/post-game" element={<PostGameScreen />} />
           </Routes>
         </Layout>
       </AuthProvider>
