@@ -74,13 +74,13 @@ const Navbar: React.FC = () => {
               ))}
             </div>
 
-            {/* Conditional Profile/Signup Section */}
+            {/* Conditional Profile/Signup Section - DISABLED FOR LAUNCH */}
             {isLoggedIn ? (
               <div className="flex items-center gap-4">
                 <motion.div
                   whileHover={{ scale: 1.1 }}
                   className="cursor-pointer flex items-center gap-2"
-                  onClick={() => navigate('/profile')} // Would go to profile page if we had one
+                  onClick={() => navigate('/profile')}
                 >
                   {currentUser?.avatar ? (
                     <img 
@@ -106,21 +106,13 @@ const Navbar: React.FC = () => {
                 </Button>
               </div>
             ) : (
+              // AUTH DISABLED FOR LAUNCH - Show coming soon message instead
               <div className="flex items-center gap-4">
-                <Button 
-                  variant="tertiary" 
-                  size="sm" 
-                  to="/login"
-                >
-                  Log In
-                </Button>
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  to="/signup"
-                >
-                  Sign Up
-                </Button>
+                <div className="bg-accent/20 px-3 py-1 rounded-full border border-accent">
+                  <span className="text-sm font-heading font-bold text-dark">
+                    🚀 Coming Soon!
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -195,7 +187,7 @@ const Navbar: React.FC = () => {
                 </Link>
               </div>
               
-              {/* Auth buttons in mobile menu */}
+              {/* Auth buttons in mobile menu - DISABLED FOR LAUNCH */}
               <div className="pt-4 flex justify-center">
                 {isLoggedIn ? (
                    <Button 
@@ -207,23 +199,11 @@ const Navbar: React.FC = () => {
                      Logout
                    </Button>
                 ) : (
-                  <div className="flex flex-col w-full space-y-2">
-                    <Button 
-                      variant="primary" 
-                      size="sm" 
-                      to="/signup"
-                      className="w-full"
-                    >
-                      Sign Up
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      to="/login"
-                      className="w-full"
-                    >
-                      Log In
-                    </Button>
+                  // Show coming soon message in mobile menu too
+                  <div className="bg-accent/20 px-4 py-2 rounded-full border border-accent">
+                    <span className="text-sm font-heading font-bold text-dark">
+                      🚀 Login Coming Soon!
+                    </span>
                   </div>
                 )}
               </div>
