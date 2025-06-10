@@ -222,14 +222,43 @@ const VotingScreen: React.FC = () => {
                   <motion.div
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
-                    className="bg-white rounded-lg border-2 border-dark p-4 hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)] inline-block"
+                    className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)] inline-block max-w-2xl"
                   >
-                    <p className="font-heading font-bold text-lg text-dark">
-                      🗳️ Pick your favorite drawing!
-                    </p>
-                    <p className="text-medium-gray text-sm mt-1">
-                      Tap to zoom • React with emojis • One vote only
-                    </p>
+                    <div className="flex items-center justify-center mb-3">
+                      <Vote size={24} className="text-primary mr-2" />
+                      <p className="font-heading font-bold text-xl text-dark">
+                        Time to Vote & React!
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      <div className="bg-primary/10 p-3 rounded-lg border border-primary/30">
+                        <div className="flex items-center mb-2">
+                          <Check size={16} className="text-primary mr-2" />
+                          <span className="font-heading font-semibold text-primary">Vote (Required)</span>
+                        </div>
+                        <p className="text-sm text-dark">
+                          Click a drawing card to select it, then cast your vote. You get one vote only!
+                        </p>
+                      </div>
+                      
+                      <div className="bg-accent/10 p-3 rounded-lg border border-accent/30">
+                        <div className="flex items-center mb-2">
+                          <span className="text-lg mr-2">😆</span>
+                          <span className="font-heading font-semibold text-dark">React (Optional)</span>
+                        </div>
+                        <p className="text-sm text-dark">
+                          Add emoji reactions to any drawing. React to as many as you want!
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 pt-3 border-t border-light-gray">
+                      <p className="text-sm text-medium-gray flex items-center justify-center">
+                        <ZoomIn size={14} className="mr-1" />
+                        Tap any drawing to zoom in for a closer look
+                      </p>
+                    </div>
                   </motion.div>
                 </div>
 
@@ -325,6 +354,14 @@ const VotingScreen: React.FC = () => {
                     <Vote size={20} className="mr-2" />
                     {selectedSubmission ? 'Cast Your Vote!' : 'Select a Drawing First'}
                   </Button>
+                  
+                  {selectedSubmission && (
+                    <p className="text-sm text-medium-gray mt-2">
+                      You're voting for <span className="font-heading font-semibold text-primary">
+                        {votableSubmissions.find(s => s.id === selectedSubmission)?.username}'s
+                      </span> drawing
+                    </p>
+                  )}
                 </div>
               </motion.div>
             )}
