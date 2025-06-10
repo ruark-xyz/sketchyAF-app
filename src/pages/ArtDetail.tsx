@@ -233,7 +233,7 @@ const ArtDetail: React.FC = () => {
                     Comments
                   </h2>
                   
-                  {/* Comment form */}
+                  {/* Comment form - DISABLED FOR LAUNCH */}
                   {isLoggedIn ? (
                     <form onSubmit={handleSubmitComment} className="mb-8">
                       <div className="flex gap-3">
@@ -254,11 +254,14 @@ const ArtDetail: React.FC = () => {
                       </div>
                     </form>
                   ) : (
+                    // DISABLED FOR LAUNCH - Show coming soon message instead of login CTA
                     <div className="bg-off-white p-4 rounded-lg mb-8 text-center">
-                      <p className="mb-2">Log in to leave a comment</p>
-                      <Button variant="secondary" size="sm" to="/login">
-                        Log In
-                      </Button>
+                      <p className="mb-2">Comments coming soon!</p>
+                      <div className="bg-accent/20 px-3 py-1 rounded-full border border-accent inline-block">
+                        <span className="text-sm font-heading font-bold text-dark">
+                          🚀 Login & Comments Coming Soon!
+                        </span>
+                      </div>
                     </div>
                   )}
                   
