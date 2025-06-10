@@ -131,7 +131,7 @@ const Roadmap: React.FC = () => {
             </p>
           </motion.div>
           
-          {/* Login prompt for non-logged-in users */}
+          {/* Login prompt for non-logged-in users - DISABLED FOR LAUNCH */}
           {!isLoggedIn && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -142,14 +142,13 @@ const Roadmap: React.FC = () => {
               <Info size={20} className="text-primary mr-3 flex-shrink-0 mt-1" />
               <div>
                 <p className="font-heading font-semibold text-dark">Want to vote on features?</p>
-                <p className="text-medium-gray mb-3">Log in to vote for features you'd like to see implemented sooner!</p>
+                <p className="text-medium-gray mb-3">Feature voting is coming soon! We're working on the full SketchyAF experience.</p>
                 <div className="flex gap-2">
-                  <Button variant="primary" size="sm" to="/login">
-                    Log In
-                  </Button>
-                  <Button variant="secondary" size="sm" to="/signup">
-                    Sign Up
-                  </Button>
+                  <div className="bg-accent/20 px-3 py-1 rounded-full border border-accent">
+                    <span className="text-sm font-heading font-bold text-dark">
+                      🚀 Login & Voting Coming Soon!
+                    </span>
+                  </div>
                 </div>
               </div>
             </motion.div>
