@@ -5,6 +5,7 @@ import { ArrowLeft, Heart, Calendar, Clock, Thermometer, BarChart, Share2, Alert
 import { roadmapItems, roadmapCategories } from '../data/mockData';
 import { RoadmapItem } from '../types';
 import Button from '../components/ui/Button';
+import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,8 +15,12 @@ const RoadmapDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [likedItems, setLikedItems] = useState<string[]>([]);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const navigate = useNavigate();
   const { currentUser, isLoggedIn } = useAuth();
+  
+  const openEmailModal = () => setIsEmailModalOpen(true);
+  const closeEmailModal = () => setIsEmailModalOpen(false);
   
   // Get the category color for the item
   const getCategoryColor = (categoryId: string) => {
@@ -231,7 +236,7 @@ const RoadmapDetail: React.FC = () => {
                   
                   {!isLoggedIn && (
                     <p className="text-xs text-medium-gray mt-2">
-                      <Link to="/login" className="text-primary hover:underline">Log in</Link> to vote
+                      <span className="text-primary">Feature voting coming soon!</span>
                     </p>
                   )}
                 </div>
@@ -326,12 +331,18 @@ const RoadmapDetail: React.FC = () => {
             <p className="text-medium-gray mb-6">
               We'd love to hear your thoughts or suggestions for this feature!
             </p>
-            <Button variant="primary" to="#">
+            <Button variant="primary" onClick={openEmailModal}>
               Submit Feedback
             </Button>
           </motion.div>
         </div>
       </div>
+      
+      {/* Email Signup Modal */}
+      <EmailSignupModal 
+        isOpen={isEmailModalOpen} 
+        onClose={closeEmailModal} 
+      />
     </>
   );
 };
