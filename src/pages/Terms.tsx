@@ -28,153 +28,109 @@ const Terms: React.FC = () => {
             className="bg-white rounded-lg shadow-md p-6 md:p-8"
           >
             <div className="prose max-w-none">
-              <p className="text-sm text-medium-gray mb-6">Last Updated: May 2, 2025</p>
+              <p className="text-sm text-medium-gray mb-6">Effective Date: June 11, 2025</p>
+              
+              <p className="mb-6">
+                Welcome to SketchyAF ("we," "us," or "our"). By accessing or using our website, app, games, and related services ("Services"), you ("User," "you") agree to these Terms of Service ("Terms").
+              </p>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">1. Introduction</h2>
-                <p className="mb-4">
-                  Welcome to SketchyAF! These Terms of Service ("Terms") govern your access to and use of the SketchyAF
-                  mobile application, website, and all related services (collectively, the "Service"). By accessing or using
-                  our Service, you agree to be bound by these Terms.
-                </p>
+                <h2 className="font-heading font-semibold text-2xl mb-4">1. Acceptance of Terms</h2>
                 <p>
-                  Please read these Terms carefully. If you do not agree to these Terms, you may not access or use the Service.
+                  By accessing and using our Services, you agree to be bound by these Terms and any future modifications. If you do not agree, do not use our Services.
                 </p>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">2. Service Description</h2>
+                <h2 className="font-heading font-semibold text-2xl mb-4">2. User Account</h2>
                 <p className="mb-4">
-                  SketchyAF is a drawing and guessing game that allows users to participate in quick rounds of gameplay,
-                  where they create drawings based on prompts and guess others' drawings. The Service includes:
+                  You must create an account to access certain features of our Services. You agree to:
                 </p>
                 <ul className="list-disc pl-8 mb-4 space-y-2">
-                  <li>The SketchyAF mobile application</li>
-                  <li>The SketchyAF website</li>
-                  <li>User accounts and profiles</li>
-                  <li>In-game features, including booster packs and premium content</li>
-                  <li>Leaderboards and competitive gameplay</li>
-                  <li>Communication features between users</li>
+                  <li>Provide accurate and current information.</li>
+                  <li>Maintain the confidentiality of your account details.</li>
+                  <li>Notify us promptly of unauthorized account access.</li>
                 </ul>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">3. User Accounts</h2>
-                <h3 className="font-heading font-semibold text-xl mb-2">3.1 Account Creation</h3>
+                <h2 className="font-heading font-semibold text-2xl mb-4">3. Ownership and Use of User-Generated Content</h2>
                 <p className="mb-4">
-                  To use certain features of the Service, you may need to create an account. You agree to provide accurate,
-                  current, and complete information during the registration process and to update such information to keep it
-                  accurate, current, and complete.
-                </p>
-                
-                <h3 className="font-heading font-semibold text-xl mb-2">3.2 Account Responsibilities</h3>
-                <p className="mb-4">
-                  You are responsible for:
+                  Any drawings, artwork, images, designs, or other content ("User Content") you create or upload to our platform <strong>becomes the property of SketchyAF</strong>. By submitting User Content, you:
                 </p>
                 <ul className="list-disc pl-8 mb-4 space-y-2">
-                  <li>Maintaining the confidentiality of your account password</li>
-                  <li>Restricting access to your account</li>
-                  <li>All activities that occur under your account</li>
-                </ul>
-                <p>
-                  You must notify us immediately of any unauthorized use of your account or any other breach of security.
-                </p>
-              </section>
-              
-              <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">4. User Conduct</h2>
-                <p className="mb-4">
-                  You agree not to engage in any of the following prohibited activities:
-                </p>
-                <ul className="list-disc pl-8 mb-4 space-y-2">
-                  <li>Using the Service for any illegal purpose or in violation of any laws</li>
-                  <li>Posting or transmitting content that is offensive, abusive, libelous, or violates the rights of others</li>
-                  <li>Attempting to interfere with, compromise the system integrity or security, or decipher any transmissions to or from the servers running the Service</li>
-                  <li>Taking any action that imposes an unreasonable or disproportionately large load on our infrastructure</li>
-                  <li>Uploading invalid data, viruses, worms, or other software agents through the Service</li>
-                  <li>Collecting or harvesting any personally identifiable information from the Service</li>
-                  <li>Impersonating another person or otherwise misrepresenting your affiliation</li>
-                  <li>Using the Service for any commercial solicitation purposes without our consent</li>
+                  <li>Grant SketchyAF a worldwide, perpetual, irrevocable, royalty-free, fully-paid, transferable, and sublicensable license to use, copy, modify, distribute, display, reproduce, and create derivative works from your User Content for any purpose.</li>
+                  <li>Waive any claims against SketchyAF related to the use or commercialization of your User Content.</li>
+                  <li>Acknowledge that SketchyAF may feature your User Content in promotional materials, advertisements, social media, or other public displays.</li>
                 </ul>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">5. Intellectual Property</h2>
-                <h3 className="font-heading font-semibold text-xl mb-2">5.1 Our Intellectual Property</h3>
-                <p className="mb-4">
-                  The Service and its original content, features, and functionality are and will remain the exclusive property
-                  of SketchyAF and its licensors. The Service is protected by copyright, trademark, and other laws of both the
-                  United States and foreign countries.
-                </p>
-                
-                <h3 className="font-heading font-semibold text-xl mb-2">5.2 User Content</h3>
-                <p className="mb-4">
-                  You retain all rights in, and are solely responsible for, the content you post to the Service, including
-                  drawings, comments, and other materials ("User Content").
-                </p>
-                <p className="mb-4">
-                  By posting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce,
-                  modify, adapt, publish, translate, distribute, and display such User Content in connection with providing and
-                  promoting the Service.
+                <h2 className="font-heading font-semibold text-2xl mb-4">4. Intellectual Property Rights</h2>
+                <p>
+                  All content provided by SketchyAF, including graphics, text, designs, logos, user interface elements, and software, is owned or licensed by us and is protected by intellectual property laws. You agree not to reproduce, distribute, modify, or create derivative works from our content without express written permission.
                 </p>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">6. Purchases and Subscriptions</h2>
-                <h3 className="font-heading font-semibold text-xl mb-2">6.1 In-App Purchases</h3>
+                <h2 className="font-heading font-semibold text-2xl mb-4">5. User Conduct</h2>
                 <p className="mb-4">
-                  The Service offers in-app purchases, including booster packs and other virtual items. These purchases are
-                  final and non-refundable, except as required by applicable law.
+                  You agree to use the Services responsibly and not to:
                 </p>
-                
-                <h3 className="font-heading font-semibold text-xl mb-2">6.2 Premium Subscriptions</h3>
-                <p className="mb-4">
-                  Premium subscriptions will automatically renew unless auto-renew is turned off at least 24 hours before the
-                  end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the
-                  current period. You can manage your subscriptions and turn off auto-renewal in your account settings.
+                <ul className="list-disc pl-8 mb-4 space-y-2">
+                  <li>Upload or share inappropriate, offensive, harmful, or illegal content.</li>
+                  <li>Engage in harassment or bullying.</li>
+                  <li>Attempt to disrupt or interfere with our Services.</li>
+                  <li>Impersonate another person or entity.</li>
+                  <li>Use bots or automated methods to manipulate gameplay.</li>
+                </ul>
+              </section>
+              
+              <section className="mb-8">
+                <h2 className="font-heading font-semibold text-2xl mb-4">6. Termination and Account Suspension</h2>
+                <p>
+                  We reserve the right to suspend or terminate your account and access to our Services at our discretion for violations of these Terms or other harmful behaviors.
                 </p>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">7. Disclaimer of Warranties</h2>
+                <h2 className="font-heading font-semibold text-2xl mb-4">7. Disclaimer and Limitation of Liability</h2>
                 <p className="mb-4">
-                  THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-                  INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
-                  NON-INFRINGEMENT.
+                  Our Services are provided "as is" without warranty of any kind. We do not guarantee uninterrupted or error-free service.
                 </p>
                 <p>
-                  WE DO NOT GUARANTEE THAT THE SERVICE WILL FUNCTION WITHOUT INTERRUPTION OR ERRORS, AND WE DISCLAIM ANY
-                  LIABILITY FOR DAMAGES RESULTING FROM YOUR ACCESS TO OR USE OF THE SERVICE.
+                  SketchyAF will not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use or inability to use the Services.
                 </p>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">8. Limitation of Liability</h2>
+                <h2 className="font-heading font-semibold text-2xl mb-4">8. Indemnification</h2>
                 <p>
-                  TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL SKETCHYAF, ITS AFFILIATES, OFFICERS, DIRECTORS,
-                  EMPLOYEES, AGENTS, SUPPLIERS OR LICENSORS BE LIABLE FOR ANY INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL,
-                  CONSEQUENTIAL OR EXEMPLARY DAMAGES, INCLUDING WITHOUT LIMITATION DAMAGES FOR LOSS OF PROFITS, GOODWILL,
-                  USE, DATA OR OTHER INTANGIBLE LOSSES, THAT RESULT FROM THE USE OF, OR INABILITY TO USE, THE SERVICE.
+                  You agree to indemnify and hold harmless SketchyAF, its affiliates, officers, directors, employees, and agents from any claims, damages, liabilities, costs, and expenses arising from your violation of these Terms or misuse of the Services.
                 </p>
               </section>
               
               <section className="mb-8">
-                <h2 className="font-heading font-semibold text-2xl mb-4">9. Changes to Terms</h2>
+                <h2 className="font-heading font-semibold text-2xl mb-4">9. Modifications to the Terms</h2>
                 <p>
-                  We reserve the right to modify these Terms at any time. If we make changes, we will provide notice of such
-                  changes, such as by sending an email notification, providing notice through the Service, or updating the
-                  "Last Updated" date at the beginning of these Terms. Your continued use of the Service following notification
-                  of changes indicates your acceptance of the updated Terms.
+                  We reserve the right to modify these Terms at any time. Updates will be announced through the Services or via email. Continued use of the Services after changes indicates your acceptance of the updated Terms.
+                </p>
+              </section>
+              
+              <section className="mb-8">
+                <h2 className="font-heading font-semibold text-2xl mb-4">10. Governing Law</h2>
+                <p>
+                  These Terms shall be governed by and interpreted in accordance with the laws of [Jurisdiction]. Any disputes arising under these Terms will be handled by the appropriate courts within [Jurisdiction].
                 </p>
               </section>
               
               <section>
-                <h2 className="font-heading font-semibold text-2xl mb-4">10. Contact Us</h2>
-                <p>
-                  If you have any questions about these Terms, please contact us at:
+                <h2 className="font-heading font-semibold text-2xl mb-4">11. Contact Information</h2>
+                <p className="mb-4">
+                  For questions or concerns regarding these Terms, please contact us at:
                 </p>
-                <p className="mt-2">
-                  <strong>Email:</strong> <a href="mailto:terms@sketchyaf.com" className="text-primary hover:underline">terms@sketchyaf.com</a>
+                <p>
+                  <strong>Email:</strong> <a href="mailto:hello@sketchyaf.app" className="text-primary hover:underline">hello@sketchyaf.app</a>
                 </p>
               </section>
             </div>
