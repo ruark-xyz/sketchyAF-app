@@ -157,7 +157,7 @@ export const gameFeatures = [
   {
     title: "Mobile Meme Magic",
     description: "Perfect for quick doodling while on the move—or during your bathroom breaks! Sketch hilarious scenes like 'A raccoon questioning life choices' or 'Your boss as a potato.' Our AI endlessly creates absurd scenarios tailored for mobile fun.",
-    icon: "MessageSquare",
+    icon: "Smartphone",
     color: "#33CCFF"
   },
   {
