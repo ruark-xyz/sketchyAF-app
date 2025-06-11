@@ -120,7 +120,7 @@ const Terms: React.FC = () => {
               <section className="mb-8">
                 <h2 className="font-heading font-semibold text-2xl mb-4">10. Governing Law</h2>
                 <p>
-                  These Terms shall be governed by and interpreted in accordance with the laws of [Jurisdiction]. Any disputes arising under these Terms will be handled by the appropriate courts within [Jurisdiction].
+                  These Terms shall be governed by and interpreted in accordance with the laws of South Africa. Any disputes arising under these Terms will be handled by the appropriate courts within South Africa.
                 </p>
               </section>
               
