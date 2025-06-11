@@ -28,7 +28,7 @@ const Privacy: React.FC = () => {
             className="bg-white rounded-lg shadow-md p-6 md:p-8"
           >
             <div className="prose max-w-none">
-              <p className="text-sm text-medium-gray mb-6">Last Updated: [Insert Date]</p>
+              <p className="text-sm text-medium-gray mb-6">Last Updated: June 11, 2025</p>
               
               <p className="mb-6">
                 SketchyAF ("we", "our", or "us") respects your privacy. This policy outlines how we collect, use, protect, and share your information when you use our website, games, applications, and related services ("Services").
