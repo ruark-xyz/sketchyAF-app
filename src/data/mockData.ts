@@ -15,8 +15,8 @@ export const gameFeatures: FeatureCard[] = [
     color: "#FF3366"
   },
   {
-    title: "Meme-Worthy Prompts",
-    description: "Draw ridiculous scenarios like 'A raccoon having an existential crisis' or 'Your boss as a potato.' Our AI generates thousands of absurd prompts.",
+    title: "Mobile Meme Magic",
+    description: "Perfect for quick doodling while on the move—or during your bathroom breaks! Sketch hilarious scenes like 'A raccoon questioning life choices' or 'Your boss as a potato.' Our AI endlessly creates absurd scenarios tailored for mobile fun.",
     icon: "MessageSquare",
     color: "#33CCFF"
   },
