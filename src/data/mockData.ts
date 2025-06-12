@@ -296,7 +296,7 @@ export const subscriptionBenefits: SubscriptionBenefit[] = [
 export const topDrawingsData: TopDrawing[] = [
   {
     id: 1,
-    drawingUrl: "https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    drawingUrl: "https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     score: 9856,
     username: "SketchLord",
     prompt: "A raccoon having an existential crisis",
