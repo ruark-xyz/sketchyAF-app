@@ -296,7 +296,7 @@ export const subscriptionBenefits: SubscriptionBenefit[] = [
 export const topDrawingsData: TopDrawing[] = [
   {
     id: 1,
-    drawingUrl: "https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    drawingUrl: "https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     score: 9856,
     username: "SketchLord",
     prompt: "A raccoon having an existential crisis",
@@ -348,7 +348,7 @@ export const topDrawingsData: TopDrawing[] = [
   },
   {
     id: 5,
-    drawingUrl: "https://images.pexels.com/photos/2832432/pexels-photo-2832432.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    drawingUrl: "https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     score: 9125,
     username: "DoodleQueen",
     prompt: "A dinosaur riding a skateboard",
@@ -776,7 +776,7 @@ export const roadmapItems: RoadmapItem[] = [
     id: "ar-drawing",
     title: "AR Drawing Mode",
     description: "Draw in augmented reality! Point your camera at the world and add your sketches to real-life scenes.",
-    image: "https://images.pexels.com/photos/8546873/pexels-photo-8546873.jpeg?auto=compress&cs=tinysrgb&w=600",
+    image: "https://images.pexels.com/photos/5412270/pexels-photo-5412270.jpeg?auto=compress&cs=tinysrgb&w=600",
     category: "mobile",
     targetQuarter: "Q1",
     targetYear: 2026,

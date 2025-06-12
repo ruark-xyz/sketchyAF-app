@@ -112,7 +112,7 @@ const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) 
 
   const modalContent = (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div id="email-signup-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -166,7 +166,7 @@ const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) 
               
               <p className="text-medium-gray mb-4">
                 We'll slide into your inbox the moment we're ready to serve up some sketchy goodness. 
-                Prepare for artistic chaos!
+                Prepare for chaos!
               </p>
               
               <motion.div
