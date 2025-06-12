@@ -18,25 +18,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize auth state and set up auth listener
   useEffect(() => {
+    let isMounted = true;
+
     // Get initial session
     const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
 
+        if (!isMounted) return;
+
         if (error) {
           console.error('Error getting session:', error);
           setError(error.message);
+          setSession(null);
+          setCurrentUser(null);
         } else {
           setSession(session);
           if (session?.user) {
-            await fetchUserProfile(session.user.id);
+            // Wait for user profile to be fetched before setting loading to false
+            try {
+              await fetchUserProfile(session.user.id);
+            } catch (profileError) {
+              console.error('Error fetching user profile during initialization:', profileError);
+              // Don't fail the entire auth process if profile fetch fails
+              // The session is still valid, just set a basic user object
+              if (isMounted) {
+                const fallbackUser = {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                  avatar_url: session.user.user_metadata?.avatar_url,
+                  country: session.user.user_metadata?.country,
+                  is_subscriber: false,
+                  subscription_tier: 'free' as const,
+                  created_at: session.user.created_at,
+                  last_active: new Date().toISOString()
+                };
+                setCurrentUser(fallbackUser);
+              }
+            }
+          } else {
+            setCurrentUser(null);
           }
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
         setError('Failed to initialize authentication');
+        setSession(null);
+        setCurrentUser(null);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -45,51 +78,122 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
+        if (!isMounted) return;
+
+        setIsLoading(true);
         setSession(session);
 
         if (session?.user) {
-          await fetchUserProfile(session.user.id);
+          // Only fetch user profile for certain events to avoid database connection issues
+          // SIGNED_IN during initialization can have database connectivity issues
+          // INITIAL_SESSION is fired after full initialization and is more reliable
+          const shouldFetchProfile = event === 'INITIAL_SESSION' ||
+                                   event === 'SIGNED_IN' && currentUser === null;
+
+          if (shouldFetchProfile) {
+            try {
+              await fetchUserProfile(session.user.id);
+            } catch (profileError) {
+              console.error('Error fetching user profile during auth change:', profileError);
+              // Don't fail the entire auth process if profile fetch fails
+              if (isMounted) {
+                const fallbackUser = {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                  avatar_url: session.user.user_metadata?.avatar_url,
+                  country: session.user.user_metadata?.country,
+                  is_subscriber: false,
+                  subscription_tier: 'free' as const,
+                  created_at: session.user.created_at,
+                  last_active: new Date().toISOString()
+                };
+                setCurrentUser(fallbackUser);
+              }
+            }
+          } else {
+            // For SIGNED_IN events during initialization, just create a basic user if we don't have one
+            if (!currentUser && isMounted) {
+              const basicUser = {
+                id: session.user.id,
+                email: session.user.email || '',
+                username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                avatar_url: session.user.user_metadata?.avatar_url,
+                country: session.user.user_metadata?.country,
+                is_subscriber: false,
+                subscription_tier: 'free' as const,
+                created_at: session.user.created_at,
+                last_active: new Date().toISOString()
+              };
+              setCurrentUser(basicUser);
+            }
+          }
         } else {
           setCurrentUser(null);
         }
 
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Fetch user profile from database
-  const fetchUserProfile = async (userId: string) => {
+  // Fetch user profile from database with timeout
+  const fetchUserProfile = async (userId: string): Promise<void> => {
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Database query timeout after 5 seconds'));
+      }, 5000); // 5 second timeout
+    });
+
     try {
-      const { data, error } = await supabase
+      // Race the database query against the timeout
+      const queryPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
       if (error) {
-        console.error('Error fetching user profile:', error);
-        // If profile doesn't exist, we'll create it in the signup process
-        return;
+        // If profile doesn't exist (common for new users), throw error to handle gracefully
+        if (error.code === 'PGRST116') {
+          throw new Error('User profile not found');
+        }
+
+        // For other errors, also throw to handle gracefully
+        throw new Error(`Database error: ${error.message}`);
       }
 
       if (data) {
-        setCurrentUser({
+        const userData = {
           id: data.id,
           email: data.email,
           username: data.username,
           avatar_url: data.avatar_url,
+          country: data.country,
           is_subscriber: data.is_subscriber,
           subscription_tier: data.subscription_tier,
           created_at: data.created_at,
           last_active: data.last_active
-        });
+        };
+
+        setCurrentUser(userData);
+      } else {
+        throw new Error('No user data returned');
       }
     } catch (err) {
       console.error('Error fetching user profile:', err);
+      // Re-throw the error so calling code can handle it
+      throw err;
     }
   };
 
@@ -109,12 +213,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // User profile will be fetched automatically via the auth state change listener
+      // Don't set isLoading to false here - let the auth state change handler manage it
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
       setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
       throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -154,17 +258,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user && !data.session) {
         // User needs to confirm email
         setError('Please check your email and click the confirmation link to complete your registration.');
+        setIsLoading(false); // Set loading to false for email confirmation case
         return;
       }
 
       // User profile will be created automatically via database trigger
       // and fetched via the auth state change listener
+      // Don't set isLoading to false here - let the auth state change handler manage it
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred during signup';
       setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
       throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -187,12 +292,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // OAuth flow will redirect to the callback URL
       // User profile will be created automatically via database trigger
+      // Don't set isLoading to false here - the redirect will handle the flow
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `An error occurred during ${provider} signup`;
       setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
       throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -215,12 +320,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // OAuth flow will redirect to the callback URL
       // User profile will be fetched automatically via the auth state change listener
+      // Don't set isLoading to false here - the redirect will handle the flow
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `An error occurred during ${provider} login`;
       setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
       throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -321,10 +426,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Context value
+  const isLoggedInComputed = !!currentUser && !!session;
+
+
+
   const value: AuthContextType = {
     currentUser,
     session,
-    isLoggedIn: !!currentUser && !!session,
+    isLoggedIn: isLoggedInComputed,
     isLoading,
     error,
     login,

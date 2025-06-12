@@ -31,20 +31,31 @@ const Profile: React.FC = () => {
   const [email, setEmail] = useState('');
   const [allowComments, setAllowComments] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { currentUser, isLoggedIn, updateUserProfile } = useAuth();
+  const { currentUser, isLoggedIn, isLoading, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const boosterPacksRef = useRef<HTMLDivElement>(null);
-  
+
   // If not logged in, redirect to login
   React.useEffect(() => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn && !isLoading) {
       navigate('/uiux/login');
     } else if (currentUser) {
       setUsername(currentUser.username);
       setEmail(currentUser.email);
     }
-  }, [isLoggedIn, currentUser, navigate]);
-  
+  }, [isLoggedIn, currentUser, navigate, isLoading]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-dark font-medium">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoggedIn || !currentUser) {
     return null; // or loading state
   }
