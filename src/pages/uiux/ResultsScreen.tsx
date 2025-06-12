@@ -386,25 +386,15 @@ const ResultsScreen: React.FC = () => {
                   </div>
                 )}
 
-                {/* Rewards */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-secondary/10 p-3 rounded-lg border border-secondary/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Zap size={16} className="text-secondary mr-1" />
-                      <span className="text-xs text-medium-gray">XP Gained</span>
+                {/* Rewards - Only showing XP now */}
+                <div className="flex justify-center mb-4">
+                  <div className="bg-secondary/10 p-4 rounded-lg border border-secondary/30 max-w-xs">
+                    <div className="flex items-center justify-center mb-2">
+                      <Zap size={20} className="text-secondary mr-2" />
+                      <span className="text-sm text-medium-gray">XP Gained</span>
                     </div>
-                    <p className="font-heading font-bold text-lg text-secondary">
+                    <p className="font-heading font-bold text-2xl text-secondary">
                       +{RESULTS_DATA.currentPlayer.earnedXP}
-                    </p>
-                  </div>
-
-                  <div className="bg-accent/10 p-3 rounded-lg border border-accent/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Star size={16} className="text-accent mr-1" />
-                      <span className="text-xs text-medium-gray">Coins</span>
-                    </div>
-                    <p className="font-heading font-bold text-lg text-accent">
-                      +{RESULTS_DATA.currentPlayer.earnedCoins}
                     </p>
                   </div>
                 </div>
@@ -414,7 +404,7 @@ const ResultsScreen: React.FC = () => {
                     <div className="flex items-center justify-center">
                       <Trophy size={18} className="text-primary mr-2" />
                       <span className="font-heading font-semibold text-primary">
-                        Winner Bonus: +50 XP, +25 Coins!
+                        Winner Bonus: +50 XP!
                       </span>
                     </div>
                   </div>
