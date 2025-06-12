@@ -348,7 +348,7 @@ export const topDrawingsData: TopDrawing[] = [
   },
   {
     id: 5,
-    drawingUrl: "https://images.pexels.com/photos/2832432/pexels-photo-2832432.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    drawingUrl: "https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     score: 9125,
     username: "DoodleQueen",
     prompt: "A dinosaur riding a skateboard",
