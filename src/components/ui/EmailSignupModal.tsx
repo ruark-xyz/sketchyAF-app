@@ -166,7 +166,7 @@ const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) 
               
               <p className="text-medium-gray mb-4">
                 We'll slide into your inbox the moment we're ready to serve up some sketchy goodness. 
-                Prepare for artistic chaos!
+                Prepare for chaos!
               </p>
               
               <motion.div
