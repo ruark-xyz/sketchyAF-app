@@ -1,48 +1,85 @@
 import React, { useState, forwardRef } from 'react';
 import { motion } from 'framer-motion';
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { Mail, Check, AlertCircle } from 'lucide-react';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+import { supabase } from '../../utils/supabase';
 
 interface FormData {
   email: string;
 }
 
-const EmailSignup = forwardRef<HTMLElement>((props, ref) => {
-  const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+const EmailSignup = forwardRef<HTMLElement>((_props, ref) => {
+  const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success' | 'error' | 'duplicate'>('idle');
   
-  const { 
-    register, 
-    handleSubmit, 
+  const methods = useForm<FormData>({
+    defaultValues: {
+      email: ''
+    },
+    mode: 'onChange'
+  });
+
+  const {
+    handleSubmit,
     reset,
-    formState: { errors } 
-  } = useForm<FormData>();
+    register,
+    formState: { errors }
+  } = methods;
+
+  // Set up validation rules
+  React.useEffect(() => {
+    register('email', {
+      required: 'Email is required',
+      pattern: {
+        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+        message: "Invalid email address"
+      }
+    });
+  }, [register]);
   
   const onSubmit = async (data: FormData) => {
     setSubmissionState('loading');
-    
+
     try {
-      // For development, we'll simulate API call and store in localStorage
-      console.log('Email submitted:', data.email);
-      localStorage.setItem('subscribedEmail', data.email);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
+      // Insert new email into waitlist - let database handle duplicates
+      const { error: insertError } = await supabase
+        .from('waitlist')
+        .insert([
+          {
+            email: data.email.toLowerCase().trim(),
+            signed_up_at: new Date().toISOString()
+          }
+        ]);
+
+      if (insertError) {
+        // Handle duplicate email constraint error specifically
+        if (insertError.code === '23505') {
+          setSubmissionState('duplicate');
+          setTimeout(() => {
+            setSubmissionState('idle');
+          }, 5000);
+          return;
+        }
+        throw new Error(insertError.message || 'Failed to save email. Please try again.');
+      }
+
       setSubmissionState('success');
       reset();
-      
+
       // Reset success message after 5 seconds
       setTimeout(() => {
-        if (setSubmissionState) {
-          setSubmissionState('idle');
-        }
+        setSubmissionState('idle');
       }, 5000);
-      
+
     } catch (error) {
-      console.error('Error submitting email:', error);
+      console.error('Error submitting email to waitlist:', error);
       setSubmissionState('error');
+
+      // Reset error state after 4 seconds
+      setTimeout(() => {
+        setSubmissionState('idle');
+      }, 4000);
     }
   };
 
@@ -98,52 +135,54 @@ const EmailSignup = forwardRef<HTMLElement>((props, ref) => {
           className="mt-8 max-w-md mx-auto"
           variants={itemVariants}
         >
-          {submissionState === 'success' ? (
-            <motion.div 
+          {(submissionState === 'success' || submissionState === 'duplicate') ? (
+            <motion.div
               className="bg-white text-dark rounded-lg p-6 flex flex-col items-center border-2 border-dark hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)]"
               variants={successVariants}
               initial="hidden"
               animate="visible"
             >
               <Check size={48} className="mb-2" />
-              <h3 className="font-heading font-bold text-xl transform rotate-[-2deg]">You're in, sketchlord!</h3>
-              <p className="mt-2 font-body">We'll slide into your inbox when we launch.</p>
+              <h3 className="font-heading font-bold text-xl transform rotate-[-2deg]">
+                {submissionState === 'duplicate' ? "Already on the list!" : "You're in, sketchlord!"}
+              </h3>
+              <p className="mt-2 font-body">
+                {submissionState === 'duplicate'
+                  ? "We've got you covered - you'll hear from us when we launch!"
+                  : "We'll slide into your inbox when we launch."
+                }
+              </p>
             </motion.div>
           ) : (
-            <motion.form 
-              onSubmit={handleSubmit(onSubmit)}
-              className="flex flex-col sm:flex-row gap-3"
-              variants={formVariants}
-              animate={submissionState === 'success' ? 'success' : 'visible'}
-            >
-              <div className="flex-grow relative">
-                <Input
-                  type="email"
-                  name="email"
-                  placeholder="Enter your email"
-                  aria-label="Email address"
-                  className="pr-10 border-2 border-dark hand-drawn"
-                  error={errors.email?.message}
-                  {...register('email', { 
-                    required: 'Email is required',
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: "Invalid email address"
-                    }
-                  })}
-                />
-                <Mail className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark" size={20} />
-              </div>
-              
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full sm:w-auto whitespace-nowrap"
-                disabled={submissionState === 'loading'}
+            <FormProvider {...methods}>
+              <motion.form
+                onSubmit={handleSubmit(onSubmit)}
+                className="flex flex-col sm:flex-row gap-3"
+                variants={formVariants}
+                animate="visible"
               >
-                {submissionState === 'loading' ? 'Sending...' : 'Notify Me'}
-              </Button>
-            </motion.form>
+                <div className="flex-grow relative">
+                  <Input
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    aria-label="Email address"
+                    className="pr-10 border-2 border-dark hand-drawn"
+                    error={errors.email?.message}
+                  />
+                  <Mail className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark" size={20} />
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full sm:w-auto whitespace-nowrap"
+                  disabled={submissionState === 'loading'}
+                >
+                  {submissionState === 'loading' ? 'Sending...' : 'Notify Me'}
+                </Button>
+              </motion.form>
+            </FormProvider>
           )}
           
           {submissionState === 'error' && (
