@@ -174,3 +174,16 @@ export interface RoadmapItem {
   likes: number;
   likedByUsers: string[]; // Array of user IDs who liked this item
 }
+
+// Waitlist types
+export interface WaitlistEntry {
+  id: string;
+  email: string;
+  signed_up_at: string;
+}
+
+export interface WaitlistSubmissionResponse {
+  success: boolean;
+  error?: string;
+  isDuplicate?: boolean;
+}

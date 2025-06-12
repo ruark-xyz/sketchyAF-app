@@ -8,14 +8,14 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   wrapperClassName?: string;
 }
 
-const Input: React.FC<InputProps> = ({ 
+const Input = React.forwardRef<HTMLInputElement, InputProps>(({ 
   name, 
   label, 
   error, 
   wrapperClassName = '',
   className = '',
   ...props 
-}) => {
+}, ref) => {
   // Check if within a form context
   const formContext = useFormContext();
   const isInForm = formContext && name;
@@ -43,6 +43,7 @@ const Input: React.FC<InputProps> = ({
         />
       ) : (
         <input
+          ref={ref}
           id={name}
           name={name}
           className={inputClasses}
@@ -56,6 +57,8 @@ const Input: React.FC<InputProps> = ({
       )}
     </div>
   );
-};
+});
+
+Input.displayName = 'Input';
 
 export default Input;

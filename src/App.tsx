@@ -23,7 +23,10 @@ import DrawingCanvasScreen from './pages/uiux/DrawingCanvasScreen';
 import VotingScreen from './pages/uiux/VotingScreen';
 import ResultsScreen from './pages/uiux/ResultsScreen';
 import PostGameScreen from './pages/uiux/PostGameScreen';
+import AuthCallback from './pages/auth/AuthCallback';
+import ResetPassword from './pages/auth/ResetPassword';
 import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
 
@@ -44,29 +47,81 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/excalidraw" element={<ExcalidrawDraw />} />
             <Route path="/premium" element={<Premium />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/art" element={<ArtGallery />} />
             <Route path="/art/:drawingId" element={<ArtDetail />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
-            <Route path="/profile" element={<Profile />} />
+
+            <Route path="/excalidraw" element={
+              <ProtectedRoute>
+                <ExcalidrawDraw />
+              </ProtectedRoute>
+            } />
+
+            {/* Protected Routes - Require Authentication */}
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+
+            {/* Public Routes */}
             <Route path="/user/:username" element={<UserProfile />} />
             <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
             <Route path="/roadmap" element={<Roadmap />} />
             <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
-            
+
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
+
             {/* UI/UX Concept Screens - Including moved auth pages */}
-            <Route path="/uiux/login" element={<Login />} />
-            <Route path="/uiux/signup" element={<Signup />} />
-            <Route path="/uiux/forgot-password" element={<ForgotPassword />} />
-            <Route path="/uiux/lobby" element={<LobbyScreen />} />
-            <Route path="/uiux/pre-round" element={<PreRoundBriefingScreen />} />
-            <Route path="/uiux/drawing" element={<DrawingCanvasScreen />} />
-            <Route path="/uiux/voting" element={<VotingScreen />} />
-            <Route path="/uiux/results" element={<ResultsScreen />} />
-            <Route path="/uiux/post-game" element={<PostGameScreen />} />
+            <Route path="/uiux/login" element={
+              <ProtectedRoute requireAuth={false} redirectTo="/">
+                <Login />
+              </ProtectedRoute>
+              } />
+            <Route path="/uiux/signup" element={
+              <ProtectedRoute requireAuth={false} redirectTo="/">
+                <Signup />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/forgot-password" element={
+              <ProtectedRoute requireAuth={false} redirectTo="/">
+                <ForgotPassword />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/lobby" element={
+              <ProtectedRoute>
+                <LobbyScreen />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/pre-round" element={
+              <ProtectedRoute>
+                <PreRoundBriefingScreen />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/drawing" element={
+              <ProtectedRoute>
+                <DrawingCanvasScreen />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/voting" element={
+              <ProtectedRoute>
+                <VotingScreen />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/results" element={
+              <ProtectedRoute>
+                <ResultsScreen />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/post-game" element={
+              <ProtectedRoute>
+                <PostGameScreen />
+              </ProtectedRoute>
+            } />
           </Routes>
         </Layout>
       </AuthProvider>

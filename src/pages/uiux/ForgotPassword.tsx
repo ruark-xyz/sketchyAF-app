@@ -43,7 +43,7 @@ const ForgotPassword: React.FC = () => {
           transition={{ duration: 0.5 }}
         >
           <div className="mb-6 flex justify-between items-center">
-            <Link to="/login" className="text-dark hover:text-primary transition-colors">
+            <Link to="/uiux/login" className="text-dark hover:text-primary transition-colors">
               <ArrowLeft size={24} />
             </Link>
             <h2 className="font-heading font-bold text-2xl md:text-3xl text-dark">Forgot Password</h2>
@@ -63,7 +63,7 @@ const ForgotPassword: React.FC = () => {
               <p className="text-medium-gray mb-6">
                 If an account exists with that email, we've sent instructions to reset your password. Please check your inbox.
               </p>
-              <Button variant="primary" to="/login">
+              <Button variant="primary" to="/uiux/login">
                 Back to Login
               </Button>
             </motion.div>

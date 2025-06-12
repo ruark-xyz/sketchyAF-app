@@ -1,88 +1,224 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Session } from '@supabase/supabase-js';
+import { supabase } from '../utils/supabase';
+import { User, AuthContextType, UserProfile } from '../types/auth';
 import { Country } from '../types';
-import { countries } from '../data/mockCountries';
 
-// Define user type
-export interface User {
-  id: string;
-  email: string;
-  username: string;
-  avatar?: string;
-  country?: Country; // Added country field
-}
-
-// Define context type
-interface AuthContextType {
-  currentUser: User | null;
-  isLoggedIn: boolean;
-  isLoading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  signupWithEmail: (email: string, username: string, password: string) => Promise<void>;
-  signupWithSocial: (provider: 'google' | 'facebook' | 'twitter') => Promise<void>;
-  loginWithSocial: (provider: 'google' | 'facebook' | 'twitter') => Promise<void>;
-  logout: () => void;
-  resetPassword: (email: string) => Promise<void>;
-  clearError: () => void;
-  updateUserProfile: (updates: Partial<User>) => Promise<void>; // Added method to update user profile
-}
+// Export User type for backward compatibility
+export type { User };
 
 // Create the auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data
-const mockUsers = [
-  {
-    id: '1',
-    email: 'user@example.com',
-    password: 'password123',
-    username: 'SketchyUser',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    country: countries[0] // US
-  }
-];
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user is already logged in (from localStorage in this mock version)
+  // Initialize auth state and set up auth listener
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    let isMounted = true;
+
+    // Get initial session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Error getting session:', error);
+          setError(error.message);
+          setSession(null);
+          setCurrentUser(null);
+        } else {
+          setSession(session);
+          if (session?.user) {
+            // Wait for user profile to be fetched before setting loading to false
+            try {
+              await fetchUserProfile(session.user.id);
+            } catch (profileError) {
+              console.error('Error fetching user profile during initialization:', profileError);
+              // Don't fail the entire auth process if profile fetch fails
+              // The session is still valid, just set a basic user object
+              if (isMounted) {
+                const fallbackUser = {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                  avatar_url: session.user.user_metadata?.avatar_url,
+                  country: session.user.user_metadata?.country,
+                  is_subscriber: false,
+                  subscription_tier: 'free' as const,
+                  created_at: session.user.created_at,
+                  last_active: new Date().toISOString()
+                };
+                setCurrentUser(fallbackUser);
+              }
+            }
+          } else {
+            setCurrentUser(null);
+          }
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        setError('Failed to initialize authentication');
+        setSession(null);
+        setCurrentUser(null);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!isMounted) return;
+
+        setIsLoading(true);
+        setSession(session);
+
+        if (session?.user) {
+          // Only fetch user profile for certain events to avoid database connection issues
+          // SIGNED_IN during initialization can have database connectivity issues
+          // INITIAL_SESSION is fired after full initialization and is more reliable
+          const shouldFetchProfile = event === 'INITIAL_SESSION' ||
+                                   event === 'SIGNED_IN' && currentUser === null;
+
+          if (shouldFetchProfile) {
+            try {
+              await fetchUserProfile(session.user.id);
+            } catch (profileError) {
+              console.error('Error fetching user profile during auth change:', profileError);
+              // Don't fail the entire auth process if profile fetch fails
+              if (isMounted) {
+                const fallbackUser = {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                  avatar_url: session.user.user_metadata?.avatar_url,
+                  country: session.user.user_metadata?.country,
+                  is_subscriber: false,
+                  subscription_tier: 'free' as const,
+                  created_at: session.user.created_at,
+                  last_active: new Date().toISOString()
+                };
+                setCurrentUser(fallbackUser);
+              }
+            }
+          } else {
+            // For SIGNED_IN events during initialization, just create a basic user if we don't have one
+            if (!currentUser && isMounted) {
+              const basicUser = {
+                id: session.user.id,
+                email: session.user.email || '',
+                username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                avatar_url: session.user.user_metadata?.avatar_url,
+                country: session.user.user_metadata?.country,
+                is_subscriber: false,
+                subscription_tier: 'free' as const,
+                created_at: session.user.created_at,
+                last_active: new Date().toISOString()
+              };
+              setCurrentUser(basicUser);
+            }
+          }
+        } else {
+          setCurrentUser(null);
+        }
+
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  // Fetch user profile from database with timeout
+  const fetchUserProfile = async (userId: string): Promise<void> => {
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Database query timeout after 5 seconds'));
+      }, 5000); // 5 second timeout
+    });
+
+    try {
+      // Race the database query against the timeout
+      const queryPromise = supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+      if (error) {
+        // If profile doesn't exist (common for new users), throw error to handle gracefully
+        if (error.code === 'PGRST116') {
+          throw new Error('User profile not found');
+        }
+
+        // For other errors, also throw to handle gracefully
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      if (data) {
+        const userData = {
+          id: data.id,
+          email: data.email,
+          username: data.username,
+          avatar_url: data.avatar_url,
+          country: data.country,
+          is_subscriber: data.is_subscriber,
+          subscription_tier: data.subscription_tier,
+          created_at: data.created_at,
+          last_active: data.last_active
+        };
+
+        setCurrentUser(userData);
+      } else {
+        throw new Error('No user data returned');
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      // Re-throw the error so calling code can handle it
+      throw err;
+    }
+  };
 
   // Login with email and password
   const login = async (email: string, password: string): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Find user in mock data
-      const user = mockUsers.find(u => u.email === email && u.password === password);
-      
-      if (!user) {
-        throw new Error('Invalid email or password');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-      
-      // Create a sanitized user object (without password)
-      const { password: _, ...sanitizedUser } = user;
-      
-      // Save to state and localStorage
-      setCurrentUser(sanitizedUser);
-      localStorage.setItem('currentUser', JSON.stringify(sanitizedUser));
+
+      // User profile will be fetched automatically via the auth state change listener
+      // Don't set isLoading to false here - let the auth state change handler manage it
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
+      setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
+      throw new Error(errorMessage);
     }
   };
 
@@ -90,39 +226,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signupWithEmail = async (email: string, username: string, password: string): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Check if email already exists in mock data
-      if (mockUsers.some(u => u.email === email)) {
-        throw new Error('Email already in use');
+      // First, check if username is already taken
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', username)
+        .single();
+
+      if (existingUser) {
+        throw new Error('Username is already taken');
       }
-      
-      // Create new user
-      const newUser = {
-        id: (mockUsers.length + 1).toString(),
+
+      // Sign up with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email,
-        username,
         password,
-        avatar: `https://randomuser.me/api/portraits/${Math.random() > 0.5 ? 'men' : 'women'}/${Math.floor(Math.random() * 99)}.jpg`,
-        country: countries[Math.floor(Math.random() * countries.length)] // Random country
-      };
-      
-      // In a real app, we would send this to an API
-      // For mock purposes, we'll just simulate success and log the user in
-      
-      const { password: _, ...sanitizedUser } = newUser;
-      
-      // Save to state and localStorage
-      setCurrentUser(sanitizedUser);
-      localStorage.setItem('currentUser', JSON.stringify(sanitizedUser));
+        options: {
+          data: {
+            username,
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // If signup successful but email confirmation is required
+      if (data.user && !data.session) {
+        // User needs to confirm email
+        setError('Please check your email and click the confirmation link to complete your registration.');
+        setIsLoading(false); // Set loading to false for email confirmation case
+        return;
+      }
+
+      // User profile will be created automatically via database trigger
+      // and fetched via the auth state change listener
+      // Don't set isLoading to false here - let the auth state change handler manage it
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during signup');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during signup';
+      setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
+      throw new Error(errorMessage);
     }
   };
 
@@ -130,30 +277,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signupWithSocial = async (provider: 'google' | 'facebook' | 'twitter'): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create mock social user
-      const newUser = {
-        id: (mockUsers.length + 1).toString(),
-        email: `${provider}user${Math.floor(Math.random() * 1000)}@example.com`,
-        username: `${provider.charAt(0).toUpperCase() + provider.slice(1)}User${Math.floor(Math.random() * 1000)}`,
-        avatar: `https://randomuser.me/api/portraits/${Math.random() > 0.5 ? 'men' : 'women'}/${Math.floor(Math.random() * 99)}.jpg`,
-        country: countries[Math.floor(Math.random() * countries.length)] // Random country
-      };
-      
-      console.log(`Mock signup with ${provider}:`, newUser);
-      
-      // Save to state and localStorage
-      setCurrentUser(newUser);
-      localStorage.setItem('currentUser', JSON.stringify(newUser));
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: provider as any, // Supabase supports these providers
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // OAuth flow will redirect to the callback URL
+      // User profile will be created automatically via database trigger
+      // Don't set isLoading to false here - the redirect will handle the flow
     } catch (err) {
-      setError(err instanceof Error ? err.message : `An error occurred during ${provider} signup`);
-      throw err;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : `An error occurred during ${provider} signup`;
+      setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
+      throw new Error(errorMessage);
     }
   };
 
@@ -161,30 +305,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithSocial = async (provider: 'google' | 'facebook' | 'twitter'): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create mock social user (in real app, this would be retrieved from the provider)
-      const user = {
-        id: '999',
-        email: `${provider}user@example.com`,
-        username: `${provider.charAt(0).toUpperCase() + provider.slice(1)}User`,
-        avatar: `https://randomuser.me/api/portraits/${Math.random() > 0.5 ? 'men' : 'women'}/${Math.floor(Math.random() * 99)}.jpg`,
-        country: countries[Math.floor(Math.random() * countries.length)] // Random country
-      };
-      
-      console.log(`Mock login with ${provider}:`, user);
-      
-      // Save to state and localStorage
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: provider as any, // Supabase supports these providers
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // OAuth flow will redirect to the callback URL
+      // User profile will be fetched automatically via the auth state change listener
+      // Don't set isLoading to false here - the redirect will handle the flow
     } catch (err) {
-      setError(err instanceof Error ? err.message : `An error occurred during ${provider} login`);
-      throw err;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : `An error occurred during ${provider} login`;
+      setError(errorMessage);
+      setIsLoading(false); // Only set loading to false on error
+      throw new Error(errorMessage);
     }
   };
 
@@ -192,59 +333,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUserProfile = async (updates: Partial<User>): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
       if (!currentUser) {
         throw new Error('No user is currently logged in');
       }
-      
-      // In a real app, we would send this to an API
-      // For mock purposes, we'll just update the user in state
-      const updatedUser = { ...currentUser, ...updates };
-      
-      // Save to state and localStorage
-      setCurrentUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+
+      // Update user profile in database
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          username: updates.username,
+          avatar_url: updates.avatar_url,
+        })
+        .eq('id', currentUser.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Update local state
+      if (data) {
+        setCurrentUser({
+          ...currentUser,
+          username: data.username,
+          avatar_url: data.avatar_url,
+          last_active: data.last_active
+        });
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while updating profile');
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while updating profile';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   // Logout
-  const logout = (): void => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
+  const logout = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Clear local state
+      setCurrentUser(null);
+      setSession(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during logout';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Reset password
   const resetPassword = async (email: string): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Check if email exists in mock data
-      const user = mockUsers.find(u => u.email === email);
-      
-      if (!user) {
-        throw new Error('No account found with this email address');
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-      
-      // In a real app, send password reset email
-      console.log(`Password reset requested for: ${email}`);
-      
-      // Simulating success
+
+      // Success - user will receive email with reset link
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during password reset');
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during password reset';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -256,9 +426,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Context value
-  const value = {
+  const isLoggedInComputed = !!currentUser && !!session;
+
+
+
+  const value: AuthContextType = {
     currentUser,
-    isLoggedIn: !!currentUser,
+    session,
+    isLoggedIn: isLoggedInComputed,
     isLoading,
     error,
     login,

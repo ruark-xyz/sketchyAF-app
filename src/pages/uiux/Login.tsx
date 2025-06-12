@@ -156,8 +156,8 @@ const Login: React.FC = () => {
                   <span className="text-medium-gray text-sm">Show password</span>
                 </label>
                 
-                <Link 
-                  to="/forgot-password" 
+                <Link
+                  to="/forgot-password"
                   className="text-primary text-sm hover:underline"
                 >
                   Forgot password?
@@ -233,7 +233,7 @@ const Login: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-medium-gray">
               Don't have an account?{' '}
-              <Link to="/signup" className="text-primary font-semibold hover:underline">
+              <Link to="/uiux/signup" className="text-primary font-semibold hover:underline">
                 Sign Up
               </Link>
             </p>
