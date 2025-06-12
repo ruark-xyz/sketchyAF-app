@@ -38,7 +38,7 @@ const Profile: React.FC = () => {
   // If not logged in, redirect to login
   React.useEffect(() => {
     if (!isLoggedIn) {
-      navigate('/login');
+      navigate('/uiux/login');
     } else if (currentUser) {
       setUsername(currentUser.username);
       setEmail(currentUser.email);

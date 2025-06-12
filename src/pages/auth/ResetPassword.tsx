@@ -50,7 +50,7 @@ const ResetPassword: React.FC = () => {
       
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/login?message=password_updated');
+        navigate('/uiux/login?message=password_updated');
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while updating your password');
@@ -81,7 +81,7 @@ const ResetPassword: React.FC = () => {
             <p className="text-medium-gray mb-6">
               Your password has been successfully updated. You will be redirected to the login page shortly.
             </p>
-            <Button variant="primary" to="/login">
+            <Button variant="primary" to="/uiux/login">
               Go to Login
             </Button>
           </motion.div>
@@ -106,7 +106,7 @@ const ResetPassword: React.FC = () => {
         >
           <div className="mb-6 flex justify-between items-center">
             <button 
-              onClick={() => navigate('/login')} 
+              onClick={() => navigate('/uiux/login')} 
               className="text-dark hover:text-primary transition-colors"
             >
               <ArrowLeft size={24} />
@@ -130,7 +130,6 @@ const ResetPassword: React.FC = () => {
             <div className="space-y-4">
               <div className="relative">
                 <Input
-                  name="password"
                   label="New Password"
                   type="password"
                   placeholder="Enter your new password"
@@ -152,7 +151,6 @@ const ResetPassword: React.FC = () => {
               
               <div className="relative">
                 <Input
-                  name="confirmPassword"
                   label="Confirm New Password"
                   type="password"
                   placeholder="Confirm your new password"

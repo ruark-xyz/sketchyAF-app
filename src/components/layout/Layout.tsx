@@ -15,7 +15,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   
   // Check if current route is an auth page
-  const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
+  const isAuthPage = ['/uiux/login', '/uiux/signup', '/uiux/forgot-password'].includes(location.pathname);
 
   const isDrawPage = ['/draw', '/excalidraw'].includes(location.pathname);
   

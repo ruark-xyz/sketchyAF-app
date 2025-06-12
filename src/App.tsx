@@ -47,13 +47,18 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/excalidraw" element={<ExcalidrawDraw />} />
             <Route path="/premium" element={<Premium />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/art" element={<ArtGallery />} />
             <Route path="/art/:drawingId" element={<ArtDetail />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
+
+            <Route path="/excalidraw" element={
+              <ProtectedRoute>
+                <ExcalidrawDraw />
+              </ProtectedRoute>
+            } />
 
             {/* Protected Routes - Require Authentication */}
             <Route path="/profile" element={
@@ -68,29 +73,25 @@ function App() {
             <Route path="/roadmap" element={<Roadmap />} />
             <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
 
-            {/* Authentication Routes - Redirect if already logged in */}
-            <Route path="/login" element={
-              <ProtectedRoute requireAuth={false} redirectTo="/">
-                <Login />
-              </ProtectedRoute>
-            } />
-            <Route path="/signup" element={
-              <ProtectedRoute requireAuth={false} redirectTo="/">
-                <Signup />
-              </ProtectedRoute>
-            } />
-            <Route path="/forgot-password" element={
-              <ProtectedRoute requireAuth={false} redirectTo="/">
-                <ForgotPassword />
-              </ProtectedRoute>
-            } />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/reset-password" element={<ResetPassword />} />
 
             {/* UI/UX Concept Screens - Including moved auth pages */}
-            <Route path="/uiux/login" element={<Login />} />
-            <Route path="/uiux/signup" element={<Signup />} />
-            <Route path="/uiux/forgot-password" element={<ForgotPassword />} />
+            <Route path="/uiux/login" element={
+              <ProtectedRoute requireAuth={false} redirectTo="/">
+                <Login />
+              </ProtectedRoute>
+              } />
+            <Route path="/uiux/signup" element={
+              <ProtectedRoute requireAuth={false} redirectTo="/">
+                <Signup />
+              </ProtectedRoute>
+            } />
+            <Route path="/uiux/forgot-password" element={
+              <ProtectedRoute requireAuth={false} redirectTo="/">
+                <ForgotPassword />
+              </ProtectedRoute>
+            } />
             <Route path="/uiux/lobby" element={
               <ProtectedRoute>
                 <LobbyScreen />

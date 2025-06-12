@@ -269,7 +269,7 @@ const Signup: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-medium-gray">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary font-semibold hover:underline">
+              <Link to="/uiux/login" className="text-primary font-semibold hover:underline">
                 Log In
               </Link>
             </p>

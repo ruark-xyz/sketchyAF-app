@@ -12,7 +12,7 @@ const AuthCallback: React.FC = () => {
         
         if (error) {
           console.error('Auth callback error:', error);
-          navigate('/login?error=auth_callback_failed');
+          navigate('/uiux/login?error=auth_callback_failed');
           return;
         }
 
@@ -22,11 +22,11 @@ const AuthCallback: React.FC = () => {
           navigate(redirectTo);
         } else {
           // No session found, redirect to login
-          navigate('/login');
+          navigate('/uiux/login');
         }
       } catch (err) {
         console.error('Auth callback error:', err);
-        navigate('/login?error=auth_callback_failed');
+        navigate('/uiux/login?error=auth_callback_failed');
       }
     };
 
