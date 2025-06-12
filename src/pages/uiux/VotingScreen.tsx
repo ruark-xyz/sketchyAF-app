@@ -5,8 +5,6 @@ import {
   Users, 
   Check, 
   Heart,
-  Zap,
-  Flame,
   Eye,
   ZoomIn,
   X,
@@ -25,24 +23,21 @@ const MOCK_SUBMISSIONS = [
     username: 'SketchLord',
     avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
     drawingUrl: 'https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: false,
-    reactions: { laugh: 3, fire: 1, mind_blown: 2 }
+    hasVoted: false
   },
   {
     id: 2,
     username: 'DoodleQueen',
     avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
     drawingUrl: 'https://images.pexels.com/photos/1887946/pexels-photo-1887946.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: true,
-    reactions: { laugh: 5, fire: 3, mind_blown: 1 }
+    hasVoted: true
   },
   {
     id: 3,
     username: 'ArtisticTroll',
     avatar: 'https://randomuser.me/api/portraits/men/15.jpg',
     drawingUrl: 'https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: true,
-    reactions: { laugh: 2, fire: 4, mind_blown: 3 }
+    hasVoted: true
   },
   {
     id: 4,
@@ -50,15 +45,8 @@ const MOCK_SUBMISSIONS = [
     avatar: 'https://randomuser.me/api/portraits/women/63.jpg',
     drawingUrl: 'https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=600',
     hasVoted: false,
-    isCurrentUser: true,
-    reactions: { laugh: 1, fire: 2, mind_blown: 4 }
+    isCurrentUser: true
   }
-];
-
-const EMOJI_REACTIONS = [
-  { id: 'laugh', emoji: '😆', label: 'Hilarious' },
-  { id: 'fire', emoji: '🔥', label: 'Fire' },
-  { id: 'mind_blown', emoji: '🤯', label: 'Mind Blown' }
 ];
 
 const VotingScreen: React.FC = () => {
@@ -124,23 +112,6 @@ const VotingScreen: React.FC = () => {
     console.log('Voted for submission:', selectedSubmission);
   };
 
-  const handleReaction = (submissionId: number, reactionId: string) => {
-    setSubmissions(prev => 
-      prev.map(submission => {
-        if (submission.id === submissionId) {
-          return {
-            ...submission,
-            reactions: {
-              ...submission.reactions,
-              [reactionId]: submission.reactions[reactionId as keyof typeof submission.reactions] + 1
-            }
-          };
-        }
-        return submission;
-      })
-    );
-  };
-
   const handleZoomImage = (submissionId: number) => {
     setShowZoomedImage(submissionId);
   };
@@ -156,7 +127,6 @@ const VotingScreen: React.FC = () => {
   };
 
   const votedPlayersCount = submissions.filter(s => s.hasVoted || (s.isCurrentUser && hasVoted)).length;
-  const canVote = selectedSubmission !== null && !hasVoted;
 
   // Get non-current-user submissions for voting
   const votableSubmissions = submissions.filter(s => !s.isCurrentUser);
@@ -227,28 +197,18 @@ const VotingScreen: React.FC = () => {
                     <div className="flex items-center justify-center mb-3">
                       <Vote size={24} className="text-primary mr-2" />
                       <p className="font-heading font-bold text-xl text-dark">
-                        Time to Vote & React!
+                        Time to Vote!
                       </p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                      <div className="bg-primary/10 p-3 rounded-lg border border-primary/30">
-                        <div className="flex items-center mb-2">
+                    <div className="text-center">
+                      <div className="bg-primary/10 p-4 rounded-lg border border-primary/30">
+                        <div className="flex items-center justify-center mb-2">
                           <Check size={16} className="text-primary mr-2" />
-                          <span className="font-heading font-semibold text-primary">Vote (Required)</span>
+                          <span className="font-heading font-semibold text-primary">How to Vote</span>
                         </div>
                         <p className="text-sm text-dark">
-                          Click a drawing card to select it, then cast your vote. You get one vote only!
-                        </p>
-                      </div>
-                      
-                      <div className="bg-accent/10 p-3 rounded-lg border border-accent/30">
-                        <div className="flex items-center mb-2">
-                          <span className="text-lg mr-2">😆</span>
-                          <span className="font-heading font-semibold text-dark">React (Optional)</span>
-                        </div>
-                        <p className="text-sm text-dark">
-                          Add emoji reactions to any drawing. React to as many as you want!
+                          Tap a drawing card to select it, then tap the "Vote" button that appears. You get one vote only!
                         </p>
                       </div>
                     </div>
@@ -304,7 +264,7 @@ const VotingScreen: React.FC = () => {
 
                       {/* Drawing */}
                       <div 
-                        className="relative mb-3 cursor-pointer group"
+                        className="relative mb-4 cursor-pointer group"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleZoomImage(submission.id);
@@ -320,49 +280,59 @@ const VotingScreen: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Emoji Reactions */}
-                      <div className="flex justify-between items-center">
-                        {EMOJI_REACTIONS.map(reaction => (
-                          <button
-                            key={reaction.id}
+                      {/* Vote Button - Only show when this submission is selected */}
+                      {selectedSubmission === submission.id && !hasVoted && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-center"
+                        >
+                          <Button 
+                            variant="primary" 
+                            size="md" 
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleReaction(submission.id, reaction.id);
+                              handleVote();
                             }}
-                            className="flex items-center bg-off-white hover:bg-accent/20 px-2 py-1 rounded-full border border-light-gray transition-all"
+                            className="w-full animate-pulse"
                           >
-                            <span className="text-lg mr-1">{reaction.emoji}</span>
-                            <span className="text-xs font-heading font-semibold">
-                              {submission.reactions[reaction.id as keyof typeof submission.reactions]}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
+                            <Vote size={18} className="mr-2" />
+                            Vote for this drawing!
+                          </Button>
+                        </motion.div>
+                      )}
+
+                      {/* Selection prompt when not selected */}
+                      {selectedSubmission !== submission.id && !hasVoted && (
+                        <div className="text-center">
+                          <div className="bg-off-white border border-light-gray rounded-lg p-3">
+                            <p className="text-sm text-medium-gray font-heading">
+                              Tap to select this drawing
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </div>
 
-                {/* Vote Button */}
-                <div className="text-center">
-                  <Button 
-                    variant="primary" 
-                    size="lg" 
-                    onClick={handleVote}
-                    disabled={!canVote}
-                    className={`${canVote ? 'animate-pulse' : ''}`}
+                {/* Bottom instruction */}
+                {selectedSubmission && !hasVoted && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center"
                   >
-                    <Vote size={20} className="mr-2" />
-                    {selectedSubmission ? 'Cast Your Vote!' : 'Select a Drawing First'}
-                  </Button>
-                  
-                  {selectedSubmission && (
-                    <p className="text-sm text-medium-gray mt-2">
-                      You're voting for <span className="font-heading font-semibold text-primary">
-                        {votableSubmissions.find(s => s.id === selectedSubmission)?.username}'s
-                      </span> drawing
-                    </p>
-                  )}
-                </div>
+                    <div className="bg-primary/10 border border-primary rounded-lg p-4 max-w-md mx-auto">
+                      <p className="text-primary font-heading font-semibold">
+                        You've selected {votableSubmissions.find(s => s.id === selectedSubmission)?.username}'s drawing
+                      </p>
+                      <p className="text-sm text-dark mt-1">
+                        Tap the "Vote" button on the card to cast your vote!
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
               </motion.div>
             )}
 

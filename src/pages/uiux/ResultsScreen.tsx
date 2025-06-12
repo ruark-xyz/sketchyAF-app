@@ -253,6 +253,44 @@ const ResultsScreen: React.FC = () => {
               </div>
             </motion.div>
 
+            {/* Action Buttons - Moved here between Winner and Podium */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2, duration: 0.6 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={handlePlayAgain}
+                className="w-full"
+              >
+                <Play size={20} className="mr-2" />
+                Play Again
+              </Button>
+
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={handleViewProfile}
+                className="w-full"
+              >
+                <User size={20} className="mr-2" />
+               See performance
+              </Button>
+
+              <Button 
+                variant="tertiary" 
+                size="lg" 
+                onClick={handleShare}
+                className="w-full"
+              >
+                <Share2 size={20} className="mr-2" />
+                Share Results
+              </Button>
+            </motion.div>
+
             {/* Podium Display */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -348,25 +386,15 @@ const ResultsScreen: React.FC = () => {
                   </div>
                 )}
 
-                {/* Rewards */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-secondary/10 p-3 rounded-lg border border-secondary/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Zap size={16} className="text-secondary mr-1" />
-                      <span className="text-xs text-medium-gray">XP Gained</span>
+                {/* Rewards - Only showing XP now */}
+                <div className="flex justify-center mb-4">
+                  <div className="bg-secondary/10 p-4 rounded-lg border border-secondary/30 max-w-xs">
+                    <div className="flex items-center justify-center mb-2">
+                      <Zap size={20} className="text-secondary mr-2" />
+                      <span className="text-sm text-medium-gray">XP Gained</span>
                     </div>
-                    <p className="font-heading font-bold text-lg text-secondary">
+                    <p className="font-heading font-bold text-2xl text-secondary">
                       +{RESULTS_DATA.currentPlayer.earnedXP}
-                    </p>
-                  </div>
-
-                  <div className="bg-accent/10 p-3 rounded-lg border border-accent/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Star size={16} className="text-accent mr-1" />
-                      <span className="text-xs text-medium-gray">Coins</span>
-                    </div>
-                    <p className="font-heading font-bold text-lg text-accent">
-                      +{RESULTS_DATA.currentPlayer.earnedCoins}
                     </p>
                   </div>
                 </div>
@@ -376,7 +404,7 @@ const ResultsScreen: React.FC = () => {
                     <div className="flex items-center justify-center">
                       <Trophy size={18} className="text-primary mr-2" />
                       <span className="font-heading font-semibold text-primary">
-                        Winner Bonus: +50 XP, +25 Coins!
+                        Winner Bonus: +50 XP!
                       </span>
                     </div>
                   </div>
@@ -429,44 +457,6 @@ const ResultsScreen: React.FC = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.5, duration: 0.6 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4"
-            >
-              <Button 
-                variant="primary" 
-                size="lg" 
-                onClick={handlePlayAgain}
-                className="w-full"
-              >
-                <Play size={20} className="mr-2" />
-                Play Again
-              </Button>
-
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                onClick={handleViewProfile}
-                className="w-full"
-              >
-                <User size={20} className="mr-2" />
-               See performance
-              </Button>
-
-              <Button 
-                variant="tertiary" 
-                size="lg" 
-                onClick={handleShare}
-                className="w-full"
-              >
-                <Share2 size={20} className="mr-2" />
-                Share Results
-              </Button>
-            </motion.div>
 
             {/* Vote Breakdown (Optional Detail) */}
             <motion.div
