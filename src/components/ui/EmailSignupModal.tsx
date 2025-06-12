@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { X, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from './Button';
 import Input from './Input';
+import { supabase } from '../../utils/supabase';
 
 interface EmailSignupModalProps {
   isOpen: boolean;
@@ -16,44 +17,76 @@ interface FormData {
 }
 
 const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) => {
-  const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  
-  const { 
-    register, 
-    handleSubmit, 
+  const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success' | 'error' | 'duplicate'>('idle');
+
+  const methods = useForm<FormData>({
+    defaultValues: {
+      email: ''
+    },
+    mode: 'onChange'
+  });
+
+  const {
+    handleSubmit,
     reset,
-    formState: { errors } 
-  } = useForm<FormData>();
+    register,
+    formState: { errors }
+  } = methods;
+
+  // Set up validation rules
+  React.useEffect(() => {
+    register('email', {
+      required: 'We need your email to reach you!',
+      pattern: {
+        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+        message: "That doesn't look like a real email... 🤔"
+      }
+    });
+  }, [register]);
   
   const onSubmit = async (data: FormData) => {
     setSubmissionState('loading');
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      // Store in localStorage for demo
-      const existingEmails = JSON.parse(localStorage.getItem('signupEmails') || '[]');
-      const updatedEmails = [...existingEmails, { email: data.email, timestamp: new Date().toISOString() }];
-      localStorage.setItem('signupEmails', JSON.stringify(updatedEmails));
-      
+      // Insert new email into waitlist - let database handle duplicates
+      const { error: insertError } = await supabase
+        .from('waitlist')
+        .insert([
+          {
+            email: data.email.toLowerCase().trim(),
+            signed_up_at: new Date().toISOString()
+          }
+        ]);
+
+      if (insertError) {
+        // Handle duplicate email constraint error specifically
+        if (insertError.code === '23505') {
+          setSubmissionState('duplicate');
+          setTimeout(() => {
+            setSubmissionState('idle');
+          }, 4000);
+          return;
+        }
+        throw new Error(insertError.message || 'Failed to save email. Please try again.');
+      }
+
       setSubmissionState('success');
       reset();
-      
+
       // Auto-close after success
       setTimeout(() => {
         setSubmissionState('idle');
         onClose();
       }, 3000);
-      
+
     } catch (error) {
-      console.error('Error submitting email:', error);
+      console.error('Error submitting email to waitlist:', error);
       setSubmissionState('error');
-      
-      // Reset error state after 3 seconds
+
+      // Reset error state after 4 seconds
       setTimeout(() => {
         setSubmissionState('idle');
-      }, 3000);
+      }, 4000);
     }
   };
 
@@ -167,48 +200,47 @@ const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) 
                 </motion.p>
               </div>
               
-              {submissionState === 'error' && (
-                <motion.div 
+              {(submissionState === 'error' || submissionState === 'duplicate') && (
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   className="mb-4 p-3 bg-error/10 border border-error text-error rounded-md flex items-center text-sm"
                 >
                   <AlertCircle size={16} className="mr-2 flex-shrink-0" />
-                  <span>Oops! Something went sketchy on our end. Please try again!</span>
+                  <span>
+                    {submissionState === 'duplicate'
+                      ? "You're already on the list, sketchlord! We'll reach out when it's time to draw! 🎨"
+                      : "Oops! Something went sketchy on our end. Please try again!"
+                    }
+                  </span>
                 </motion.div>
               )}
               
-              <motion.form 
-                onSubmit={handleSubmit(onSubmit)}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="space-y-4"
-              >
-                <div className="relative">
-                  <Input
-                    name="email"
-                    type="email"
-                    placeholder="your.artistic.email@example.com"
-                    aria-label="Email address"
-                    className="pr-12 border-2 border-dark hand-drawn text-center"
-                    error={errors.email?.message}
-                    {...register('email', { 
-                      required: 'We need your email to reach you!',
-                      pattern: {
-                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: "That doesn't look like a real email... 🤔"
-                      }
-                    })}
-                  />
-                  <Mail className="absolute right-4 top-1/2 transform -translate-y-1/2 text-medium-gray" size={20} />
-                </div>
+              <FormProvider {...methods}>
+                <motion.form
+                  onSubmit={handleSubmit(onSubmit)}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="space-y-4"
+                >
+                  <div className="relative">
+                    <Input
+                      name="email"
+                      type="email"
+                      placeholder="your.artistic.email@example.com"
+                      aria-label="Email address"
+                      className="pr-12 border-2 border-dark hand-drawn text-center"
+                      error={errors.email?.message}
+                    />
+                    <Mail className="absolute right-4 top-1/2 transform -translate-y-1/2 text-medium-gray" size={20} />
+                  </div>
                 
                 <Button
                   type="submit"
                   variant="primary"
                   className="w-full"
-                  disabled={submissionState === 'loading'}
+                  disabled={submissionState === 'loading' || submissionState === 'duplicate'}
                 >
                   {submissionState === 'loading' ? (
                     <div className="flex items-center justify-center">
@@ -226,7 +258,8 @@ const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) 
                     </div>
                   )}
                 </Button>
-              </motion.form>
+                </motion.form>
+              </FormProvider>
               
               <motion.div 
                 initial={{ opacity: 0 }}
