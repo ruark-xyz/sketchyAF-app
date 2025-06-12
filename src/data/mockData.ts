@@ -776,7 +776,7 @@ export const roadmapItems: RoadmapItem[] = [
     id: "ar-drawing",
     title: "AR Drawing Mode",
     description: "Draw in augmented reality! Point your camera at the world and add your sketches to real-life scenes.",
-    image: "https://images.pexels.com/photos/8546873/pexels-photo-8546873.jpeg?auto=compress&cs=tinysrgb&w=600",
+    image: "https://images.pexels.com/photos/5412270/pexels-photo-5412270.jpeg?auto=compress&cs=tinysrgb&w=600",
     category: "mobile",
     targetQuarter: "Q1",
     targetYear: 2026,
