@@ -253,6 +253,44 @@ const ResultsScreen: React.FC = () => {
               </div>
             </motion.div>
 
+            {/* Action Buttons - Moved here between Winner and Podium */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2, duration: 0.6 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={handlePlayAgain}
+                className="w-full"
+              >
+                <Play size={20} className="mr-2" />
+                Play Again
+              </Button>
+
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={handleViewProfile}
+                className="w-full"
+              >
+                <User size={20} className="mr-2" />
+               See performance
+              </Button>
+
+              <Button 
+                variant="tertiary" 
+                size="lg" 
+                onClick={handleShare}
+                className="w-full"
+              >
+                <Share2 size={20} className="mr-2" />
+                Share Results
+              </Button>
+            </motion.div>
+
             {/* Podium Display */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -429,44 +467,6 @@ const ResultsScreen: React.FC = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.5, duration: 0.6 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4"
-            >
-              <Button 
-                variant="primary" 
-                size="lg" 
-                onClick={handlePlayAgain}
-                className="w-full"
-              >
-                <Play size={20} className="mr-2" />
-                Play Again
-              </Button>
-
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                onClick={handleViewProfile}
-                className="w-full"
-              >
-                <User size={20} className="mr-2" />
-               See performance
-              </Button>
-
-              <Button 
-                variant="tertiary" 
-                size="lg" 
-                onClick={handleShare}
-                className="w-full"
-              >
-                <Share2 size={20} className="mr-2" />
-                Share Results
-              </Button>
-            </motion.div>
 
             {/* Vote Breakdown (Optional Detail) */}
             <motion.div
