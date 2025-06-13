@@ -26,7 +26,7 @@ const Seo: React.FC<SeoProps> = ({
       <meta name="description" content={description} />
       
       {/* Canonical URL */}
-      {canonicalUrl && <link rel="canonical\" href={canonicalUrl} />}
+      {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
       
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={ogType} />
@@ -38,7 +38,7 @@ const Seo: React.FC<SeoProps> = ({
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      {ogImage && <meta name="twitter:image\" content={ogImage} />}
+      {ogImage && <meta name="twitter:image" content={ogImage} />}
     </Helmet>
   );
 };
