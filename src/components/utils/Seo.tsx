@@ -14,7 +14,7 @@ const Seo: React.FC<SeoProps> = ({
   description,
   canonicalUrl,
   ogType = 'website',
-  ogImage = '/public/og-image.jpg', // Default OG image
+  ogImage = 'https://sketchyaf.app/og-image.jpg', // Default OG image
 }) => {
   // Append site name to title for consistency
   const fullTitle = `${title} | SketchyAF`;
