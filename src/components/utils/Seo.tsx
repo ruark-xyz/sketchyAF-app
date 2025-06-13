@@ -14,7 +14,7 @@ const Seo: React.FC<SeoProps> = ({
   description,
   canonicalUrl,
   ogType = 'website',
-  ogImage = '/public/og-image.jpg', // Default OG image
+  ogImage = '/og-image.jpg', // Default OG image
 }) => {
   // Append site name to title for consistency
   const fullTitle = `${title} | SketchyAF`;
@@ -32,7 +32,7 @@ const Seo: React.FC<SeoProps> = ({
       <meta property="og:type" content={ogType} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      {ogImage && <meta property="og:image\" content={ogImage} />}
+      {ogImage && <meta property="og:image" content={ogImage} />}
       
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
