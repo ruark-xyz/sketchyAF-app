@@ -218,6 +218,7 @@ const EmailSignupModal: React.FC<EmailSignupModalProps> = ({ isOpen, onClose }) 
               
               <FormProvider {...methods}>
                 <motion.form
+                  id="email-signup-modal"
                   onSubmit={handleSubmit(onSubmit)}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
