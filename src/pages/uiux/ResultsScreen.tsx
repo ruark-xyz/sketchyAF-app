@@ -27,7 +27,7 @@ const RESULTS_DATA = {
     id: 1,
     username: 'SketchLord',
     avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=600',
+    drawingUrl: 'https://images.pexels.com/photos/8378736/pexels-photo-8378736.jpeg?auto=compress&cs=tinysrgb&w=600',
     votes: 3,
     percentage: 75
   },
