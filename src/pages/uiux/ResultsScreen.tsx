@@ -45,7 +45,7 @@ const RESULTS_DATA = {
       id: 3,
       username: 'DoodleQueen',
       avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      drawingUrl: 'https://images.pexels.com/photos/1887946/pexels-photo-1887946.jpeg?auto=compress&cs=tinysrgb&w=600',
+      drawingUrl: 'https://images.pexels.com/photos/8378752/pexels-photo-8378752.jpeg?auto=compress&cs=tinysrgb&w=600',
       votes: 0,
       percentage: 0,
       placement: 3
