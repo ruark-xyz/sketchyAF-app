@@ -36,7 +36,7 @@ const RESULTS_DATA = {
       id: 2,
       username: 'ArtisticTroll',
       avatar: 'https://randomuser.me/api/portraits/men/15.jpg',
-      drawingUrl: 'https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=600',
+      drawingUrl: 'https://images.pexels.com/photos/9637955/pexels-photo-9637955.jpeg?auto=compress&cs=tinysrgb&w=600',
       votes: 1,
       percentage: 25,
       placement: 2
