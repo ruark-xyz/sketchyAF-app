@@ -22,14 +22,14 @@ const MOCK_SUBMISSIONS = [
     id: 1,
     username: 'SketchLord',
     avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=600',
+    drawingUrl: 'https://images.pexels.com/photos/8378736/pexels-photo-8378736.jpeg?auto=compress&cs=tinysrgb&w=600',
     hasVoted: false
   },
   {
     id: 2,
     username: 'DoodleQueen',
     avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1887946/pexels-photo-1887946.jpeg?auto=compress&cs=tinysrgb&w=600',
+    drawingUrl: 'https://images.pexels.com/photos/9637955/pexels-photo-9637955.jpeg?auto=compress&cs=tinysrgb&w=600',
     hasVoted: true
   },
   {

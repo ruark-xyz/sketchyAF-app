@@ -27,7 +27,7 @@ const RESULTS_DATA = {
     id: 1,
     username: 'SketchLord',
     avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1092364/pexels-photo-1092364.jpeg?auto=compress&cs=tinysrgb&w=600',
+    drawingUrl: 'https://images.pexels.com/photos/8378736/pexels-photo-8378736.jpeg?auto=compress&cs=tinysrgb&w=600',
     votes: 3,
     percentage: 75
   },
@@ -36,7 +36,7 @@ const RESULTS_DATA = {
       id: 2,
       username: 'ArtisticTroll',
       avatar: 'https://randomuser.me/api/portraits/men/15.jpg',
-      drawingUrl: 'https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=600',
+      drawingUrl: 'https://images.pexels.com/photos/9637955/pexels-photo-9637955.jpeg?auto=compress&cs=tinysrgb&w=600',
       votes: 1,
       percentage: 25,
       placement: 2
@@ -45,7 +45,7 @@ const RESULTS_DATA = {
       id: 3,
       username: 'DoodleQueen',
       avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      drawingUrl: 'https://images.pexels.com/photos/1887946/pexels-photo-1887946.jpeg?auto=compress&cs=tinysrgb&w=600',
+      drawingUrl: 'https://images.pexels.com/photos/8378752/pexels-photo-8378752.jpeg?auto=compress&cs=tinysrgb&w=600',
       votes: 0,
       percentage: 0,
       placement: 3
