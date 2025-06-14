@@ -29,7 +29,7 @@ const MOCK_SUBMISSIONS = [
     id: 2,
     username: 'DoodleQueen',
     avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1887946/pexels-photo-1887946.jpeg?auto=compress&cs=tinysrgb&w=600',
+    drawingUrl: 'https://images.pexels.com/photos/9637955/pexels-photo-9637955.jpeg?auto=compress&cs=tinysrgb&w=600',
     hasVoted: true
   },
   {
