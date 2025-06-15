@@ -1,18 +1,18 @@
 // Image Asset Loading and Management Utilities
 
 import { ImageAsset, ImageCollection, ImageFormat, IMAGE_MIME_TYPES } from '../types/assets';
+import { AssetManifest } from '../types/manifest';
 
 // Configuration for image asset loading
 const ASSET_CONFIG = {
   basePath: '/src/assets/image-libraries',
   publicPath: '/image-assets',
   supportedExtensions: ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp'],
-  collections: [
-    { id: 'shapes', name: 'shapes', displayName: 'Basic Shapes' },
-    { id: 'troll', name: 'troll', displayName: 'Troll Faces' },
-    { id: 'test', name: 'test', displayName: 'Test' },
-  ]
+  manifestPath: '/asset-manifest.json'
 };
+
+// Cache for the loaded manifest
+let manifestCache: AssetManifest | null = null;
 
 /**
  * Generate a unique ID for an image asset
@@ -83,6 +83,38 @@ function createPreviewUrl(content: string | undefined, fileName: string, format:
 }
 
 /**
+ * Load the asset manifest from the generated file
+ */
+async function loadManifest(): Promise<AssetManifest> {
+  if (manifestCache) {
+    return manifestCache;
+  }
+
+  try {
+    // Load manifest from public directory
+    const response = await fetch(ASSET_CONFIG.manifestPath);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch manifest: ${response.status}`);
+    }
+
+    const manifest: AssetManifest = await response.json();
+    manifestCache = manifest;
+    return manifest;
+  } catch (error) {
+    console.error('Failed to load asset manifest:', error);
+    // Return empty manifest as fallback
+    const fallbackManifest: AssetManifest = {
+      generated: new Date().toISOString(),
+      collections: {},
+      totalFiles: 0,
+      supportedExtensions: ASSET_CONFIG.supportedExtensions,
+    };
+    manifestCache = fallbackManifest;
+    return fallbackManifest;
+  }
+}
+
+/**
  * Load image content (only for SVG files)
  */
 async function loadImageContent(collection: string, fileName: string, format: ImageFormat): Promise<string | undefined> {
@@ -113,55 +145,51 @@ async function loadImageContent(collection: string, fileName: string, format: Im
 export async function loadCollectionAssets(collectionName: string): Promise<ImageAsset[]> {
   const assets: ImageAsset[] = [];
 
-  // Known files with multiple formats
-  const knownFiles: Record<string, string[]> = {
-    shapes: [
-      'circle.svg',
-      'square.svg',
-      'triangle.svg'
-    ],
-    troll: [
-      'troll-face-meme-linetest.svg'
-    ],
-    test: [
-      'DreamShaper_v5_An_expansive_post_modern_interior_with_a_modern_0.jpg'
-    ],
-  };
+  try {
+    // Load the manifest to get the list of files
+    const manifest = await loadManifest();
+    const collection = manifest.collections[collectionName];
 
-  const files = knownFiles[collectionName] || [];
-
-  for (const fileName of files) {
-    if (!isSupportedImageFormat(fileName)) {
-      console.warn(`Unsupported format: ${fileName}`);
-      continue;
+    if (!collection) {
+      console.warn(`Collection '${collectionName}' not found in manifest`);
+      return assets;
     }
 
-    try {
-      const format = getImageFormat(fileName);
-      const mimeType = IMAGE_MIME_TYPES[format];
-      const content = await loadImageContent(collectionName, fileName, format);
+    for (const manifestFile of collection.files) {
+      if (!isSupportedImageFormat(manifestFile.name)) {
+        console.warn(`Unsupported format: ${manifestFile.name}`);
+        continue;
+      }
 
-      // Extract dimensions (only works for SVG)
-      const dimensions = format === 'svg' && content ? extractSVGDimensions(content) : {};
+      try {
+        const format = getImageFormat(manifestFile.name);
+        const mimeType = IMAGE_MIME_TYPES[format];
+        const content = await loadImageContent(collectionName, manifestFile.name, format);
 
-      const previewUrl = createPreviewUrl(content, `${collectionName}/${fileName}`, format);
+        // Extract dimensions (only works for SVG)
+        const dimensions = format === 'svg' && content ? extractSVGDimensions(content) : {};
 
-      const asset: ImageAsset = {
-        id: generateAssetId(collectionName, fileName),
-        name: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
-        fileName,
-        collection: collectionName,
-        format,
-        mimeType,
-        content,
-        previewUrl,
-        ...dimensions,
-      };
+        const previewUrl = createPreviewUrl(content, `${collectionName}/${manifestFile.name}`, format);
 
-      assets.push(asset);
-    } catch (error) {
-      console.error(`Failed to load asset ${fileName} from collection ${collectionName}:`, error);
+        const asset: ImageAsset = {
+          id: generateAssetId(collectionName, manifestFile.name),
+          name: manifestFile.name.replace(/\.[^/.]+$/, ''), // Remove extension
+          fileName: manifestFile.name,
+          collection: collectionName,
+          format,
+          mimeType,
+          content,
+          previewUrl,
+          ...dimensions,
+        };
+
+        assets.push(asset);
+      } catch (error) {
+        console.error(`Failed to load asset ${manifestFile.name} from collection ${collectionName}:`, error);
+      }
     }
+  } catch (error) {
+    console.error(`Failed to load collection ${collectionName}:`, error);
   }
 
   return assets;
@@ -173,27 +201,34 @@ export async function loadCollectionAssets(collectionName: string): Promise<Imag
 export async function loadAllCollections(): Promise<ImageCollection[]> {
   const collections: ImageCollection[] = [];
 
-  for (const config of ASSET_CONFIG.collections) {
-    try {
-      const assets = await loadCollectionAssets(config.name);
-      collections.push({
-        id: config.id,
-        name: config.name,
-        displayName: config.displayName,
-        assets,
-        totalCount: assets.length,
-      });
-    } catch (error) {
-      console.error(`Failed to load collection ${config.name}:`, error);
-      // Add empty collection to maintain structure
-      collections.push({
-        id: config.id,
-        name: config.name,
-        displayName: config.displayName,
-        assets: [],
-        totalCount: 0,
-      });
+  try {
+    // Load the manifest to get all available collections
+    const manifest = await loadManifest();
+
+    for (const [collectionName, manifestCollection] of Object.entries(manifest.collections)) {
+      try {
+        const assets = await loadCollectionAssets(collectionName);
+        collections.push({
+          id: collectionName,
+          name: collectionName,
+          displayName: manifestCollection.displayName,
+          assets,
+          totalCount: assets.length,
+        });
+      } catch (error) {
+        console.error(`Failed to load collection ${collectionName}:`, error);
+        // Add empty collection to maintain structure
+        collections.push({
+          id: collectionName,
+          name: collectionName,
+          displayName: manifestCollection.displayName,
+          assets: [],
+          totalCount: 0,
+        });
+      }
     }
+  } catch (error) {
+    console.error('Failed to load manifest for collections:', error);
   }
 
   return collections;

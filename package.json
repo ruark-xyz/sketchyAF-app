@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "vite build",
+    "dev": "npm run generate:manifest && vite --host",
+    "build": "npm run generate:manifest && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "analyze:bundle": "npm run build && npx vite-bundle-analyzer dist",
-    "build:analyze": "vite build --mode analyze"
+    "build:analyze": "vite build --mode analyze",
+    "generate:manifest": "node scripts/generate-asset-manifest.js"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.17.6",
