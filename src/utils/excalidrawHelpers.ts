@@ -30,36 +30,25 @@ export const EXCALIDRAW_DEFAULTS = {
 export function getViewportCenter(appState: AppState | null): { x: number; y: number } {
   // Default center position if appState is not available
   const defaultCenter = { x: 0, y: 0 };
-  
+
   if (!appState) {
-    console.warn('No app state provided, using default center position');
     return defaultCenter;
   }
-  
+
   try {
     // Extract viewport properties with safe defaults
     const { scrollX = 0, scrollY = 0, zoom = { value: 1 } } = appState;
     const zoomValue = typeof zoom === 'object' ? zoom.value : zoom;
-    
+
     // Get viewport dimensions
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     // Calculate center position in canvas coordinates
     // Formula: (screen_position - scroll_offset) / zoom_level
     const centerX = (-scrollX + viewportWidth / 2) / zoomValue;
     const centerY = (-scrollY + viewportHeight / 2) / zoomValue;
-    
-    console.log('📍 Viewport center calculated:', {
-      scrollX,
-      scrollY,
-      zoomValue,
-      viewportWidth,
-      viewportHeight,
-      centerX,
-      centerY
-    });
-    
+
     return { x: centerX, y: centerY };
   } catch (error) {
     console.warn('Could not calculate viewport center:', error);

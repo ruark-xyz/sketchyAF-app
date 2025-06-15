@@ -40,28 +40,27 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
       
       loadAllCollections()
         .then(loadedCollections => {
-          console.log('📚 Collections loaded:', loadedCollections);
           setCollections(loadedCollections);
-          
+
           // Set initial selected collection
           if (loadedCollections.length > 0) {
-            setState(prev => ({ 
-              ...prev, 
+            setState(prev => ({
+              ...prev,
               selectedCollection: loadedCollections[0].id,
-              isLoading: false 
+              isLoading: false
             }));
           } else {
-            setState(prev => ({ 
-              ...prev, 
+            setState(prev => ({
+              ...prev,
               isLoading: false,
               error: 'No collections available'
             }));
           }
         })
         .catch(error => {
-          console.error('❌ Failed to load collections:', error);
-          setState(prev => ({ 
-            ...prev, 
+          console.error('Failed to load collections:', error);
+          setState(prev => ({
+            ...prev,
             isLoading: false,
             error: 'Failed to load image collections'
           }));
@@ -98,39 +97,21 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
    * Converts the image to a data URL and creates an image element
    */
   const handleAssetClick = useCallback(async (asset: ImageAsset) => {
-    console.log('🎯 Asset clicked:', {
-      id: asset.id,
-      name: asset.name,
-      collection: asset.collection,
-      format: asset.format,
-      mimeType: asset.mimeType
-    });
-
     if (!excalidrawAPI) {
-      console.error('❌ No Excalidraw API available');
+      console.error('No Excalidraw API available');
       return;
     }
 
     if (convertingAsset) {
-      console.log('⏳ Already converting another asset, ignoring click');
       return;
     }
 
     setConvertingAsset(asset.id);
-    console.log('🔄 Starting image insertion process...');
 
     try {
       // Get current app state to determine insertion position
-      console.log('📊 Getting app state...');
       const appState = excalidrawAPI.getAppState();
-      console.log('📊 App state retrieved:', {
-        scrollX: appState?.scrollX,
-        scrollY: appState?.scrollY,
-        zoom: appState?.zoom
-      });
-
       const center = getViewportCenter(appState);
-      console.log('🎯 Calculated center position:', center);
 
       // Convert image to data URL
       const contentOrUrl = asset.content || asset.previewUrl;
@@ -168,10 +149,9 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
         elements: [...excalidrawAPI.getSceneElements(), imageElement],
       });
 
-      console.log('✅ Successfully inserted image into canvas');
       onClose(); // Close the drawer after successful insertion
     } catch (error) {
-      console.error('❌ Error inserting image:', error);
+      console.error('Error inserting image:', error);
       setState(prev => ({
         ...prev,
         error: 'Failed to insert image. Please try again.'

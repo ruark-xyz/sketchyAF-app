@@ -70,7 +70,7 @@ function extractSVGDimensions(svgContent: string): { width?: number; height?: nu
 /**
  * Create preview URL for different image formats
  */
-function createPreviewUrl(content: string | null, fileName: string, format: ImageFormat): string {
+function createPreviewUrl(content: string | undefined, fileName: string, format: ImageFormat): string {
   if (format === 'svg' && content) {
     // For SVG, create data URL from content
     const encodedSvg = btoa(unescape(encodeURIComponent(content)));
@@ -85,30 +85,24 @@ function createPreviewUrl(content: string | null, fileName: string, format: Imag
 /**
  * Load image content (only for SVG files)
  */
-async function loadImageContent(collection: string, fileName: string, format: ImageFormat): Promise<string | null> {
+async function loadImageContent(collection: string, fileName: string, format: ImageFormat): Promise<string | undefined> {
   if (format !== 'svg') {
     // Non-SVG images don't need content loading
-    return null;
+    return undefined;
   }
 
-  console.log(`📁 Loading SVG: ${collection}/${fileName}`);
   try {
     const url = `${ASSET_CONFIG.publicPath}/${collection}/${fileName}`;
-    console.log(`🌐 Fetching from URL: ${url}`);
-
     const response = await fetch(url);
-    console.log(`📡 Response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       throw new Error(`Failed to load SVG: ${response.status} ${response.statusText}`);
     }
 
     const content = await response.text();
-    console.log(`📄 SVG content loaded (${content.length} chars): ${content.substring(0, 100)}...`);
-
     return content;
   } catch (error) {
-    console.error(`❌ Error loading SVG ${collection}/${fileName}:`, error);
+    console.error(`Error loading SVG ${collection}/${fileName}:`, error);
     throw error;
   }
 }
@@ -117,7 +111,6 @@ async function loadImageContent(collection: string, fileName: string, format: Im
  * Load all image assets for a specific collection
  */
 export async function loadCollectionAssets(collectionName: string): Promise<ImageAsset[]> {
-  console.log(`📚 Loading collection: ${collectionName}`);
   const assets: ImageAsset[] = [];
 
   // Known files with multiple formats
@@ -132,17 +125,14 @@ export async function loadCollectionAssets(collectionName: string): Promise<Imag
     ],
     test: [
       'DreamShaper_v5_An_expansive_post_modern_interior_with_a_modern_0.jpg'
-    ]
+    ],
   };
 
   const files = knownFiles[collectionName] || [];
-  console.log(`📋 Files to load for ${collectionName}:`, files);
 
   for (const fileName of files) {
-    console.log(`🔄 Processing file: ${fileName}`);
-    
     if (!isSupportedImageFormat(fileName)) {
-      console.warn(`⚠️ Unsupported format: ${fileName}`);
+      console.warn(`Unsupported format: ${fileName}`);
       continue;
     }
 
@@ -150,14 +140,11 @@ export async function loadCollectionAssets(collectionName: string): Promise<Imag
       const format = getImageFormat(fileName);
       const mimeType = IMAGE_MIME_TYPES[format];
       const content = await loadImageContent(collectionName, fileName, format);
-      
+
       // Extract dimensions (only works for SVG)
       const dimensions = format === 'svg' && content ? extractSVGDimensions(content) : {};
-      
-      const previewUrl = createPreviewUrl(content, `${collectionName}/${fileName}`, format);
 
-      console.log(`📐 Extracted dimensions for ${fileName}:`, dimensions);
-      console.log(`🖼️ Created preview URL for ${fileName}: ${previewUrl.substring(0, 50)}...`);
+      const previewUrl = createPreviewUrl(content, `${collectionName}/${fileName}`, format);
 
       const asset: ImageAsset = {
         id: generateAssetId(collectionName, fileName),
@@ -171,23 +158,12 @@ export async function loadCollectionAssets(collectionName: string): Promise<Imag
         ...dimensions,
       };
 
-      console.log(`✅ Asset created for ${fileName}:`, {
-        id: asset.id,
-        name: asset.name,
-        collection: asset.collection,
-        format: asset.format,
-        mimeType: asset.mimeType,
-        contentLength: asset.content?.length || 0,
-        dimensions: { width: asset.width, height: asset.height }
-      });
-
       assets.push(asset);
     } catch (error) {
-      console.error(`❌ Failed to load asset ${fileName} from collection ${collectionName}:`, error);
+      console.error(`Failed to load asset ${fileName} from collection ${collectionName}:`, error);
     }
   }
 
-  console.log(`📊 Collection ${collectionName} loaded with ${assets.length} assets`);
   return assets;
 }
 
