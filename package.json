@@ -9,8 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "analyze:bundle": "npm run build && npx vite-bundle-analyzer dist",
-    "build:analyze": "vite build --mode analyze",
-    "build:libraries": "npx tsx scripts/build-libraries.ts"
+    "build:analyze": "vite build --mode analyze"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.17.6",

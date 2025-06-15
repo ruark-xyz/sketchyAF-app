@@ -1,159 +1,169 @@
-# Excalidraw SVG Library System
+# Excalidraw SVG Asset System
 
 ## Overview
 
-This system automatically converts organized SVG collections into Excalidraw library files (`.excalidrawlib`). It enables the creation of custom, pre-configured libraries from SVG assets stored in a private repository structure, converting them to native Excalidraw vector elements for optimal performance and reliability.
+This system provides a direct-loading SVG asset system for the Excalidraw canvas. SVG files are organized in collections and loaded dynamically at runtime through the SVG Drawer component, which converts them to image elements on the canvas for optimal performance and reliability.
 
 ## Quick Start
 
 1. **Add SVG files** to themed folders in `src/assets/image-libraries/`
-2. **Run the build script**: `npm run build:libraries`
-3. **Generated libraries** appear in `public/libraries/` and load automatically in Excalidraw
-4. **Shapes appear** in Library panel with color-coded identification
+2. **Copy SVG files** to corresponding folders in `public/svg-assets/`
+3. **Update configuration** in `src/utils/svgAssetLoader.ts`
+4. **SVGs appear** in the SVG Drawer accessible via the image button in Excalidraw
 
 ## Directory Structure
 
 ```
-src/assets/image-libraries/     # Source SVG files (private)
+src/assets/image-libraries/     # Source SVG files (development)
 ├── shapes/                     # Shape SVG files
-│   ├── circle.svg             # → Orange ellipse
-│   ├── square.svg             # → Blue rectangle
-│   └── triangle.svg           # → Red rotated rectangle
-├── icons/                      # Icon SVG files
+│   ├── circle.svg
+│   ├── square.svg
+│   └── triangle.svg
+├── troll/                      # Troll face collection
+│   └── troll-face-meme-linetest.svg
+├── icons/                      # Icon SVG files (empty)
 └── [custom-folder]/            # Any themed collection
 
-public/libraries/               # Generated libraries (public)
-├── robots.excalidrawlib        # Existing library (version 1)
-├── shapes.excalidrawlib        # Generated from shapes/ folder
-└── [custom-folder].excalidrawlib
+public/svg-assets/              # Runtime-accessible SVG files
+├── shapes/                     # Copied from src/assets/image-libraries/shapes/
+│   ├── circle.svg
+│   ├── square.svg
+│   └── triangle.svg
+└── troll/                      # Copied from src/assets/image-libraries/troll/
+    └── troll-face-meme-linetest.svg
 ```
 
 ## Supported Formats
 
-- **SVG** - Vector graphics files (recommended and only supported format)
-  - Converted to native Excalidraw vector elements
-  - Shape type determined by filename patterns
-  - Optimal performance and compatibility
+- **SVG** - Vector graphics files (only supported format)
+  - Loaded directly at runtime via HTTP requests
+  - Converted to Excalidraw image elements when inserted
+  - Maintains original SVG quality and scalability
 
-## SVG Processing
+## SVG Loading Process
 
-### Shape Mapping Logic
-- **circle.svg** → Orange ellipse element (`#fd7e14`)
-- **square.svg** → Blue rectangle element (`#15aabf`)
-- **triangle.svg** → Red rotated rectangle element (`#e03131`)
-- **Custom patterns**: Extensible filename-to-shape mapping
+### Runtime Loading
+1. **HTTP Request**: SVG files are fetched from `/public/svg-assets/` at runtime
+2. **Data URL Conversion**: SVG content is converted to base64 data URLs
+3. **Image Element Creation**: Excalidraw image elements are created with proper positioning
+4. **Canvas Insertion**: Images are inserted directly into the Excalidraw canvas
 
 ### Configuration Settings
 ```typescript
-const CONFIG = {
-  sourceDir: 'src/assets/image-libraries',
-  outputDir: 'public/libraries',
-  supportedFormats: ['.svg'], // SVG only
-  libraryElementSize: 150,
+// In src/utils/svgAssetLoader.ts
+const SVG_ASSETS_CONFIG = {
+  basePath: '/src/assets/image-libraries',
+  supportedExtensions: ['.svg'],
+  collections: [
+    { id: 'shapes', name: 'shapes', displayName: 'Basic Shapes' },
+    { id: 'troll', name: 'troll', displayName: 'Troll Faces' },
+    { id: 'icons', name: 'icons', displayName: 'Icons' },
+  ]
 };
 ```
 
 ## Usage
 
-### Adding New Libraries
+### Adding New Collections
 
-1. **Create a folder** in `src/assets/image-libraries/`
+1. **Create a folder** in `src/assets/image-libraries/[collection-name]/`
 2. **Add SVG files** to the folder (use descriptive filenames)
-3. **Run build script**: `npm run build:libraries`
-4. **Update ExcalidrawCanvas.tsx** to include the new library:
+3. **Copy SVG files** to `public/svg-assets/[collection-name]/`
+4. **Update configuration** in `src/utils/svgAssetLoader.ts`:
 
 ```typescript
-const libraryFiles = [
-  'robots.excalidrawlib',
-  'shapes.excalidrawlib',
-  'your-new-library.excalidrawlib', // Add this line
-];
+// Add to collections array
+{ id: 'your-collection', name: 'your-collection', displayName: 'Your Collection' },
+
+// Add to knownFiles object in loadCollectionAssets()
+const knownFiles: Record<string, string[]> = {
+  shapes: ['circle.svg', 'square.svg', 'triangle.svg'],
+  troll: ['troll-face-meme-linetest.svg'],
+  'your-collection': ['file1.svg', 'file2.svg'], // Add this line
+};
 ```
 
-### Build Script
+### SVG Drawer Access
 
-```bash
-# Generate all libraries
-npm run build:libraries
+The SVG collections are accessible through the SVG Drawer component:
 
-# Output example:
-🚀 Starting Excalidraw Library Builder...
-📂 Found 2 folder(s) to process
-📁 Processing folder: shapes
-🖼️  Found 3 SVG file(s) in shapes
-   ✅ Processed: circle.svg (100x100)
-   ✅ Processed: square.svg (100x100)
-   ✅ Processed: triangle.svg (100x100)
-💾 Created library: public/libraries/shapes.excalidrawlib
-📊 Library contains 3 item(s)
-✨ Library generation complete!
+1. **Open Excalidraw**: Navigate to the drawing canvas
+2. **Click SVG Button**: Click the image icon in the top-right corner
+3. **Browse Collections**: Use tabs to switch between collections
+4. **Search SVGs**: Use the search bar to find specific assets
+5. **Insert SVG**: Click any SVG thumbnail to insert it into the canvas
+
+```typescript
+// SVG Drawer features:
+- Collection tabs (Basic Shapes, Troll Faces, etc.)
+- Search functionality across all collections
+- Real-time SVG preview thumbnails
+- Click-to-insert with automatic positioning
+- Loading states and error handling
 ```
 
-## Generated Library Format
+## SVG Asset Format
 
-The script creates valid Excalidraw library files with version 1 format:
+SVG files are loaded directly without conversion, maintaining their original structure:
 
-```json
+```xml
+<!-- Example: circle.svg -->
+<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50" cy="50" r="40" fill="#4CAF50" stroke="#388E3C" stroke-width="2"/>
+</svg>
+
+<!-- When inserted, becomes an Excalidraw image element -->
 {
-  "type": "excalidrawlib",
-  "version": 1,
-  "library": [
-    [
-      {
-        "type": "ellipse",
-        "version": 1,
-        "id": "unique-id",
-        "fillStyle": "solid",
-        "strokeWidth": 2,
-        "strokeStyle": "solid",
-        "roughness": 1,
-        "opacity": 100,
-        "angle": 0,
-        "x": 0,
-        "y": 0,
-        "strokeColor": "#000000",
-        "backgroundColor": "#fd7e14",
-        "width": 100,
-        "height": 100,
-        // ... other Excalidraw element properties
-      }
-    ]
-  ]
+  "type": "image",
+  "id": "unique-id",
+  "fileId": "file-id",
+  "x": 100,
+  "y": 100,
+  "width": 100,
+  "height": 100,
+  // ... other Excalidraw image properties
 }
 ```
 
 ## Integration with Excalidraw
 
-### Automatic Loading
-Libraries are automatically loaded when the Excalidraw component mounts:
+### SVG Drawer Component
+The SVG assets are accessed through a custom drawer component:
 
 ```typescript
 // In ExcalidrawCanvas.tsx
-const libraryFiles = [
-  'robots.excalidrawlib',
-  'shapes.excalidrawlib',
-];
+import SVGDrawer from './SVGDrawer';
 
-// Libraries are loaded via fetch and added to Excalidraw
-api.updateLibrary({
-  libraryItems: libraryData || [],
-  merge: true,
-});
+// SVG Drawer state
+const [isSVGDrawerOpen, setIsSVGDrawerOpen] = useState(false);
+
+// Custom SVG Library Button
+<button onClick={() => setIsSVGDrawerOpen(true)}>
+  <Image size={20} />
+</button>
+
+// SVG Drawer Component
+<SVGDrawer
+  isOpen={isSVGDrawerOpen}
+  onClose={() => setIsSVGDrawerOpen(false)}
+  excalidrawAPI={excalidrawAPIRef.current}
+/>
 ```
 
-### Hidden UI Elements
-The system hides browse/upload UI while keeping library functionality:
+### Asset Loading Process
+SVG collections are loaded dynamically when the drawer opens:
 
-```css
-/* Hide "Browse libraries" button */
-.excalidraw .library-menu-browse-button {
-  display: none !important;
-}
+```typescript
+// In SVGDrawer.tsx
+const [collections, setCollections] = useState<SVGCollection[]>([]);
 
-/* Hide library menu (upload/import options) */
-.excalidraw .library-menu-dropdown-container {
-  display: none !important;
-}
+useEffect(() => {
+  const loadCollections = async () => {
+    const loadedCollections = await loadAllCollections();
+    setCollections(loadedCollections);
+  };
+  loadCollections();
+}, []);
 ```
 
 ## Error Handling
