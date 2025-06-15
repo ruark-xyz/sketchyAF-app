@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Image, AlertCircle, Loader2 } from 'lucide-react';
 import { ImageCollection, ImageAsset, AssetDrawerState } from '../../types/assets';
-import { loadAllCollections, searchAssets, cleanupAssetPreviews } from '../../utils/assetLoader';
+import { loadAllCollections, searchAssets, cleanupAssetPreviews, calculateAdaptiveImageSize } from '../../utils/assetLoader';
 import { 
   getViewportCenter, 
   imageToDataURL, 
@@ -109,17 +109,33 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
     setConvertingAsset(asset.id);
 
     try {
-      // Get current app state to determine insertion position
+      // Get current app state to determine insertion position and zoom level
       const appState = excalidrawAPI.getAppState();
       const center = getViewportCenter(appState);
+
+      // Extract zoom level for adaptive sizing
+      const zoomLevel = typeof appState.zoom === 'object' ? appState.zoom.value : appState.zoom || 1.0;
+
+      // Get viewport dimensions
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      // Calculate adaptive image dimensions
+      const adaptiveSize = calculateAdaptiveImageSize(
+        asset.width,
+        asset.height,
+        viewportWidth,
+        viewportHeight,
+        zoomLevel
+      );
 
       // Convert image to data URL
       const contentOrUrl = asset.content || asset.previewUrl;
       const dataURL = imageToDataURL(contentOrUrl, asset.format, asset.mimeType);
       const fileId = generateElementId();
       const imageId = generateElementId();
-      const width = asset.width || EXCALIDRAW_DEFAULTS.DEFAULT_WIDTH;
-      const height = asset.height || EXCALIDRAW_DEFAULTS.DEFAULT_HEIGHT;
+      const width = adaptiveSize.width;
+      const height = adaptiveSize.height;
       const now = createTimestamp();
 
       // Create Excalidraw image element with proper positioning

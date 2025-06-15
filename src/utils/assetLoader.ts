@@ -224,6 +224,129 @@ export function searchAssets(collections: ImageCollection[], query: string): Ima
 }
 
 /**
+ * Configuration for adaptive image sizing
+ */
+const ADAPTIVE_SIZING_CONFIG = {
+  // Maximum percentage of viewport that an image should occupy
+  maxViewportWidthPercent: 0.8,
+  maxViewportHeightPercent: 0.8,
+  // Minimum and maximum sizes in pixels
+  minSize: 50,
+  maxSize: 1000,
+  // Default size when no dimensions are available
+  defaultSize: 200,
+  // Zoom level thresholds for different sizing strategies
+  zoomThresholds: {
+    veryZoomedOut: 0.25, // < 25% zoom
+    zoomedOut: 0.5,      // < 50% zoom
+    normal: 1.0,         // 100% zoom
+    zoomedIn: 2.0,       // > 200% zoom
+  }
+} as const;
+
+/**
+ * Calculate adaptive image dimensions based on viewport size, zoom level, and image properties
+ *
+ * @param originalWidth - Original image width (if available)
+ * @param originalHeight - Original image height (if available)
+ * @param viewportWidth - Current viewport width in pixels
+ * @param viewportHeight - Current viewport height in pixels
+ * @param zoomLevel - Current Excalidraw zoom level (1.0 = 100%)
+ * @returns Calculated width and height for optimal display
+ */
+export function calculateAdaptiveImageSize(
+  originalWidth: number | undefined,
+  originalHeight: number | undefined,
+  viewportWidth: number,
+  viewportHeight: number,
+  zoomLevel: number
+): { width: number; height: number } {
+  const config = ADAPTIVE_SIZING_CONFIG;
+
+  // Calculate effective viewport size (accounting for zoom)
+  const effectiveViewportWidth = viewportWidth / zoomLevel;
+  const effectiveViewportHeight = viewportHeight / zoomLevel;
+
+  // Calculate maximum allowed dimensions
+  const maxAllowedWidth = effectiveViewportWidth * config.maxViewportWidthPercent;
+  const maxAllowedHeight = effectiveViewportHeight * config.maxViewportHeightPercent;
+
+  // Determine base dimensions
+  let baseWidth: number;
+  let baseHeight: number;
+
+  if (originalWidth && originalHeight) {
+    // Use original dimensions as starting point
+    baseWidth = originalWidth;
+    baseHeight = originalHeight;
+  } else if (originalWidth) {
+    // Only width available, assume square
+    baseWidth = originalWidth;
+    baseHeight = originalWidth;
+  } else if (originalHeight) {
+    // Only height available, assume square
+    baseWidth = originalHeight;
+    baseHeight = originalHeight;
+  } else {
+    // No dimensions available, use default
+    baseWidth = config.defaultSize;
+    baseHeight = config.defaultSize;
+  }
+
+  // Apply zoom-based scaling adjustments
+  let scaleFactor = 1.0;
+
+  if (zoomLevel < config.zoomThresholds.veryZoomedOut) {
+    // Very zoomed out - make images larger so they're visible
+    scaleFactor = 2.0;
+  } else if (zoomLevel < config.zoomThresholds.zoomedOut) {
+    // Zoomed out - make images slightly larger
+    scaleFactor = 1.5;
+  } else if (zoomLevel > config.zoomThresholds.zoomedIn) {
+    // Zoomed in - make images smaller to fit better
+    scaleFactor = 0.7;
+  }
+  // Normal zoom (0.5 - 2.0) uses scaleFactor = 1.0
+
+  // Apply scale factor
+  let targetWidth = baseWidth * scaleFactor;
+  let targetHeight = baseHeight * scaleFactor;
+
+  // Ensure we don't exceed viewport constraints
+  if (targetWidth > maxAllowedWidth || targetHeight > maxAllowedHeight) {
+    const widthRatio = maxAllowedWidth / targetWidth;
+    const heightRatio = maxAllowedHeight / targetHeight;
+    const constraintRatio = Math.min(widthRatio, heightRatio);
+
+    targetWidth *= constraintRatio;
+    targetHeight *= constraintRatio;
+  }
+
+  // Apply absolute size constraints
+  targetWidth = Math.max(config.minSize, Math.min(config.maxSize, targetWidth));
+  targetHeight = Math.max(config.minSize, Math.min(config.maxSize, targetHeight));
+
+  // Maintain aspect ratio if original dimensions were available
+  if (originalWidth && originalHeight && originalWidth !== originalHeight) {
+    const aspectRatio = originalWidth / originalHeight;
+
+    // Determine which dimension to constrain based on aspect ratio
+    if (aspectRatio > 1) {
+      // Wider than tall - constrain by width
+      targetHeight = targetWidth / aspectRatio;
+    } else {
+      // Taller than wide - constrain by height
+      targetWidth = targetHeight * aspectRatio;
+    }
+  }
+
+  return {
+    width: Math.round(targetWidth),
+    height: Math.round(targetHeight)
+  };
+}
+
+/**
  * Clean up blob URLs to prevent memory leaks
  */
 export function cleanupAssetPreviews(assets: ImageAsset[]): void {
@@ -235,4 +358,4 @@ export function cleanupAssetPreviews(assets: ImageAsset[]): void {
 }
 
 // Export configuration for external use
-export { ASSET_CONFIG };
+export { ASSET_CONFIG, ADAPTIVE_SIZING_CONFIG };
