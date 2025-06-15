@@ -54,12 +54,6 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
 
-            <Route path="/excalidraw" element={
-              <ExcalidrawDraw />
-              // <ProtectedRoute>
-              // </ProtectedRoute>
-            } />
-
             {/* Protected Routes - Require Authentication */}
             <Route path="/profile" element={
               <ProtectedRoute>
@@ -105,6 +99,11 @@ function App() {
             <Route path="/uiux/drawing" element={
               <ProtectedRoute>
                 <DrawingCanvasScreen />
+              </ProtectedRoute>
+            } />
+            <Route path="/draw" element={
+              <ProtectedRoute>
+                <ExcalidrawDraw />
               </ProtectedRoute>
             } />
             <Route path="/uiux/voting" element={
