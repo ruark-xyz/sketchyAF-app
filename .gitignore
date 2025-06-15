@@ -79,3 +79,6 @@ storybook-static
 .ai/
 docs/private
 .github/instructions
+
+# Generated files
+public/asset-manifest.json
