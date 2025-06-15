@@ -3,10 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Image, AlertCircle, Loader2 } from 'lucide-react';
 import { SVGCollection, SVGAsset, SVGDrawerState } from '../../types/svg';
 import { loadAllCollections, searchAssets, cleanupAssetPreviews } from '../../utils/svgAssetLoader';
-import { getViewportCenter } from '../../utils/svgToExcalidraw';
+import {
+  getViewportCenter,
+  svgToDataURL,
+  generateElementId,
+  createTimestamp,
+  createImageElement,
+  createExcalidrawFile,
+  EXCALIDRAW_DEFAULTS
+} from '../../utils/excalidrawHelpers';
 import { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
-import { ExcalidrawImageElement, FileId } from '@excalidraw/excalidraw/types/element/types';
-import { DataURL } from '@excalidraw/excalidraw/types/types';
 
 interface SVGDrawerProps {
   isOpen: boolean;
@@ -14,10 +20,7 @@ interface SVGDrawerProps {
   excalidrawAPI: ExcalidrawImperativeAPI | null;
 }
 
-// Utility to convert SVG string to DataURL
-function svgStringToDataURL(svg: string): string {
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-}
+
 
 const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI }) => {
   const [state, setState] = useState<SVGDrawerState>({
@@ -103,6 +106,10 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
     };
   }, [collections]);
 
+  /**
+   * Handle clicking on an SVG asset to insert it into the Excalidraw canvas
+   * Converts the SVG to a data URL and creates an image element
+   */
   const handleAssetClick = useCallback(async (asset: SVGAsset) => {
     console.log('🎯 Asset clicked:', {
       id: asset.id,
@@ -137,89 +144,74 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
       const center = getViewportCenter(appState);
       console.log('🎯 Calculated center position:', center);
 
-      // Convert SVG string to DataURL
-      const dataURL = svgStringToDataURL(asset.content);
-      const fileId = crypto.randomUUID();
-      const imageId = crypto.randomUUID();
-      const width = asset.width || 200;
-      const height = asset.height || 200;
-      const now = Date.now();
+      // Convert SVG to data URL and generate IDs
+      const dataURL = svgToDataURL(asset.content);
+      const fileId = generateElementId();
+      const imageId = generateElementId();
+      const width = asset.width || EXCALIDRAW_DEFAULTS.DEFAULT_WIDTH;
+      const height = asset.height || EXCALIDRAW_DEFAULTS.DEFAULT_HEIGHT;
+      const now = createTimestamp();
 
-      // Create Excalidraw image element
-      const imageElement: ExcalidrawImageElement = {
-        type: 'image',
+      // Create Excalidraw image element with proper positioning
+      const imageElement = createImageElement({
         id: imageId,
-        status: 'saved',
-        fileId: fileId as FileId,
-        version: 1,
-        versionNonce: now,
+        fileId,
         x: center.x,
         y: center.y,
         width,
         height,
-        scale: [1, 1],
-        isDeleted: false,
-        fillStyle: 'solid',
-        strokeWidth: 1,
-        strokeStyle: 'solid',
-        roughness: 1,
-        opacity: 100,
-        groupIds: [],
-        strokeColor: '#000000',
-        backgroundColor: 'transparent',
-        seed: now,
-        roundness: null,
-        angle: 0,
-        frameId: null,
-        boundElements: null,
-        updated: now,
-        locked: false,
-        link: null,
-      };
+        timestamp: now,
+      });
 
-      // Insert file into the scene first
+      // Register the SVG file with Excalidraw's file system
       if (excalidrawAPI.addFiles) {
-        excalidrawAPI.addFiles([
-          {
-            mimeType: 'image/svg+xml',
-            id: fileId as FileId,
-            dataURL: dataURL as DataURL,
-            created: now,
-          },
-        ]);
+        const file = createExcalidrawFile({
+          id: fileId,
+          dataURL,
+          timestamp: now,
+        });
+        excalidrawAPI.addFiles([file]);
       }
 
-      // Insert image element into the scene
+      // Add the image element to the canvas
       excalidrawAPI.updateScene({
         elements: [...excalidrawAPI.getSceneElements(), imageElement],
       });
 
       console.log('✅ Successfully inserted SVG as image into canvas');
-      onClose();
+      onClose(); // Close the drawer after successful insertion
     } catch (error) {
       console.error('❌ Error inserting SVG as image:', error);
       setState(prev => ({
         ...prev,
-        error: 'An unexpected error occurred'
+        error: 'Failed to insert SVG. Please try again.'
       }));
     } finally {
       setConvertingAsset(null);
     }
   }, [excalidrawAPI, convertingAsset, onClose]);
 
+  /**
+   * Handle collection tab selection
+   */
   const handleCollectionChange = (collectionId: string) => {
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       selectedCollection: collectionId,
-      searchQuery: '' // Clear search when changing collections
+      searchQuery: '', // Clear search when changing collections
+      error: null // Clear any previous errors
     }));
   };
 
+  /**
+   * Handle search input changes
+   */
   const handleSearchChange = (query: string) => {
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       searchQuery: query,
-      selectedCollection: query.trim() ? null : collections[0]?.id || null
+      selectedCollection: query.trim() ? null : collections[0]?.id || null,
+      error: null // Clear any previous errors
     }));
   };
 

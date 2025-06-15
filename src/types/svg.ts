@@ -19,11 +19,7 @@ export interface SVGCollection {
   totalCount: number;
 }
 
-export interface SVGConversionResult {
-  success: boolean;
-  content?: any;
-  error?: string;
-}
+
 
 export interface SVGDrawerState {
   isOpen: boolean;
