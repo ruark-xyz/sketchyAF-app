@@ -55,9 +55,9 @@ function App() {
             <Route path="/terms" element={<Terms />} />
 
             <Route path="/excalidraw" element={
-              <ProtectedRoute>
-                <ExcalidrawDraw />
-              </ProtectedRoute>
+              <ExcalidrawDraw />
+              // <ProtectedRoute>
+              // </ProtectedRoute>
             } />
 
             {/* Protected Routes - Require Authentication */}
