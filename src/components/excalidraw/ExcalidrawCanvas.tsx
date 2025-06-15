@@ -39,6 +39,10 @@ const ExcalidrawCanvas: React.FC = () => {
         .excalidraw .help-icon {
           display: none !important;
         }
+
+        label[title="Library"] {
+          display: none !important;
+        }
       `}</style>
 
       {/* Custom Image Library Button */}
