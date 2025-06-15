@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Image, AlertCircle, Loader2 } from 'lucide-react';
-import { SVGCollection, SVGAsset, SVGDrawerState } from '../../types/svg';
-import { loadAllCollections, searchAssets, cleanupAssetPreviews } from '../../utils/svgAssetLoader';
-import {
-  getViewportCenter,
-  svgToDataURL,
-  generateElementId,
+import { ImageCollection, ImageAsset, AssetDrawerState } from '../../types/assets';
+import { loadAllCollections, searchAssets, cleanupAssetPreviews } from '../../utils/assetLoader';
+import { 
+  getViewportCenter, 
+  imageToDataURL, 
+  generateElementId, 
   createTimestamp,
   createImageElement,
   createExcalidrawFile,
@@ -14,16 +14,14 @@ import {
 } from '../../utils/excalidrawHelpers';
 import { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
 
-interface SVGDrawerProps {
+interface AssetDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
 }
 
-
-
-const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI }) => {
-  const [state, setState] = useState<SVGDrawerState>({
+const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAPI }) => {
+  const [state, setState] = useState<AssetDrawerState>({
     isOpen: false,
     selectedCollection: null,
     searchQuery: '',
@@ -31,73 +29,62 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
     error: null,
   });
 
-  const [collections, setCollections] = useState<SVGCollection[]>([]);
-  const [filteredAssets, setFilteredAssets] = useState<SVGAsset[]>([]);
+  const [collections, setCollections] = useState<ImageCollection[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<ImageAsset[]>([]);
   const [convertingAsset, setConvertingAsset] = useState<string | null>(null);
 
   // Load collections on mount
   useEffect(() => {
-    const loadCollections = async () => {
-      console.log('📚 Starting to load SVG collections...');
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-
-      try {
-        const loadedCollections = await loadAllCollections();
-        console.log('📊 Collections loaded:', {
-          count: loadedCollections.length,
-          collections: loadedCollections.map(c => ({ id: c.id, name: c.name, assetCount: c.totalCount }))
-        });
-
-        setCollections(loadedCollections);
-
-        // Set first collection as default if available
-        if (loadedCollections.length > 0) {
-          console.log(`✅ Setting default collection: ${loadedCollections[0].id}`);
-          setState(prev => ({
-            ...prev,
-            selectedCollection: loadedCollections[0].id,
-            isLoading: false
-          }));
-        } else {
-          console.warn('⚠️ No SVG collections found');
-          setState(prev => ({
-            ...prev,
-            isLoading: false,
-            error: 'No SVG collections found'
-          }));
-        }
-      } catch (error) {
-        console.error('❌ Failed to load SVG collections:', error);
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: 'Failed to load SVG collections'
-        }));
-      }
-    };
-
     if (isOpen && collections.length === 0) {
-      console.log('🚀 SVG Drawer opened, loading collections...');
-      loadCollections();
-    } else if (isOpen) {
-      console.log('📚 SVG Drawer opened, collections already loaded');
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      loadAllCollections()
+        .then(loadedCollections => {
+          console.log('📚 Collections loaded:', loadedCollections);
+          setCollections(loadedCollections);
+          
+          // Set initial selected collection
+          if (loadedCollections.length > 0) {
+            setState(prev => ({ 
+              ...prev, 
+              selectedCollection: loadedCollections[0].id,
+              isLoading: false 
+            }));
+          } else {
+            setState(prev => ({ 
+              ...prev, 
+              isLoading: false,
+              error: 'No collections available'
+            }));
+          }
+        })
+        .catch(error => {
+          console.error('❌ Failed to load collections:', error);
+          setState(prev => ({ 
+            ...prev, 
+            isLoading: false,
+            error: 'Failed to load image collections'
+          }));
+        });
     }
   }, [isOpen, collections.length]);
 
-  // Update filtered assets when search query or selected collection changes
+  // Update filtered assets when collection or search changes
   useEffect(() => {
     if (state.searchQuery.trim()) {
+      // Search across all collections
       const results = searchAssets(collections, state.searchQuery);
       setFilteredAssets(results);
     } else if (state.selectedCollection) {
+      // Show assets from selected collection
       const selectedCollection = collections.find(c => c.id === state.selectedCollection);
       setFilteredAssets(selectedCollection?.assets || []);
     } else {
       setFilteredAssets([]);
     }
-  }, [collections, state.searchQuery, state.selectedCollection]);
+  }, [collections, state.selectedCollection, state.searchQuery]);
 
-  // Cleanup blob URLs on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       collections.forEach(collection => {
@@ -107,15 +94,16 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
   }, [collections]);
 
   /**
-   * Handle clicking on an SVG asset to insert it into the Excalidraw canvas
-   * Converts the SVG to a data URL and creates an image element
+   * Handle clicking on an image asset to insert it into the Excalidraw canvas
+   * Converts the image to a data URL and creates an image element
    */
-  const handleAssetClick = useCallback(async (asset: SVGAsset) => {
+  const handleAssetClick = useCallback(async (asset: ImageAsset) => {
     console.log('🎯 Asset clicked:', {
       id: asset.id,
       name: asset.name,
       collection: asset.collection,
-      contentLength: asset.content.length
+      format: asset.format,
+      mimeType: asset.mimeType
     });
 
     if (!excalidrawAPI) {
@@ -129,7 +117,7 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
     }
 
     setConvertingAsset(asset.id);
-    console.log('🔄 Starting SVG image insertion process...');
+    console.log('🔄 Starting image insertion process...');
 
     try {
       // Get current app state to determine insertion position
@@ -144,8 +132,9 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
       const center = getViewportCenter(appState);
       console.log('🎯 Calculated center position:', center);
 
-      // Convert SVG to data URL and generate IDs
-      const dataURL = svgToDataURL(asset.content);
+      // Convert image to data URL
+      const contentOrUrl = asset.content || asset.previewUrl;
+      const dataURL = imageToDataURL(contentOrUrl, asset.format, asset.mimeType);
       const fileId = generateElementId();
       const imageId = generateElementId();
       const width = asset.width || EXCALIDRAW_DEFAULTS.DEFAULT_WIDTH;
@@ -163,11 +152,12 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
         timestamp: now,
       });
 
-      // Register the SVG file with Excalidraw's file system
+      // Register the image file with Excalidraw's file system
       if (excalidrawAPI.addFiles) {
         const file = createExcalidrawFile({
           id: fileId,
           dataURL,
+          mimeType: asset.mimeType,
           timestamp: now,
         });
         excalidrawAPI.addFiles([file]);
@@ -178,13 +168,13 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
         elements: [...excalidrawAPI.getSceneElements(), imageElement],
       });
 
-      console.log('✅ Successfully inserted SVG as image into canvas');
+      console.log('✅ Successfully inserted image into canvas');
       onClose(); // Close the drawer after successful insertion
     } catch (error) {
-      console.error('❌ Error inserting SVG as image:', error);
+      console.error('❌ Error inserting image:', error);
       setState(prev => ({
         ...prev,
-        error: 'Failed to insert SVG. Please try again.'
+        error: 'Failed to insert image. Please try again.'
       }));
     } finally {
       setConvertingAsset(null);
@@ -195,8 +185,8 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
    * Handle collection tab selection
    */
   const handleCollectionChange = (collectionId: string) => {
-    setState(prev => ({
-      ...prev,
+    setState(prev => ({ 
+      ...prev, 
       selectedCollection: collectionId,
       searchQuery: '', // Clear search when changing collections
       error: null // Clear any previous errors
@@ -207,8 +197,8 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
    * Handle search input changes
    */
   const handleSearchChange = (query: string) => {
-    setState(prev => ({
-      ...prev,
+    setState(prev => ({ 
+      ...prev, 
       searchQuery: query,
       selectedCollection: query.trim() ? null : collections[0]?.id || null,
       error: null // Clear any previous errors
@@ -229,7 +219,7 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-heading font-bold text-lg flex items-center">
                 <Image size={20} className="mr-2" />
-                SVG Library
+                Image Library
               </h3>
               <button
                 onClick={onClose}
@@ -246,7 +236,7 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
                 type="text"
                 value={state.searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search SVGs..."
+                placeholder="Search images..."
                 className="w-full pl-10 pr-4 py-2 border border-light-gray rounded-md text-sm focus:outline-none focus:border-purple"
               />
             </div>
@@ -277,7 +267,7 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
             {state.isLoading ? (
               <div className="flex items-center justify-center h-32">
                 <Loader2 size={24} className="animate-spin text-purple" />
-                <span className="ml-2 text-medium-gray">Loading SVGs...</span>
+                <span className="ml-2 text-medium-gray">Loading images...</span>
               </div>
             ) : state.error ? (
               <div className="p-4 text-center">
@@ -288,7 +278,7 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
               <div className="p-4 text-center">
                 <Image size={24} className="text-medium-gray mx-auto mb-2" />
                 <p className="text-sm text-medium-gray">
-                  {state.searchQuery ? 'No SVGs found' : 'No SVGs available'}
+                  {state.searchQuery ? 'No images found' : 'No images available'}
                 </p>
               </div>
             ) : (
@@ -321,11 +311,16 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
                         {asset.name}
                       </p>
                       
-                      {asset.width && asset.height && (
-                        <p className="text-xs text-medium-gray">
-                          {asset.width}×{asset.height}
-                        </p>
-                      )}
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-medium-gray uppercase">
+                          {asset.format}
+                        </span>
+                        {asset.width && asset.height && (
+                          <span className="text-xs text-medium-gray">
+                            {asset.width}×{asset.height}
+                          </span>
+                        )}
+                      </div>
                     </motion.button>
                   ))}
                 </div>
@@ -336,7 +331,7 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
           {/* Footer */}
           <div className="p-3 border-t border-light-gray bg-off-white">
             <p className="text-xs text-center text-medium-gray">
-              💡 Click any SVG to add it to your canvas
+              💡 Click any image to add it to your canvas
             </p>
           </div>
         </motion.div>
@@ -345,4 +340,4 @@ const SVGDrawer: React.FC<SVGDrawerProps> = ({ isOpen, onClose, excalidrawAPI })
   );
 };
 
-export default SVGDrawer;
+export default AssetDrawer;

@@ -1,44 +1,62 @@
-# Excalidraw SVG Asset System
+# Excalidraw Multi-Format Image Asset System
 
 ## Overview
 
-This system provides a direct-loading SVG asset system for the Excalidraw canvas. SVG files are organized in collections and loaded dynamically at runtime through the SVG Drawer component, which converts them to image elements on the canvas for optimal performance and reliability.
+This system provides a direct-loading image asset system for the Excalidraw canvas. Image files in multiple formats (SVG, PNG, JPG, GIF, WebP) are organized in collections and loaded dynamically at runtime through the Asset Drawer component, which converts them to image elements on the canvas for optimal performance and reliability.
 
 ## Quick Start
 
-1. **Add SVG files** to themed folders in `src/assets/image-libraries/`
-2. **Copy SVG files** to corresponding folders in `public/svg-assets/`
-3. **Update configuration** in `src/utils/svgAssetLoader.ts`
-4. **SVGs appear** in the SVG Drawer accessible via the image button in Excalidraw
+1. **Add image files** to themed folders in `src/assets/image-libraries/`
+2. **Copy image files** to corresponding folders in `public/image-assets/`
+3. **Update configuration** in `src/utils/assetLoader.ts`
+4. **Images appear** in the Asset Drawer accessible via the image button in Excalidraw
 
 ## Directory Structure
 
 ```
-src/assets/image-libraries/     # Source SVG files (development)
-├── shapes/                     # Shape SVG files
+src/assets/image-libraries/     # Source image files (development)
+├── shapes/                     # Shape image files
 │   ├── circle.svg
 │   ├── square.svg
 │   └── triangle.svg
 ├── troll/                      # Troll face collection
 │   └── troll-face-meme-linetest.svg
-├── icons/                      # Icon SVG files (empty)
+├── icons/                      # Icon image files (supports all formats)
+│   ├── icon1.png
+│   ├── icon2.jpg
+│   └── icon3.webp
 └── [custom-folder]/            # Any themed collection
 
-public/svg-assets/              # Runtime-accessible SVG files
+public/image-assets/            # Runtime-accessible image files
 ├── shapes/                     # Copied from src/assets/image-libraries/shapes/
 │   ├── circle.svg
 │   ├── square.svg
 │   └── triangle.svg
-└── troll/                      # Copied from src/assets/image-libraries/troll/
-    └── troll-face-meme-linetest.svg
+├── troll/                      # Copied from src/assets/image-libraries/troll/
+│   └── troll-face-meme-linetest.svg
+└── icons/                      # Multi-format icon collection
+    ├── icon1.png
+    ├── icon2.jpg
+    └── icon3.webp
 ```
 
 ## Supported Formats
 
-- **SVG** - Vector graphics files (only supported format)
-  - Loaded directly at runtime via HTTP requests
-  - Converted to Excalidraw image elements when inserted
-  - Maintains original SVG quality and scalability
+- **SVG** - Vector graphics files (recommended for icons and simple graphics)
+  - Content loaded and processed inline
+  - Maintains scalability and quality
+- **PNG** - Raster images with transparency support
+  - Loaded as external image references
+  - Perfect for detailed graphics with transparency
+- **JPG/JPEG** - Compressed raster images
+  - Loaded as external image references
+  - Ideal for photographs and complex images
+- **GIF** - Animated or static images
+  - Loaded as external image references
+  - Supports animation (though static in Excalidraw)
+- **WebP** - Modern compressed format
+  - Loaded as external image references
+  - Excellent compression and quality balance
 
 ## SVG Loading Process
 

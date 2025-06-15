@@ -1,31 +1,48 @@
-// SVG Asset Loading and Management Utilities
+// Image Asset Loading and Management Utilities
 
-import { SVGAsset, SVGCollection } from '../types/svg';
+import { ImageAsset, ImageCollection, ImageFormat, IMAGE_MIME_TYPES } from '../types/assets';
 
-// Configuration for SVG asset loading
-const SVG_ASSETS_CONFIG = {
+// Configuration for image asset loading
+const ASSET_CONFIG = {
   basePath: '/src/assets/image-libraries',
-  supportedExtensions: ['.svg'],
+  publicPath: '/image-assets',
+  supportedExtensions: ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp'],
   collections: [
     { id: 'shapes', name: 'shapes', displayName: 'Basic Shapes' },
     { id: 'troll', name: 'troll', displayName: 'Troll Faces' },
-    { id: 'icons', name: 'icons', displayName: 'Icons' },
+    { id: 'test', name: 'test', displayName: 'Test' },
   ]
 };
 
 /**
- * Generate a unique ID for an SVG asset
+ * Generate a unique ID for an image asset
  */
 function generateAssetId(collection: string, fileName: string): string {
   return `${collection}-${fileName.replace(/\.[^/.]+$/, '')}`;
 }
 
 /**
- * Create a blob URL for SVG content to use as preview
+ * Get image format from file extension
  */
-function createSVGPreviewUrl(svgContent: string): string {
-  const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-  return URL.createObjectURL(blob);
+function getImageFormat(fileName: string): ImageFormat {
+  const ext = fileName.toLowerCase().split('.').pop();
+  switch (ext) {
+    case 'svg': return 'svg';
+    case 'png': return 'png';
+    case 'jpg': return 'jpg';
+    case 'jpeg': return 'jpeg';
+    case 'gif': return 'gif';
+    case 'webp': return 'webp';
+    default: return 'png'; // fallback
+  }
+}
+
+/**
+ * Check if a file extension is supported
+ */
+function isSupportedImageFormat(fileName: string): boolean {
+  const ext = '.' + fileName.toLowerCase().split('.').pop();
+  return ASSET_CONFIG.supportedExtensions.includes(ext);
 }
 
 /**
@@ -51,14 +68,32 @@ function extractSVGDimensions(svgContent: string): { width?: number; height?: nu
 }
 
 /**
- * Load SVG content from a file path
- * We'll copy SVG files to the public directory and serve them from there
+ * Create preview URL for different image formats
  */
-async function loadSVGContent(collection: string, fileName: string): Promise<string> {
+function createPreviewUrl(content: string | null, fileName: string, format: ImageFormat): string {
+  if (format === 'svg' && content) {
+    // For SVG, create data URL from content
+    const encodedSvg = btoa(unescape(encodeURIComponent(content)));
+    return `data:image/svg+xml;base64,${encodedSvg}`;
+  } else {
+    // For other formats, use the public URL directly
+    const collection = fileName.split('/')[0] || '';
+    return `/image-assets/${collection}/${fileName.split('/').pop()}`;
+  }
+}
+
+/**
+ * Load image content (only for SVG files)
+ */
+async function loadImageContent(collection: string, fileName: string, format: ImageFormat): Promise<string | null> {
+  if (format !== 'svg') {
+    // Non-SVG images don't need content loading
+    return null;
+  }
+
   console.log(`📁 Loading SVG: ${collection}/${fileName}`);
   try {
-    // Fetch from public directory where SVG files should be copied
-    const url = `/svg-assets/${collection}/${fileName}`;
+    const url = `${ASSET_CONFIG.publicPath}/${collection}/${fileName}`;
     console.log(`🌐 Fetching from URL: ${url}`);
 
     const response = await fetch(url);
@@ -79,18 +114,25 @@ async function loadSVGContent(collection: string, fileName: string): Promise<str
 }
 
 /**
- * Load all SVG assets for a specific collection
+ * Load all image assets for a specific collection
  */
-export async function loadCollectionAssets(collectionName: string): Promise<SVGAsset[]> {
+export async function loadCollectionAssets(collectionName: string): Promise<ImageAsset[]> {
   console.log(`📚 Loading collection: ${collectionName}`);
-  const assets: SVGAsset[] = [];
+  const assets: ImageAsset[] = [];
 
-  // For now, we'll hardcode the known files since we can't dynamically scan directories in the browser
-  // In a real implementation, you might want to generate this list at build time
+  // Known files with multiple formats
   const knownFiles: Record<string, string[]> = {
-    shapes: ['circle.svg', 'square.svg', 'triangle.svg'],
-    troll: ['troll-face-meme-linetest.svg'],
-    icons: [], // Empty for now, but structure is ready
+    shapes: [
+      'circle.svg',
+      'square.svg',
+      'triangle.svg'
+    ],
+    troll: [
+      'troll-face-meme-linetest.svg'
+    ],
+    test: [
+      'DreamShaper_v5_An_expansive_post_modern_interior_with_a_modern_0.jpg'
+    ]
   };
 
   const files = knownFiles[collectionName] || [];
@@ -98,19 +140,32 @@ export async function loadCollectionAssets(collectionName: string): Promise<SVGA
 
   for (const fileName of files) {
     console.log(`🔄 Processing file: ${fileName}`);
+    
+    if (!isSupportedImageFormat(fileName)) {
+      console.warn(`⚠️ Unsupported format: ${fileName}`);
+      continue;
+    }
+
     try {
-      const content = await loadSVGContent(collectionName, fileName);
-      const dimensions = extractSVGDimensions(content);
-      const previewUrl = createSVGPreviewUrl(content);
+      const format = getImageFormat(fileName);
+      const mimeType = IMAGE_MIME_TYPES[format];
+      const content = await loadImageContent(collectionName, fileName, format);
+      
+      // Extract dimensions (only works for SVG)
+      const dimensions = format === 'svg' && content ? extractSVGDimensions(content) : {};
+      
+      const previewUrl = createPreviewUrl(content, `${collectionName}/${fileName}`, format);
 
       console.log(`📐 Extracted dimensions for ${fileName}:`, dimensions);
       console.log(`🖼️ Created preview URL for ${fileName}: ${previewUrl.substring(0, 50)}...`);
 
-      const asset = {
+      const asset: ImageAsset = {
         id: generateAssetId(collectionName, fileName),
         name: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
         fileName,
         collection: collectionName,
+        format,
+        mimeType,
         content,
         previewUrl,
         ...dimensions,
@@ -120,7 +175,9 @@ export async function loadCollectionAssets(collectionName: string): Promise<SVGA
         id: asset.id,
         name: asset.name,
         collection: asset.collection,
-        contentLength: asset.content.length,
+        format: asset.format,
+        mimeType: asset.mimeType,
+        contentLength: asset.content?.length || 0,
         dimensions: { width: asset.width, height: asset.height }
       });
 
@@ -135,12 +192,12 @@ export async function loadCollectionAssets(collectionName: string): Promise<SVGA
 }
 
 /**
- * Load all available SVG collections
+ * Load all available image collections
  */
-export async function loadAllCollections(): Promise<SVGCollection[]> {
-  const collections: SVGCollection[] = [];
+export async function loadAllCollections(): Promise<ImageCollection[]> {
+  const collections: ImageCollection[] = [];
 
-  for (const config of SVG_ASSETS_CONFIG.collections) {
+  for (const config of ASSET_CONFIG.collections) {
     try {
       const assets = await loadCollectionAssets(config.name);
       collections.push({
@@ -167,19 +224,20 @@ export async function loadAllCollections(): Promise<SVGCollection[]> {
 }
 
 /**
- * Search for SVG assets across all collections
+ * Search for image assets across all collections
  */
-export function searchAssets(collections: SVGCollection[], query: string): SVGAsset[] {
+export function searchAssets(collections: ImageCollection[], query: string): ImageAsset[] {
   if (!query.trim()) return [];
 
   const searchTerm = query.toLowerCase();
-  const results: SVGAsset[] = [];
+  const results: ImageAsset[] = [];
 
   for (const collection of collections) {
     for (const asset of collection.assets) {
       if (
         asset.name.toLowerCase().includes(searchTerm) ||
-        asset.collection.toLowerCase().includes(searchTerm)
+        asset.collection.toLowerCase().includes(searchTerm) ||
+        asset.format.toLowerCase().includes(searchTerm)
       ) {
         results.push(asset);
       }
@@ -192,10 +250,13 @@ export function searchAssets(collections: SVGCollection[], query: string): SVGAs
 /**
  * Clean up blob URLs to prevent memory leaks
  */
-export function cleanupAssetPreviews(assets: SVGAsset[]): void {
+export function cleanupAssetPreviews(assets: ImageAsset[]): void {
   for (const asset of assets) {
     if (asset.previewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(asset.previewUrl);
     }
   }
 }
+
+// Export configuration for external use
+export { ASSET_CONFIG };

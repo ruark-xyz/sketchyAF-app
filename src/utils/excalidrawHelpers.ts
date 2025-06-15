@@ -2,12 +2,13 @@
  * Excalidraw utility functions for canvas operations and positioning
  *
  * This module provides helper functions for working with Excalidraw canvas,
- * including viewport calculations, SVG conversion, and element creation utilities.
+ * including viewport calculations, image conversion, and element creation utilities.
  */
 
 import { AppState } from '@excalidraw/excalidraw/types/types';
 import { ExcalidrawImageElement, FileId } from '@excalidraw/excalidraw/types/element/types';
 import { DataURL } from '@excalidraw/excalidraw/types/types';
+import { ImageFormat, IMAGE_MIME_TYPES } from '../types/assets';
 
 /**
  * Configuration for default element dimensions
@@ -67,15 +68,30 @@ export function getViewportCenter(appState: AppState | null): { x: number; y: nu
 }
 
 /**
- * Convert SVG string to a data URL for use in Excalidraw
- * 
- * @param svgContent - The SVG content as a string
+ * Convert image content to a data URL for use in Excalidraw
+ *
+ * @param content - The image content (for SVG) or URL (for other formats)
+ * @param format - The image format
+ * @param mimeType - The MIME type of the image
  * @returns A data URL string that can be used as an image source
  */
+export function imageToDataURL(content: string, format: ImageFormat, mimeType: string): string {
+  if (format === 'svg') {
+    // For SVG, encode content to base64 data URL
+    const encodedSvg = btoa(unescape(encodeURIComponent(content)));
+    return `data:${mimeType};base64,${encodedSvg}`;
+  } else {
+    // For other formats, content is actually the URL
+    return content;
+  }
+}
+
+/**
+ * Convert SVG string to a data URL for use in Excalidraw
+ * @deprecated Use imageToDataURL instead
+ */
 export function svgToDataURL(svgContent: string): string {
-  // Encode SVG content to base64 data URL
-  const encodedSvg = btoa(unescape(encodeURIComponent(svgContent)));
-  return `data:image/svg+xml;base64,${encodedSvg}`;
+  return imageToDataURL(svgContent, 'svg', IMAGE_MIME_TYPES.svg);
 }
 
 /**
@@ -103,7 +119,7 @@ export function createTimestamp(): number {
 }
 
 /**
- * Create an Excalidraw image element from SVG content
+ * Create an Excalidraw image element from image content
  *
  * @param options - Configuration options for the image element
  * @returns A properly configured ExcalidrawImageElement
@@ -168,16 +184,18 @@ export function createImageElement(options: {
 export function createExcalidrawFile(options: {
   id: string;
   dataURL: string;
+  mimeType: string;
   timestamp?: number;
 }) {
   const {
     id,
     dataURL,
+    mimeType,
     timestamp = createTimestamp(),
   } = options;
 
   return {
-    mimeType: 'image/svg+xml' as const,
+    mimeType: mimeType as any, // Excalidraw accepts various MIME types
     id: id as FileId,
     dataURL: dataURL as DataURL,
     created: timestamp,

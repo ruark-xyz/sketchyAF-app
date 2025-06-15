@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Excalidraw } from '@excalidraw/excalidraw';
 import { Image } from 'lucide-react';
 // import PerformanceMonitor from './PerformanceMonitor';
-import SVGDrawer from './SVGDrawer';
+import AssetDrawer from './AssetDrawer';
 import useMobileOptimization from '../../hooks/useMobileOptimization';
 import { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
 
@@ -13,8 +13,8 @@ const ExcalidrawCanvas: React.FC = () => {
   // Ref for Excalidraw API
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
 
-  // SVG Drawer state
-  const [isSVGDrawerOpen, setIsSVGDrawerOpen] = useState(false);
+  // Asset Drawer state
+  const [isAssetDrawerOpen, setIsAssetDrawerOpen] = useState(false);
 
 
 
@@ -41,11 +41,11 @@ const ExcalidrawCanvas: React.FC = () => {
         }
       `}</style>
 
-      {/* Custom SVG Library Button */}
+      {/* Custom Image Library Button */}
       <button
-        onClick={() => setIsSVGDrawerOpen(true)}
+        onClick={() => setIsAssetDrawerOpen(true)}
         className="fixed top-4 right-4 z-20 bg-white border-2 border-dark rounded-lg p-3 shadow-lg hover:bg-off-white transition-colors"
-        title="Open SVG Library"
+        title="Open Image Library"
       >
         <Image size={20} className="text-dark" />
       </button>
@@ -70,10 +70,10 @@ const ExcalidrawCanvas: React.FC = () => {
         }}
       />
 
-      {/* SVG Drawer */}
-      <SVGDrawer
-        isOpen={isSVGDrawerOpen}
-        onClose={() => setIsSVGDrawerOpen(false)}
+      {/* Asset Drawer */}
+      <AssetDrawer
+        isOpen={isAssetDrawerOpen}
+        onClose={() => setIsAssetDrawerOpen(false)}
         excalidrawAPI={excalidrawAPIRef.current}
       />
 
