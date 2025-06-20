@@ -10,7 +10,11 @@
     "preview": "vite preview",
     "analyze:bundle": "npm run build && npx vite-bundle-analyzer dist",
     "build:analyze": "vite build --mode analyze",
-    "generate:manifest": "node scripts/generate-asset-manifest.js"
+    "generate:manifest": "node scripts/generate-asset-manifest.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.17.6",
@@ -21,6 +25,7 @@
     "jotai": "^2.12.5",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.344.0",
+    "pubnub": "^9.6.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-helmet-async": "^2.0.4",
@@ -29,21 +34,28 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.5.1",
     "@types/lodash.debounce": "^4.0.9",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
+    "jsdom": "^23.0.0",
     "postcss": "^8.4.35",
     "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2",
-    "vite-bundle-analyzer": "^0.10.6"
+    "vite-bundle-analyzer": "^0.10.6",
+    "vitest": "^1.0.0"
   }
 }

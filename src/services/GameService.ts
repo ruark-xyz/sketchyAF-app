@@ -2,11 +2,11 @@
 // Handles CRUD operations for games, participants, and game state management
 
 import { supabase } from '../utils/supabase';
-import { 
-  Game, 
-  GameParticipant, 
-  GameWithParticipants, 
-  CreateGameRequest, 
+import {
+  Game,
+  GameParticipant,
+  GameWithParticipants,
+  CreateGameRequest,
   JoinGameRequest,
   GameStatus,
   ServiceResponse,
@@ -14,6 +14,7 @@ import {
   GAME_CONSTANTS,
   GAME_STATUS_FLOW
 } from '../types/game';
+import { RealtimeGameService } from './RealtimeGameService';
 
 export class GameService {
   /**
@@ -137,6 +138,16 @@ export class GameService {
         return { success: false, error: 'Failed to join game', code: 'DATABASE_ERROR' };
       }
 
+      // Broadcast player joined event via real-time service (optional - don't fail if it doesn't work)
+      try {
+        const realtimeService = RealtimeGameService.getInstance();
+        // Note: Real-time service will handle the player_joined event when they actually join the channel
+        // This is just for database consistency
+      } catch (realtimeError) {
+        console.warn('Failed to broadcast player joined event:', realtimeError);
+        // Don't fail the join operation if real-time broadcast fails
+      }
+
       return { success: true, data };
     } catch (error) {
       console.error('Unexpected error joining game:', error);
@@ -196,6 +207,15 @@ export class GameService {
         return { success: false, error: 'Failed to update ready status', code: 'DATABASE_ERROR' };
       }
 
+      // Broadcast player ready status change via real-time service
+      try {
+        const realtimeService = RealtimeGameService.getInstance();
+        await realtimeService.broadcastPlayerReady(isReady);
+      } catch (realtimeError) {
+        console.warn('Failed to broadcast player ready status:', realtimeError);
+        // Don't fail the operation if real-time broadcast fails
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Unexpected error updating ready status:', error);
@@ -206,11 +226,22 @@ export class GameService {
   /**
    * Transition game status
    */
-  static async transitionGameStatus(gameId: string, newStatus: GameStatus): Promise<ServiceResponse<void>> {
+  static async transitionGameStatus(gameId: string, newStatus: GameStatus, previousStatus?: GameStatus): Promise<ServiceResponse<void>> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
+      }
+
+      // Get current status if not provided
+      let currentStatus = previousStatus;
+      if (!currentStatus) {
+        const { data: game } = await supabase
+          .from('games')
+          .select('status')
+          .eq('id', gameId)
+          .single();
+        currentStatus = game?.status as GameStatus;
       }
 
       // Call the database function for validated status transition
@@ -222,6 +253,17 @@ export class GameService {
       if (error) {
         console.error('Error transitioning game status:', error);
         return { success: false, error: error.message, code: 'TRANSITION_ERROR' };
+      }
+
+      // Broadcast phase change via real-time service
+      try {
+        const realtimeService = RealtimeGameService.getInstance();
+        if (currentStatus) {
+          await realtimeService.broadcastPhaseChange(newStatus, currentStatus);
+        }
+      } catch (realtimeError) {
+        console.warn('Failed to broadcast phase change:', realtimeError);
+        // Don't fail the operation if real-time broadcast fails
       }
 
       return { success: true };

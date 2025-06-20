@@ -2,13 +2,14 @@
 // Handles vote casting, retrieval, and game results calculation
 
 import { supabase } from '../utils/supabase';
-import { 
-  Vote, 
-  VoteWithDetails, 
-  CastVoteRequest, 
+import {
+  Vote,
+  VoteWithDetails,
+  CastVoteRequest,
   GameResults,
   ServiceResponse
 } from '../types/game';
+import { RealtimeGameService } from './RealtimeGameService';
 
 export class VotingService {
   /**
@@ -99,6 +100,15 @@ export class VotingService {
       if (error) {
         console.error('Error casting vote:', error);
         return { success: false, error: 'Failed to cast vote', code: 'DATABASE_ERROR' };
+      }
+
+      // Broadcast vote cast event via real-time service
+      try {
+        const realtimeService = RealtimeGameService.getInstance();
+        await realtimeService.broadcastVoteCast(request.submission_id);
+      } catch (realtimeError) {
+        console.warn('Failed to broadcast vote cast:', realtimeError);
+        // Don't fail the vote operation if real-time broadcast fails
       }
 
       return { success: true, data };

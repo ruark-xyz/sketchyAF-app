@@ -69,9 +69,6 @@ coverage
 # Storybook build outputs
 storybook-static
 
-# Bolt AI (keeping this since it exists in your project)
-.bolt/
-
 # Cursor
 .cursor
 
