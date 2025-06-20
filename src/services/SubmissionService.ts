@@ -2,13 +2,14 @@
 // Handles creation, retrieval, and management of drawing submissions
 
 import { supabase } from '../utils/supabase';
-import { 
-  Submission, 
-  SubmissionWithUser, 
+import {
+  Submission,
+  SubmissionWithUser,
   SubmitDrawingRequest,
   ServiceResponse,
   GAME_CONSTANTS
 } from '../types/game';
+import { RealtimeGameService } from './RealtimeGameService';
 
 export class SubmissionService {
   /**
@@ -80,6 +81,19 @@ export class SubmissionService {
       if (error) {
         console.error('Error submitting drawing:', error);
         return { success: false, error: 'Failed to submit drawing', code: 'DATABASE_ERROR' };
+      }
+
+      // Broadcast drawing submitted event via real-time service
+      try {
+        const realtimeService = RealtimeGameService.getInstance();
+        await realtimeService.broadcastDrawingSubmitted(
+          data.id,
+          request.element_count,
+          request.drawing_time_seconds
+        );
+      } catch (realtimeError) {
+        console.warn('Failed to broadcast drawing submitted:', realtimeError);
+        // Don't fail the submission operation if real-time broadcast fails
       }
 
       return { success: true, data };
