@@ -1,2 +1,6 @@
 scripts/
 public/
+docs/developer
+docs/technical
+src/components/realtime/
+src/services/__tests__/
