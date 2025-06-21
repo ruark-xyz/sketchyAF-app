@@ -26,6 +26,7 @@ import PostGameScreen from './pages/uiux/PostGameScreen';
 import AuthCallback from './pages/auth/AuthCallback';
 import ResetPassword from './pages/auth/ResetPassword';
 import { AuthProvider } from './context/AuthContext';
+import { GameProvider } from './context/GameContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -42,10 +43,11 @@ function App() {
         description="SketchyAF is a weird, wildly entertaining drawing game perfect for killing time anywhere. Join 60-second rounds of frantic drawing and fun!"
       />
       
-      {/* Wrap entire app with AuthProvider */}
+      {/* Wrap entire app with AuthProvider and GameProvider */}
       <AuthProvider>
-        <Layout>
-          <Routes>
+        <GameProvider>
+          <Layout>
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/premium" element={<Premium />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
@@ -121,8 +123,9 @@ function App() {
                 <PostGameScreen />
               </ProtectedRoute>
             } />
-          </Routes>
-        </Layout>
+            </Routes>
+          </Layout>
+        </GameProvider>
       </AuthProvider>
     </Router>
   );
