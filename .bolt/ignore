@@ -3,4 +3,7 @@ public/
 docs/developer
 docs/technical
 src/components/realtime/
+src/__tests__/
+src/context/__tests__/
+src/utils/__tests__/
 src/services/__tests__/
