@@ -93,6 +93,80 @@ vi.mock('pubnub', () => ({
   default: vi.fn(() => createMockPubNub())
 }));
 
+// Mock Supabase with simple auth methods for testing
+vi.mock('../../utils/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'test-user', email: 'test@example.com' } },
+        error: null,
+      }),
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'mock-token', user: { id: 'test-user' } } },
+        error: null,
+      }),
+    },
+  },
+}));
+
+// Mock global fetch for Edge Function calls
+global.fetch = vi.fn().mockResolvedValue({
+  ok: true,
+  json: vi.fn().mockResolvedValue({
+    token: 'mock-pubnub-token',
+    ttl: 3600,
+    authorized_uuid: 'test-user-123',
+    channels: ['game-test-channel']
+  })
+});
+
+// Mock the PubNubGameService to bypass authentication and simulate event broadcasting
+vi.mock('../PubNubService', () => {
+  // Shared event handlers across all mock instances to simulate real-time communication
+  const globalEventHandlers = new Map<string, Set<Function>>();
+
+  const createMockPubNubService = () => ({
+    initialize: vi.fn().mockResolvedValue(undefined),
+    joinGameChannel: vi.fn().mockResolvedValue(undefined),
+    leaveGameChannel: vi.fn().mockResolvedValue(undefined),
+    publishGameEvent: vi.fn().mockImplementation(async (event) => {
+      // Simulate broadcasting to all subscribed clients
+      const gameHandlers = globalEventHandlers.get(event.gameId);
+      if (gameHandlers) {
+        // Simulate async event delivery
+        setTimeout(() => {
+          gameHandlers.forEach(handler => {
+            try {
+              handler(event);
+            } catch (error) {
+              console.error('Mock event handler error:', error);
+            }
+          });
+        }, 10);
+      }
+      return { timetoken: '12345' };
+    }),
+    subscribeToGameEvents: vi.fn().mockImplementation((gameId, handler) => {
+      if (!globalEventHandlers.has(gameId)) {
+        globalEventHandlers.set(gameId, new Set());
+      }
+      globalEventHandlers.get(gameId)!.add(handler);
+    }),
+    unsubscribeFromGame: vi.fn().mockImplementation((gameId) => {
+      globalEventHandlers.delete(gameId);
+    }),
+    getGamePresence: vi.fn().mockResolvedValue(['user-1', 'user-2']),
+    getConnectionStatus: vi.fn().mockReturnValue('connected'),
+    onConnectionStatusChange: vi.fn(),
+    onPresenceChange: vi.fn(),
+    disconnect: vi.fn().mockResolvedValue(undefined),
+  });
+
+  return {
+    PubNubGameService: vi.fn(() => createMockPubNubService()),
+  };
+});
+
 describe('Real-time Integration Tests', () => {
   let service1: RealtimeGameService;
   let service2: RealtimeGameService;
@@ -103,7 +177,7 @@ describe('Real-time Integration Tests', () => {
   beforeEach(async () => {
     // Reset singleton instances for testing
     (RealtimeGameService as any).instance = null;
-    
+
     user1 = {
       id: 'user-1',
       username: 'player1',

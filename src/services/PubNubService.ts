@@ -56,6 +56,9 @@ export class PubNubGameService implements RealtimeGameService {
         await this.disconnect();
       }
 
+      // Validate user authentication with Supabase
+      await this.validateSupabaseAuth(userId);
+
       const config: PubNubConfig = {
         publishKey,
         subscribeKey,
@@ -135,12 +138,15 @@ export class PubNubGameService implements RealtimeGameService {
 
     try {
       const channelName = `game-${gameId}`;
-      
+
       // Check if already subscribed
       if (this.subscriptions.has(gameId)) {
         console.log(`Already subscribed to game channel: ${channelName}`);
         return;
       }
+
+      // Get authentication token for this channel
+      await this.authenticateChannelAccess(this.userId!, channelName);
 
       const channel = this.pubnub.channel(channelName);
       const subscription = channel.subscription();
@@ -377,6 +383,67 @@ export class PubNubGameService implements RealtimeGameService {
           console.error('Error in connection status handler:', error);
         }
       });
+    }
+  }
+
+  /**
+   * Validate user authentication with Supabase
+   */
+  private async validateSupabaseAuth(userId: string): Promise<void> {
+    try {
+      // Import supabase client dynamically to avoid circular dependencies
+      const { supabase } = await import('../utils/supabase');
+
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error || !user || user.id !== userId) {
+        throw new Error('User not authenticated with Supabase');
+      }
+
+      console.log('Supabase authentication validated for user:', userId);
+    } catch (error) {
+      console.error('Supabase authentication validation failed:', error);
+      throw new Error(`Authentication validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Authenticate channel access via Supabase Edge Function
+   */
+  private async authenticateChannelAccess(userId: string, channel: string): Promise<void> {
+    try {
+      // Import supabase client dynamically
+      const { supabase } = await import('../utils/supabase');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/pubnub-auth`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          channel: channel,
+          permissions: { read: true, write: true }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Channel authentication failed');
+      }
+
+      const authData = await response.json();
+      console.log('Channel access authenticated:', authData);
+    } catch (error) {
+      console.error('Channel authentication failed:', error);
+      throw new Error(`Channel authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }
