@@ -8,6 +8,7 @@ import {
   ServiceResponse,
   GAME_CONSTANTS
 } from '../types/game';
+import { UnifiedGameService } from './UnifiedGameService';
 import { GameService } from './GameService';
 
 // Queue storage (in-memory for now, would be replaced with a proper queue system in production)
@@ -181,32 +182,39 @@ export class MatchmakingService {
     try {
       // Get a random prompt
       const prompt = await this.getRandomPrompt();
-      
-      // Create the game
-      const createResult = await GameService.createGame({
+
+      // Initialize unified service for the first player (game creator)
+      const firstPlayer = players[0];
+      const initResult = await UnifiedGameService.initialize(firstPlayer.user_id);
+      if (!initResult.success) {
+        console.warn('Failed to initialize unified service, falling back to basic game creation:', initResult.error);
+      }
+
+      // Create the game with integrated real-time setup
+      const createResult = await UnifiedGameService.createGameWithRealtime({
         prompt,
         max_players: players.length
       });
-      
+
       if (!createResult.success || !createResult.data) {
         return { success: false, error: 'Failed to create game', code: 'GAME_CREATION_ERROR' };
       }
-      
+
       const gameId = createResult.data.id;
-      
+
       // Add all players to the game (creator is already added)
       const creatorId = createResult.data.created_by;
       const otherPlayers = players.filter(p => p.user_id !== creatorId);
-      
+
       for (const player of otherPlayers) {
         await GameService.joinGame({
           game_id: gameId,
           // Could use player preferences for booster pack selection
         });
       }
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         data: {
           game_id: gameId,
           participants: players.map(p => p.user_id),

@@ -322,6 +322,45 @@ If migrating from manual database/real-time coordination:
 3. Update error handling for integrated operations
 4. Test graceful degradation scenarios
 
+### Updated Services
+
+The following services have been migrated to use UnifiedGameService:
+
+#### MatchmakingService ✅
+```typescript
+// Updated to use unified game creation with real-time setup
+private static async createGameForMatchedPlayers(players: MatchmakingQueue[]) {
+  // Initialize unified service for the first player (game creator)
+  const firstPlayer = players[0];
+  const initResult = await UnifiedGameService.initialize(firstPlayer.user_id);
+
+  // Create the game with integrated real-time setup
+  const createResult = await UnifiedGameService.createGameWithRealtime({
+    prompt,
+    max_players: players.length
+  });
+
+  // Game is created with both database persistence and real-time channels
+}
+```
+
+This ensures that games created through matchmaking automatically have:
+- Database persistence
+- Real-time PubNub channels set up
+- Presence tracking enabled
+- Automatic rollback if real-time setup fails
+
+### Code Migration Examples
+
+```typescript
+// Old approach - database only
+const result = await GameService.createGame(request);
+
+// New approach - integrated database + real-time
+await UnifiedGameService.initialize(user.id);
+const result = await UnifiedGameService.createGameWithRealtime(request);
+```
+
 ### Database Migration
 
 Run the migration to add triggers:
