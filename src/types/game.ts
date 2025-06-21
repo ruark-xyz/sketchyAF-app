@@ -268,3 +268,32 @@ export const GAME_STATUS_FLOW: Record<GameStatus, GameStatus[]> = {
   completed: [],
   cancelled: [],
 } as const;
+
+// Type Guards and Validation Functions
+export const isValidGameStatus = (status: string): status is GameStatus => {
+  return ['waiting', 'briefing', 'drawing', 'voting', 'results', 'completed', 'cancelled'].includes(status);
+};
+
+export const isValidStatusTransition = (currentStatus: GameStatus, newStatus: GameStatus): boolean => {
+  return GAME_STATUS_FLOW[currentStatus].includes(newStatus);
+};
+
+export const validateGameStatusTransition = (currentStatus: GameStatus, newStatus: GameStatus): ServiceResponse<void> => {
+  if (!isValidGameStatus(currentStatus)) {
+    return { success: false, error: `Invalid current status: ${currentStatus}`, code: 'INVALID_STATUS' };
+  }
+
+  if (!isValidGameStatus(newStatus)) {
+    return { success: false, error: `Invalid new status: ${newStatus}`, code: 'INVALID_STATUS' };
+  }
+
+  if (!isValidStatusTransition(currentStatus, newStatus)) {
+    return {
+      success: false,
+      error: `Invalid status transition from ${currentStatus} to ${newStatus}`,
+      code: 'INVALID_TRANSITION'
+    };
+  }
+
+  return { success: true };
+};
