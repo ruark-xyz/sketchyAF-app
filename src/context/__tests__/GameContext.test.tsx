@@ -382,9 +382,12 @@ describe('GameContext', () => {
         await result.current.createGame('Test prompt');
       });
 
-      // Mock localStorage.getItem
+      // Mock localStorage.getItem with proper validation data
       const mockData = JSON.stringify({
-        elements: [{ id: 'element-1', type: 'rectangle' }]
+        elements: [{ id: 'element-1', type: 'rectangle' }],
+        gameId: 'game-123', // Must match the game ID from mock
+        userId: 'user-123', // Must match the user ID from mock
+        timestamp: Date.now()
       });
       vi.spyOn(localStorage, 'getItem').mockReturnValue(mockData);
 
@@ -395,6 +398,8 @@ describe('GameContext', () => {
 
       expect(loadedData).toBeDefined();
       expect(loadedData?.elements).toHaveLength(1);
+      expect(loadedData?.gameId).toBe('game-123');
+      expect(loadedData?.userId).toBe('user-123');
     });
   });
 

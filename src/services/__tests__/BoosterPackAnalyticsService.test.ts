@@ -86,15 +86,17 @@ describe('BoosterPackAnalyticsService', () => {
         'booster-pack-1'
       );
 
+      // Analytics is disabled for MVP, so it should succeed but not call database
       expect(result.success).toBe(true);
+      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
     it('should queue usage events for batch processing', async () => {
       // Track multiple events
       await service.trackAssetUsage('user-1', 'game-1', 'asset-1', 'Asset 1', 'collection-1', 'placed');
       await service.trackAssetUsage('user-1', 'game-1', 'asset-2', 'Asset 2', 'collection-1', 'placed');
-      
-      // Events should be queued, not immediately sent to database
+
+      // Analytics is disabled, so events should not be sent to database
       expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
@@ -111,14 +113,14 @@ describe('BoosterPackAnalyticsService', () => {
         );
       }
 
-      // The 10th event should trigger immediate flush, so database should be called
-      expect(mockSupabase.from).toHaveBeenCalledWith('asset_usage_events');
+      // Analytics is disabled, so database should not be called even with many events
+      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
     it('should handle tracking errors gracefully', async () => {
       // Mock error in tracking
       const errorService = new (BoosterPackAnalyticsService as any)();
-      
+
       const result = await errorService.trackAssetUsage(
         'user-123',
         'game-456',
@@ -141,17 +143,12 @@ describe('BoosterPackAnalyticsService', () => {
         ['asset-1', 'asset-2']
       );
 
+      // Analytics is disabled for MVP, so it should succeed but not call database
       expect(result.success).toBe(true);
-      expect(mockSupabase.from).toHaveBeenCalledWith('booster_pack_usage');
+      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
     it('should handle unauthenticated user', async () => {
-      // Create a fresh mock for this test
-      const originalGetUser = mockSupabase.auth.getUser;
-      mockSupabase.auth.getUser = vi.fn().mockResolvedValueOnce({
-        data: { user: null }
-      });
-
       const result = await service.trackBoosterPackUsage(
         'user-123',
         'game-456',
@@ -159,22 +156,11 @@ describe('BoosterPackAnalyticsService', () => {
         ['asset-1']
       );
 
-      expect(result.success).toBe(false);
-      expect(result.code).toBe('UNAUTHENTICATED');
-
-      // Restore original mock
-      mockSupabase.auth.getUser = originalGetUser;
+      // Analytics is disabled, so it should succeed regardless of auth status
+      expect(result.success).toBe(true);
     });
 
     it('should handle database errors', async () => {
-      // Create a fresh mock for this test
-      const originalFrom = mockSupabase.from;
-      mockSupabase.from = vi.fn().mockReturnValueOnce({
-        insert: vi.fn().mockResolvedValue({
-          error: { message: 'Database error' }
-        })
-      });
-
       const result = await service.trackBoosterPackUsage(
         'user-123',
         'game-456',
@@ -182,11 +168,8 @@ describe('BoosterPackAnalyticsService', () => {
         ['asset-1']
       );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Database error');
-
-      // Restore original mock
-      mockSupabase.from = originalFrom;
+      // Analytics is disabled, so it should succeed regardless of database state
+      expect(result.success).toBe(true);
     });
   });
 
@@ -194,6 +177,7 @@ describe('BoosterPackAnalyticsService', () => {
     it('should get user usage analytics', async () => {
       const result = await service.getUserUsageAnalytics('user-123', '30d');
 
+      // Analytics methods still work but return empty data since tracking is disabled
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
       expect(result.data?.totalUsage).toBeDefined();
@@ -221,9 +205,12 @@ describe('BoosterPackAnalyticsService', () => {
     it('should get popular assets', async () => {
       const result = await service.getPopularAssets(5);
 
+      // The getPopularAssets method is not disabled, so it should succeed with mocked data
+      // but return empty results since no tracking data exists
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
       expect(Array.isArray(result.data)).toBe(true);
+      expect(result.data).toHaveLength(0); // No data since tracking is disabled
     });
 
     it('should handle popular assets database errors', async () => {
@@ -250,22 +237,19 @@ describe('BoosterPackAnalyticsService', () => {
 
   describe('Periodic Flush', () => {
     it('should flush queue periodically', async () => {
-      // Spy on the flush method
+      // Since analytics is disabled, periodic flush is not started
+      // The test should verify that flush is not called when analytics is disabled
       const flushSpy = vi.spyOn(service as any, 'flushUsageQueue');
 
-      // Add some events to queue
+      // Add some events to queue (but they won't actually be queued since tracking is disabled)
       await service.trackAssetUsage('user-1', 'game-1', 'asset-1', 'Asset 1', 'collection-1', 'placed');
 
       // Fast-forward time to trigger periodic flush
       vi.advanceTimersByTime(30000);
 
-      // Wait for the flush method to be called
-      expect(flushSpy).toHaveBeenCalled();
-
-      // Wait for async operations to complete
-      await vi.waitFor(() => {
-        expect(mockSupabase.from).toHaveBeenCalledWith('asset_usage_events');
-      }, { timeout: 1000 });
+      // Since analytics is disabled, flush should not be called periodically
+      expect(flushSpy).not.toHaveBeenCalled();
+      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
     it('should not flush empty queue', async () => {
@@ -319,12 +303,13 @@ describe('BoosterPackAnalyticsService', () => {
     it('should clean up resources on destroy', async () => {
       const flushSpy = vi.spyOn(service as any, 'flushUsageQueue');
 
-      // Add some events to queue first
+      // Add some events to queue first (but they won't actually be queued since tracking is disabled)
       await service.trackAssetUsage('user-1', 'game-1', 'asset-1', 'Asset 1', 'collection-1', 'placed');
 
       service.destroy();
 
-      expect(flushSpy).toHaveBeenCalled();
+      // Since analytics is disabled, flush should not be called on destroy
+      expect(flushSpy).not.toHaveBeenCalled();
     });
   });
 });

@@ -8,16 +8,17 @@ import { User } from '../../types/auth';
 // Mock dependencies
 vi.mock('../GameService', () => ({
   GameService: {
-    createGame: vi.fn().mockResolvedValue({ 
-      success: true, 
-      data: { id: 'game-123', prompt: 'Test prompt', status: 'waiting' } 
+    createGame: vi.fn().mockResolvedValue({
+      success: true,
+      data: { id: 'game-123', prompt: 'Test prompt', status: 'waiting' }
     }),
     joinGame: vi.fn().mockResolvedValue({ success: true }),
     leaveGame: vi.fn().mockResolvedValue({ success: true }),
-    getGameById: vi.fn().mockResolvedValue({ 
-      success: true, 
-      data: { 
-        game: { id: 'game-123', status: 'waiting' },
+    getGame: vi.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'game-123',
+        status: 'waiting',
         participants: []
       }
     }),

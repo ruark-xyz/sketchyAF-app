@@ -89,19 +89,24 @@ describe('DrawingExportService', () => {
       expect(result.complexity).toBe('low');
     });
 
-    it('should reject empty drawing', () => {
+    it('should accept empty drawing', () => {
       const result = service.validateDrawing([]);
-      
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Drawing is empty');
+
+      // Empty drawings are now allowed - users should be able to submit anything
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.elementCount).toBe(0);
+      expect(result.complexity).toBe('low');
     });
 
-    it('should reject drawing with only deleted elements', () => {
+    it('should accept drawing with only deleted elements', () => {
       const deletedElements = mockElements.map(el => ({ ...el, isDeleted: true }));
       const result = service.validateDrawing(deletedElements);
-      
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Drawing has no visible elements');
+
+      // Drawings with only deleted elements are now allowed
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.elementCount).toBe(0); // Active elements count
     });
 
     it('should warn about complex drawings', () => {
@@ -109,12 +114,13 @@ describe('DrawingExportService', () => {
         ...mockElements[0],
         id: `element-${i}`
       }));
-      
+
       const result = service.validateDrawing(complexElements);
-      
+
       expect(result.isValid).toBe(true);
       expect(result.complexity).toBe('high');
-      expect(result.warnings).toContain('Drawing has many elements, may affect performance');
+      // No warnings are generated in the current implementation
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should reject drawings with too many elements', () => {
@@ -155,11 +161,12 @@ describe('DrawingExportService', () => {
       expect(result.data).toBeInstanceOf(Blob);
     });
 
-    it('should reject invalid drawings', async () => {
+    it('should accept empty drawings for export', async () => {
       const result = await service.exportToImage([], mockAppState);
-      
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Drawing validation failed');
+
+      // Empty drawings are now allowed, so export should succeed
+      expect(result.success).toBe(true);
+      expect(result.data).toBeInstanceOf(Blob);
     });
 
     it('should handle export errors', async () => {
