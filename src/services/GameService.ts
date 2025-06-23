@@ -22,8 +22,17 @@ export class GameService {
    */
   static async createGame(request: CreateGameRequest): Promise<ServiceResponse<Game>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('GameService: Attempting to create game...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('GameService: getUser() result:', { user: user ? 'authenticated' : 'not authenticated', error: authError });
+
+      if (authError) {
+        console.error('GameService: Auth error:', authError);
+        return { success: false, error: `Authentication error: ${authError.message}`, code: 'UNAUTHENTICATED' };
+      }
+
       if (!user) {
+        console.error('GameService: No user found');
         return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
       }
 
@@ -54,10 +63,13 @@ export class GameService {
       }
 
       // Automatically join the creator to the game
+      console.log('GameService: Auto-joining creator to game:', data.id);
       const joinResult = await this.joinGame({ game_id: data.id });
       if (!joinResult.success) {
         // Game was created but creator couldn't join - this is a problem
-        console.error('Creator failed to join their own game:', joinResult.error);
+        console.error('GameService: Creator failed to join their own game:', joinResult.error);
+      } else {
+        console.log('GameService: Creator successfully joined game');
       }
 
       return { success: true, data };

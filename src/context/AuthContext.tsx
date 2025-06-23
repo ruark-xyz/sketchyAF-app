@@ -46,26 +46,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session ? session.user : null);
-      setIsLoading(false);
-    });
+    let mounted = true;
+
+    // Get initial user state using getUser() for more reliable auth state
+    const initializeAuth = async () => {
+      try {
+        console.log('AuthContext: Initializing auth state...');
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (mounted) {
+          if (error) {
+            console.warn('AuthContext: Auth initialization error:', error);
+            // If the user doesn't exist in the database, clear the session
+            if (error.message.includes('User from sub claim in JWT does not exist')) {
+              console.log('AuthContext: Clearing invalid session...');
+              await supabase.auth.signOut();
+            }
+            setUser(null);
+            setSession(null);
+          } else {
+            console.log('AuthContext: User from getUser():', user ? 'authenticated' : 'not authenticated');
+            setUser(user);
+            // Get session if user exists
+            if (user) {
+              const { data: { session } } = await supabase.auth.getSession();
+              console.log('AuthContext: Session from getSession():', session ? 'valid' : 'invalid');
+              setSession(session);
+            } else {
+              setSession(null);
+            }
+          }
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('AuthContext: Failed to initialize auth:', err);
+        if (mounted) {
+          setUser(null);
+          setSession(null);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session ? session.user : null);
-      setIsLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) {
+        console.log('AuthContext: Auth state change event:', event);
+        setSession(session);
+        setUser(session ? session.user : null);
+        // Only set loading to false for meaningful events
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          setIsLoading(false);
+        }
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Sign out function
   const signOut = async (): Promise<void> => {
+    console.log('AuthContext: Signing out...');
     await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
   };
 
   // Login function
@@ -153,6 +201,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error,
     clearError,
   };
+
+  // Expose auth context globally for debugging
+  if (typeof window !== 'undefined') {
+    (window as any).authDebug = {
+      signOut,
+      user,
+      session,
+      isLoggedIn: !!user && !!session,
+      clearAuth: async () => {
+        await supabase.auth.signOut();
+        window.location.reload();
+      }
+    };
+  }
 
   return (
     <AuthContext.Provider value={value}>

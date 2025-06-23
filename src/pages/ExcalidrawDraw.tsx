@@ -26,6 +26,24 @@ const ExcalidrawDraw = () => {
   const gameId = searchParams.get('gameId');
   const initializationRef = useRef<string | null>(null);
 
+  // Store functions in refs to avoid dependency issues
+  const functionsRef = useRef({
+    joinGame,
+    createGame,
+    transitionGameStatus,
+    initializeDrawingSession,
+    navigate
+  });
+
+  // Update refs when functions change
+  functionsRef.current = {
+    joinGame,
+    createGame,
+    transitionGameStatus,
+    initializeDrawingSession,
+    navigate
+  };
+
   // Debug logging
   console.log('ExcalidrawDraw component mounted/updated');
   console.log('gameId:', gameId);
@@ -41,6 +59,12 @@ const ExcalidrawDraw = () => {
 
   // Initialize game session
   useEffect(() => {
+    // Skip if auth is still loading
+    if (isLoading) {
+      console.log('Auth still loading, skipping game initialization');
+      return;
+    }
+
     console.log('useEffect triggered with dependencies:', {
       gameId,
       isLoggedIn,
@@ -55,17 +79,27 @@ const ExcalidrawDraw = () => {
         console.log('Initialization already in progress for gameId:', gameId);
         return;
       }
+
+      // For test games, check if we already have a valid game
+      const isTestGame = gameId?.startsWith('test') || false;
+      if (isTestGame && currentGame && gameId && currentGame.prompt.includes(`Test Drawing Session - ${gameId}`)) {
+        console.log('Test game already exists and is valid, skipping initialization');
+        // Don't reset the ref here - keep it to prevent re-initialization
+        return;
+      }
+
       initializationRef.current = gameId;
       console.log('Starting game initialization for gameId:', gameId);
 
       if (!isLoggedIn || !currentUser) {
-        navigate('/uiux/login');
+        console.log('User not authenticated, redirecting to login');
+        functionsRef.current.navigate('/uiux/login');
         return;
       }
 
       if (!gameId) {
         // No game ID provided, redirect to lobby or game creation
-        navigate('/uiux/lobby');
+        functionsRef.current.navigate('/uiux/lobby');
         return;
       }
 
@@ -79,18 +113,23 @@ const ExcalidrawDraw = () => {
         if (isTestGame) {
           console.log('Development test mode detected for gameId:', gameId);
 
-          // For test games, we always create a new game since test IDs are not valid UUIDs
-          // and cannot exist in the database
-          console.log('Creating new test game...');
+          // Check if we already have a valid test game
+          if (currentGame && currentGame.prompt.includes(`Test Drawing Session - ${gameId}`)) {
+            console.log('Test game already exists, using existing game:', currentGame.id);
+            actualGameId = currentGame.id;
+          } else {
+            // For test games, we always create a new game since test IDs are not valid UUIDs
+            // and cannot exist in the database
+            console.log('Creating new test game...');
 
-          // Create a new test game (minimum 2 players due to database constraints)
-          const createResult = await createGame(`Test Drawing Session - ${gameId}`, {
-            maxPlayers: 2,
-            roundDuration: 300, // 5 minutes for testing
-            votingDuration: 30
-          });
+            // Create a new test game (minimum 2 players due to database constraints)
+            const createResult = await functionsRef.current.createGame(`Test Drawing Session - ${gameId}`, {
+              maxPlayers: 2,
+              roundDuration: 60, // 1 minute for testing
+              votingDuration: 30
+            });
 
-          if (createResult.success && createResult.data) {
+            if (createResult.success && createResult.data) {
             console.log('Test game created successfully:', createResult.data.id);
 
             // Update the actual game ID to use
@@ -102,22 +141,39 @@ const ExcalidrawDraw = () => {
             window.history.replaceState({}, '', newUrl.toString());
 
             // Set the game to drawing status immediately for testing
-            const transitionResult = await transitionGameStatus('drawing');
-            if (!transitionResult.success) {
-              console.warn('Failed to transition test game to drawing status:', transitionResult.error);
-            }
+            // Wait a bit for the GameContext to update with the new game
+            console.log('Waiting for game context to update...');
+            setTimeout(async () => {
+              try {
+                // First transition to briefing, then to drawing (following the game flow)
+                const briefingResult = await functionsRef.current.transitionGameStatus('briefing');
+                if (briefingResult.success) {
+                  const drawingResult = await functionsRef.current.transitionGameStatus('drawing');
+                  if (!drawingResult.success) {
+                    console.warn('Failed to transition test game to drawing status:', drawingResult.error);
+                  } else {
+                    console.log('Test game successfully transitioned to drawing status');
+                  }
+                } else {
+                  console.warn('Failed to transition test game to briefing status:', briefingResult.error);
+                }
+              } catch (error) {
+                console.error('Error during game status transitions:', error);
+              }
+            }, 2000); // Wait 2 seconds for the context to update
           } else {
             console.error('Failed to create test game:', createResult.error);
-            navigate('/');
+            functionsRef.current.navigate('/');
             return;
+            }
           }
         } else {
           // Regular game flow - join existing game
           if (!currentGame || currentGame.id !== gameId) {
-            const result = await joinGame(gameId);
+            const result = await functionsRef.current.joinGame(gameId);
             if (!result.success) {
               console.error('Failed to join game:', result.error);
-              navigate('/');
+              functionsRef.current.navigate('/');
               return;
             }
           }
@@ -126,12 +182,12 @@ const ExcalidrawDraw = () => {
         // Initialize drawing session if in drawing phase
         // Use actualGameId which will be the created game ID for test games
         if (currentGame?.status === 'drawing' && !drawingContext) {
-          await initializeDrawingSession(actualGameId);
+          await functionsRef.current.initializeDrawingSession(actualGameId);
         }
       } catch (err) {
         console.error('Failed to initialize game:', err);
         initializationRef.current = null; // Reset on error
-        navigate('/');
+        functionsRef.current.navigate('/');
       } finally {
         setIsInitializing(false);
       }
@@ -139,11 +195,11 @@ const ExcalidrawDraw = () => {
 
     initializeGame();
 
-    // Cleanup function to reset initialization ref
+    // Don't reset the ref on cleanup - we want to prevent re-initialization
     return () => {
-      initializationRef.current = null;
+      // Cleanup function - but don't reset initializationRef to prevent duplicate initialization
     };
-  }, [gameId, isLoggedIn, currentUser, currentGame, drawingContext, joinGame, createGame, transitionGameStatus, initializeDrawingSession, navigate]);
+  }, [gameId, isLoggedIn, currentUser, currentGame, drawingContext, isLoading]);
 
   // Show loading state
   if (isInitializing || isLoading) {
@@ -179,7 +235,7 @@ const ExcalidrawDraw = () => {
             <h2 className="text-xl font-bold text-gray-800 mb-2">Game Error</h2>
             <p className="text-gray-600 mb-4">{error}</p>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => functionsRef.current.navigate('/')}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Return Home
@@ -204,7 +260,7 @@ const ExcalidrawDraw = () => {
             <h2 className="text-xl font-bold text-gray-800 mb-2">Game Not Found</h2>
             <p className="text-gray-600 mb-4">The game you're looking for doesn't exist or has ended.</p>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => functionsRef.current.navigate('/')}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Find Another Game
