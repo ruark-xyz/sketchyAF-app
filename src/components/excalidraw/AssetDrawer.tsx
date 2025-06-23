@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Image, AlertCircle, Loader2 } from 'lucide-react';
 import { ImageCollection, ImageAsset, AssetDrawerState } from '../../types/assets';
 import { loadAllCollections, searchAssets, cleanupAssetPreviews, calculateAdaptiveImageSize } from '../../utils/assetLoader';
+import { boosterPackAnalyticsService } from '../../services/BoosterPackAnalyticsService';
+import { useAuth } from '../../context/AuthContext';
+import { useGame } from '../../context/GameContext';
 import { 
   getViewportCenter, 
   imageToDataURL, 
@@ -21,6 +24,9 @@ interface AssetDrawerProps {
 }
 
 const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAPI }) => {
+  const { currentUser } = useAuth();
+  const { currentGame, drawingContext } = useGame();
+
   const [state, setState] = useState<AssetDrawerState>({
     isOpen: false,
     selectedCollection: null,
@@ -164,6 +170,28 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
       excalidrawAPI.updateScene({
         elements: [...excalidrawAPI.getSceneElements(), imageElement],
       });
+
+      // Track asset usage for analytics
+      if (currentUser && currentGame) {
+        try {
+          await boosterPackAnalyticsService.trackAssetUsage(
+            currentUser.id,
+            currentGame.id,
+            asset.id,
+            asset.name,
+            asset.collection,
+            'placed',
+            {
+              position: { x: center.x, y: center.y },
+              size: { width, height }
+            },
+            drawingContext?.selectedBoosterPack?.id
+          );
+        } catch (error) {
+          console.warn('Failed to track asset usage:', error);
+          // Don't fail the asset placement if analytics fails
+        }
+      }
 
       onClose(); // Close the drawer after successful insertion
     } catch (error) {
