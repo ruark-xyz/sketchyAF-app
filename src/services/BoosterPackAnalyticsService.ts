@@ -73,6 +73,11 @@ export class BoosterPackAnalyticsService {
     metadata?: AssetUsageEvent['metadata'],
     boosterPackId?: string
   ): Promise<ServiceResponse<void>> {
+    // Temporarily disabled - analytics service not needed for MVP
+    console.log('Asset usage tracking disabled:', { userId, gameId, assetId, assetName });
+    return { success: true };
+
+    /*
     try {
       const event: AssetUsageEvent = {
         userId,
@@ -97,12 +102,13 @@ export class BoosterPackAnalyticsService {
       return { success: true };
     } catch (error) {
       console.error('Failed to track asset usage:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         code: 'TRACKING_FAILED'
       };
     }
+    */
   }
 
   /**
@@ -114,6 +120,11 @@ export class BoosterPackAnalyticsService {
     boosterPackId: string,
     assetsUsed: string[]
   ): Promise<ServiceResponse<void>> {
+    // Temporarily disabled - analytics service not needed for MVP
+    console.log('Booster pack usage tracking disabled:', { userId, gameId, boosterPackId, assetsUsed });
+    return { success: true };
+
+    /*
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -133,8 +144,8 @@ export class BoosterPackAnalyticsService {
 
       if (error) {
         console.error('Failed to track booster pack usage:', error);
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: error.message,
           code: 'DATABASE_ERROR'
         };
@@ -143,12 +154,13 @@ export class BoosterPackAnalyticsService {
       return { success: true };
     } catch (error) {
       console.error('Failed to track booster pack usage:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         code: 'TRACKING_FAILED'
       };
     }
+    */
   }
 
   /**
@@ -327,11 +339,15 @@ export class BoosterPackAnalyticsService {
    * Start periodic flush of usage events
    */
   private startPeriodicFlush(): void {
+    // Temporarily disabled - analytics service not needed for MVP
+    console.log('Analytics service disabled - periodic flush not started');
+    /*
     this.flushInterval = setInterval(() => {
       if (this.usageQueue.length > 0) {
         this.flushUsageQueue();
       }
     }, 30000); // Flush every 30 seconds
+    */
   }
 
   /**

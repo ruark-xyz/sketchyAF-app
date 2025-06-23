@@ -380,8 +380,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (submissionResult.success && submissionResult.data) {
-        // Track booster pack usage if applicable
+        // Track booster pack usage if applicable (temporarily disabled due to missing table)
         if (drawingContext.selectedBoosterPack && metadata.assetsUsed.length > 0) {
+          // TODO: Re-enable when asset_usage_events table is created
+          console.log('Booster pack usage tracking disabled - missing asset_usage_events table');
+          /*
           try {
             await boosterPackAnalyticsService.trackBoosterPackUsage(
               currentUser.id,
@@ -393,6 +396,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.warn('Failed to track booster pack usage:', error);
             // Don't fail submission if analytics fails
           }
+          */
         }
 
         // Update drawing context
@@ -423,10 +427,50 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentGame || !currentUser) return;
 
     try {
-      // Save to local storage for now
-      localStorage.setItem(`drawing_progress_${currentGame.id}_${currentUser.id}`, JSON.stringify(drawingData));
+      const progressKey = `drawing_progress_${currentGame.id}_${currentUser.id}`;
+      const progressData = {
+        ...drawingData,
+        timestamp: Date.now(),
+        gameId: currentGame.id,
+        userId: currentUser.id
+      };
+
+      localStorage.setItem(progressKey, JSON.stringify(progressData));
+
+      // Also save a backup with timestamp for recovery
+      const backupKey = `drawing_backup_${currentGame.id}_${currentUser.id}_${Date.now()}`;
+      localStorage.setItem(backupKey, JSON.stringify(progressData));
+
+      // Clean up old backups (keep only last 5)
+      const allKeys = Object.keys(localStorage);
+      const backupKeys = allKeys
+        .filter(key => key.startsWith(`drawing_backup_${currentGame.id}_${currentUser.id}_`))
+        .sort()
+        .reverse();
+
+      // Remove old backups beyond the first 5
+      backupKeys.slice(5).forEach(key => {
+        localStorage.removeItem(key);
+      });
+
     } catch (err) {
       console.warn('Failed to save drawing progress:', err);
+      // Try to clear some space and retry once
+      try {
+        // Clear old progress data from other games
+        const allKeys = Object.keys(localStorage);
+        const oldProgressKeys = allKeys.filter(key =>
+          key.startsWith('drawing_progress_') &&
+          !key.includes(currentGame.id)
+        );
+        oldProgressKeys.forEach(key => localStorage.removeItem(key));
+
+        // Retry save
+        const progressKey = `drawing_progress_${currentGame.id}_${currentUser.id}`;
+        localStorage.setItem(progressKey, JSON.stringify(drawingData));
+      } catch (retryErr) {
+        console.error('Failed to save drawing progress after cleanup:', retryErr);
+      }
     }
   }, [currentGame, currentUser]);
 
@@ -435,8 +479,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentGame || !currentUser) return null;
 
     try {
-      const saved = localStorage.getItem(`drawing_progress_${currentGame.id}_${currentUser.id}`);
-      return saved ? JSON.parse(saved) : null;
+      const progressKey = `drawing_progress_${currentGame.id}_${currentUser.id}`;
+      const saved = localStorage.getItem(progressKey);
+
+      if (saved) {
+        const parsedData = JSON.parse(saved);
+
+        // Validate the data belongs to current game/user
+        if (parsedData.gameId === currentGame.id && parsedData.userId === currentUser.id) {
+          return parsedData;
+        } else {
+          console.warn('Saved progress data mismatch, clearing...');
+          localStorage.removeItem(progressKey);
+        }
+      }
+
+      // Try to recover from backup if main save failed
+      const allKeys = Object.keys(localStorage);
+      const backupKeys = allKeys
+        .filter(key => key.startsWith(`drawing_backup_${currentGame.id}_${currentUser.id}_`))
+        .sort()
+        .reverse();
+
+      if (backupKeys.length > 0) {
+        const latestBackup = localStorage.getItem(backupKeys[0]);
+        if (latestBackup) {
+          console.log('Recovering drawing from backup');
+          return JSON.parse(latestBackup);
+        }
+      }
+
+      return null;
     } catch (err) {
       console.warn('Failed to load drawing progress:', err);
       return null;

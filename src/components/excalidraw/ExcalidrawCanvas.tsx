@@ -1,11 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Excalidraw } from '@excalidraw/excalidraw';
-import { Image, Clock, Send, Users, AlertCircle } from 'lucide-react';
+import { Image, Clock, Send, Users, AlertCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 // import PerformanceMonitor from './PerformanceMonitor';
 import AssetDrawer from './AssetDrawer';
 import useMobileOptimization from '../../hooks/useMobileOptimization';
 import { useDrawingTimer } from '../../hooks/useDrawingTimer';
-import { GameDrawingContext } from '../../context/GameContext';
+import { GameDrawingContext, useGame } from '../../context/GameContext';
 import { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
 
 interface ExcalidrawCanvasProps {
@@ -16,6 +16,9 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
   // Apply mobile optimizations
   useMobileOptimization();
 
+  // Get game context functions at top level
+  const { submitDrawing } = useGame();
+
   // Ref for Excalidraw API
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
 
@@ -25,6 +28,41 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
   // Game-specific state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Handle auto-submit when timer expires
+  const handleAutoSubmit = useCallback(async () => {
+    if (!gameContext || !excalidrawAPIRef.current) return;
+
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    try {
+      const elements = excalidrawAPIRef.current.getSceneElements();
+      const appState = excalidrawAPIRef.current.getAppState();
+
+      // Use the submitDrawing function from top level
+      const result = await submitDrawing({ elements, appState });
+
+      if (result.success) {
+        setShowSuccessMessage(true);
+        setRetryCount(0);
+        // Hide success message after 5 seconds for auto-submit
+        setTimeout(() => setShowSuccessMessage(false), 5000);
+      } else {
+        setSubmissionError(`Auto-submit failed: ${result.error || 'Unknown error'}`);
+        setRetryCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Failed to auto-submit drawing:', error);
+      setSubmissionError(`Auto-submit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setRetryCount(prev => prev + 1);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [submitDrawing]);
 
   // Drawing timer (only active when in game context)
   const {
@@ -35,7 +73,8 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
     isWarning,
     warningLevel,
     onTimeExpired,
-    onWarning
+    onWarning,
+    onAutoSubmit
   } = useDrawingTimer({
     gameId: gameContext?.gameId,
     autoSubmitOnExpiry: true
@@ -48,7 +87,16 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
         handleAutoSubmit();
       }
     });
-  }, [gameContext, onTimeExpired]);
+  }, [gameContext, onTimeExpired, handleAutoSubmit]);
+
+  // Set up auto-submit callback
+  useEffect(() => {
+    onAutoSubmit(() => {
+      if (gameContext && !gameContext.hasSubmitted) {
+        handleAutoSubmit();
+      }
+    });
+  }, [gameContext, onAutoSubmit, handleAutoSubmit]);
 
   // Handle timer warnings
   useEffect(() => {
@@ -106,34 +154,38 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
     if (!gameContext || !excalidrawAPIRef.current || gameContext.hasSubmitted) return;
 
     setIsSubmitting(true);
+    setSubmissionError(null);
+
     try {
       const elements = excalidrawAPIRef.current.getSceneElements();
       const appState = excalidrawAPIRef.current.getAppState();
 
-      await gameContext.submitDrawing({ elements, appState });
+      // Use the submitDrawing function from top level
+      const result = await submitDrawing({ elements, appState });
+
+      if (result.success) {
+        setShowSuccessMessage(true);
+        setRetryCount(0);
+        // Hide success message after 3 seconds
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+      } else {
+        setSubmissionError(result.error || 'Failed to submit drawing');
+        setRetryCount(prev => prev + 1);
+      }
     } catch (error) {
       console.error('Failed to submit drawing:', error);
-      // Could show error toast here
+      setSubmissionError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setRetryCount(prev => prev + 1);
     } finally {
       setIsSubmitting(false);
     }
-  }, [gameContext]);
+  }, [submitDrawing]);
 
-  // Handle auto-submit when timer expires
-  const handleAutoSubmit = useCallback(async () => {
-    if (!gameContext || !excalidrawAPIRef.current) return;
-
-    try {
-      const elements = excalidrawAPIRef.current.getSceneElements();
-      const appState = excalidrawAPIRef.current.getAppState();
-
-      await gameContext.submitDrawing({ elements, appState });
-    } catch (error) {
-      console.error('Failed to auto-submit drawing:', error);
-    }
-  }, [gameContext]);
-
-
+  // Handle retry submission
+  const handleRetry = useCallback(() => {
+    setSubmissionError(null);
+    handleSubmit();
+  }, [handleSubmit]);
 
   return (
     <div className="h-screen w-full relative">
@@ -206,11 +258,37 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
               </button>
             )}
 
-            {/* Submitted Status */}
+            {/* Submission Status */}
             {gameContext.hasSubmitted && (
               <div className="ml-3 flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <CheckCircle size={16} />
                 <span className="font-medium">Submitted!</span>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {showSuccessMessage && !gameContext.hasSubmitted && (
+              <div className="ml-3 flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
+                <CheckCircle size={16} />
+                <span className="font-medium">Drawing submitted successfully!</span>
+              </div>
+            )}
+
+            {/* Error Message with Retry */}
+            {submissionError && !gameContext.hasSubmitted && (
+              <div className="ml-3 flex items-center space-x-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg">
+                <XCircle size={16} />
+                <span className="text-sm">{submissionError}</span>
+                {retryCount < 3 && (
+                  <button
+                    onClick={handleRetry}
+                    disabled={isSubmitting}
+                    className="ml-2 flex items-center space-x-1 px-2 py-1 bg-red-200 hover:bg-red-300 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} />
+                    <span>Retry</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -248,7 +326,6 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
             }
           }}
           onChange={handleChange}
-          readOnly={gameContext?.hasSubmitted || isExpired}
         />
       </div>
 
@@ -258,6 +335,66 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
         onClose={() => setIsAssetDrawerOpen(false)}
         excalidrawAPI={excalidrawAPIRef.current}
       />
+
+      {/* Bottom Notification Area */}
+      {gameContext && (submissionError || showSuccessMessage) && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 max-w-md">
+          {submissionError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg">
+              <div className="flex items-start space-x-3">
+                <XCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-red-800">Submission Failed</h4>
+                  <p className="text-sm text-red-700 mt-1">{submissionError}</p>
+                  {retryCount < 3 && (
+                    <div className="mt-3 flex space-x-2">
+                      <button
+                        onClick={handleRetry}
+                        disabled={isSubmitting}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw size={14} />
+                        <span>Try Again</span>
+                      </button>
+                      <button
+                        onClick={() => setSubmissionError(null)}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                  {retryCount >= 3 && (
+                    <div className="mt-3">
+                      <p className="text-xs text-red-600">
+                        Maximum retry attempts reached. Please check your connection and try refreshing the page.
+                      </p>
+                      <button
+                        onClick={() => setSubmissionError(null)}
+                        className="mt-2 px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showSuccessMessage && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg">
+              <div className="flex items-center space-x-3">
+                <CheckCircle size={20} className="text-green-500" />
+                <div>
+                  <h4 className="text-sm font-medium text-green-800">Success!</h4>
+                  <p className="text-sm text-green-700">Your drawing has been submitted successfully.</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Performance Monitor for Phase 1 testing */}
       {/* <PerformanceMonitor /> */}

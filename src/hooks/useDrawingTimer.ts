@@ -43,6 +43,7 @@ export interface UseDrawingTimerReturn {
   onTimeExpired: (callback: () => void) => void;
   onWarning: (callback: (level: string, timeRemaining: number) => void) => void;
   onSync: (callback: (timeRemaining: number) => void) => void;
+  onAutoSubmit: (callback: () => void) => void;
 }
 
 export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawingTimerReturn {
@@ -66,6 +67,7 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
   const timeExpiredCallbackRef = useRef<(() => void) | null>(null);
   const warningCallbackRef = useRef<((level: string, timeRemaining: number) => void) | null>(null);
   const syncCallbackRef = useRef<((timeRemaining: number) => void) | null>(null);
+  const autoSubmitCallbackRef = useRef<(() => void) | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -135,8 +137,12 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
 
         // Auto-submit if enabled and in drawing context
         if (autoSubmitOnExpiry && drawingContext && !drawingContext.hasSubmitted) {
-          // TODO: Get current drawing data and submit
-          console.log('Auto-submitting drawing due to timer expiry');
+          // Call auto-submit callback if available
+          if (autoSubmitCallbackRef.current) {
+            autoSubmitCallbackRef.current();
+          } else {
+            console.log('Auto-submit enabled but no callback provided');
+          }
         }
       }
       
@@ -217,6 +223,10 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
 
   const onSync = useCallback((callback: (timeRemaining: number) => void) => {
     syncCallbackRef.current = callback;
+  }, []);
+
+  const onAutoSubmit = useCallback((callback: () => void) => {
+    autoSubmitCallbackRef.current = callback;
   }, []);
 
   // Handle timer sync events from real-time
@@ -306,6 +316,7 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
     // Event Handlers
     onTimeExpired,
     onWarning,
-    onSync
+    onSync,
+    onAutoSubmit
   };
 }

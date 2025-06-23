@@ -222,7 +222,7 @@ export class DrawingExportService {
   }
 
   /**
-   * Validate drawing elements
+   * Validate drawing elements (basic technical validation only)
    */
   validateDrawing(elements: ExcalidrawElement[]): ValidationResult {
     const errors: string[] = [];
@@ -230,15 +230,23 @@ export class DrawingExportService {
 
     // Check if drawing has elements
     if (!elements || elements.length === 0) {
-      errors.push('Drawing is empty');
+      // Allow empty drawings - users should be able to submit anything
+      return {
+        isValid: true,
+        errors,
+        warnings,
+        elementCount: 0,
+        complexity: 'low'
+      };
     }
 
-    // Check element count limits
-    const elementCount = elements.length;
+    // Filter active elements
+    const activeElements = elements.filter(el => !el.isDeleted);
+    const elementCount = activeElements.length;
+
+    // Basic technical limits only
     if (elementCount > 1000) {
       errors.push('Drawing has too many elements (max 1000)');
-    } else if (elementCount > 500) {
-      warnings.push('Drawing has many elements, may affect performance');
     }
 
     // Calculate complexity
@@ -246,14 +254,8 @@ export class DrawingExportService {
     if (elementCount > 100) complexity = 'medium';
     if (elementCount > 300) complexity = 'high';
 
-    // Check for deleted elements
-    const activeElements = elements.filter(el => !el.isDeleted);
-    if (activeElements.length === 0) {
-      errors.push('Drawing has no visible elements');
-    }
-
-    // Validate element properties
-    for (const element of elements) {
+    // Basic element validation (technical only)
+    for (const element of activeElements) {
       if (!element.id) {
         errors.push('Element missing ID');
       }
@@ -266,7 +268,7 @@ export class DrawingExportService {
       isValid: errors.length === 0,
       errors,
       warnings,
-      elementCount: activeElements.length,
+      elementCount,
       complexity
     };
   }
@@ -276,14 +278,111 @@ export class DrawingExportService {
    */
   optimizeDrawing(elements: ExcalidrawElement[]): ExcalidrawElement[] {
     // Remove deleted elements
+    let optimizedElements = elements.filter(el => !el.isDeleted);
+
+    // Remove elements with zero dimensions (invisible)
+    optimizedElements = optimizedElements.filter(el => {
+      if (el.width === 0 || el.height === 0) {
+        return false;
+      }
+      return true;
+    });
+
+    // Remove duplicate elements (same position, size, and type)
+    const uniqueElements: ExcalidrawElement[] = [];
+    const elementHashes = new Set<string>();
+
+    for (const element of optimizedElements) {
+      // Create a hash based on key properties
+      const hash = `${element.type}-${element.x}-${element.y}-${element.width}-${element.height}`;
+
+      if (!elementHashes.has(hash)) {
+        elementHashes.add(hash);
+        uniqueElements.push(element);
+      }
+    }
+
+    // Clean up element properties (remove undefined/null values)
+    const cleanedElements = uniqueElements.map(element => {
+      const cleaned: any = {};
+
+      for (const [key, value] of Object.entries(element)) {
+        if (value !== undefined && value !== null) {
+          cleaned[key] = value;
+        }
+      }
+
+      return cleaned as ExcalidrawElement;
+    });
+
+    // Sort elements by z-index for consistent ordering
+    cleanedElements.sort((a, b) => {
+      const aIndex = a.index || 0;
+      const bIndex = b.index || 0;
+      return aIndex - bIndex;
+    });
+
+    return cleanedElements;
+  }
+
+  /**
+   * Content filtering for inappropriate drawings
+   */
+  filterContent(elements: ExcalidrawElement[]): { isAppropriate: boolean; reasons: string[] } {
+    const reasons: string[] = [];
     const activeElements = elements.filter(el => !el.isDeleted);
 
-    // TODO: Add more optimization logic
-    // - Simplify paths
-    // - Merge similar elements
-    // - Remove redundant properties
+    // Check text content for inappropriate language
+    const inappropriateWords = [
+      // Add basic inappropriate words - in production, use a more comprehensive list
+      'spam', 'test123', 'asdf', 'qwerty'
+    ];
 
-    return activeElements;
+    for (const element of activeElements) {
+      if (element.type === 'text' && element.text) {
+        const text = element.text.toLowerCase();
+
+        // Check for inappropriate words
+        for (const word of inappropriateWords) {
+          if (text.includes(word)) {
+            reasons.push(`Contains inappropriate text: "${word}"`);
+          }
+        }
+
+        // Check for excessive repetition (spam-like behavior)
+        const words = text.split(/\s+/);
+        const wordCount: Record<string, number> = {};
+
+        for (const word of words) {
+          wordCount[word] = (wordCount[word] || 0) + 1;
+        }
+
+        const maxRepeats = Math.max(...Object.values(wordCount));
+        if (maxRepeats > 10 && words.length > 20) {
+          reasons.push('Contains excessive text repetition');
+        }
+      }
+    }
+
+    // Check for suspicious drawing patterns
+    const elementTypes = activeElements.map(el => el.type);
+    const typeCount: Record<string, number> = {};
+
+    for (const type of elementTypes) {
+      typeCount[type] = (typeCount[type] || 0) + 1;
+    }
+
+    // Flag drawings with excessive single-type elements (potential spam)
+    for (const [type, count] of Object.entries(typeCount)) {
+      if (count > 100 && type !== 'draw' && type !== 'freedraw') {
+        reasons.push(`Excessive use of ${type} elements (${count})`);
+      }
+    }
+
+    return {
+      isAppropriate: reasons.length === 0,
+      reasons
+    };
   }
 
   /**
