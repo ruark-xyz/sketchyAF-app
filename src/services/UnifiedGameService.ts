@@ -143,7 +143,7 @@ export class UnifiedGameService {
    * Get game by ID
    */
   async getGameById(gameId: string): Promise<ServiceResponse<GameWithParticipants>> {
-    return await GameService.getGameById(gameId);
+    return await GameService.getGame(gameId);
   }
 
   /**

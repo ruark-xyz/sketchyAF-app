@@ -3,7 +3,7 @@
 
 import { supabase } from '../utils/supabase';
 import { ServiceResponse } from '../types/game';
-import { ExcalidrawElement, AppState } from '@excalidraw/excalidraw/types/types';
+import { ExcalidrawElement, AppState, BinaryFiles } from '@excalidraw/excalidraw/types/types';
 import { exportToBlob, exportToSvg } from '@excalidraw/excalidraw';
 
 // Drawing Export Options
@@ -58,16 +58,36 @@ export class DrawingExportService {
    * Export Excalidraw elements to image blob
    */
   async exportToImage(
-    elements: ExcalidrawElement[], 
+    elements: ExcalidrawElement[],
     appState: Partial<AppState>,
-    options: ExportOptions = { format: 'png' }
+    options: ExportOptions = { format: 'png' },
+    files?: BinaryFiles | null
   ): Promise<ServiceResponse<Blob>> {
     try {
+      console.log('DrawingExportService: Exporting with:', {
+        elementCount: elements.length,
+        filesCount: files ? Object.keys(files).length : 0,
+        files: files,
+        options: options
+      });
+
+      // Debug: Check for image elements and their file references
+      const imageElements = elements.filter(el => el.type === 'image' && !el.isDeleted);
+      console.log('DrawingExportService: Image elements found:', imageElements.map(el => ({
+        id: el.id,
+        fileId: (el as any).fileId,
+        type: el.type
+      })));
+
+      if (files) {
+        console.log('DrawingExportService: Available file IDs:', Object.keys(files));
+      }
+
       // Validate elements
       const validation = this.validateDrawing(elements);
       if (!validation.isValid) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: `Drawing validation failed: ${validation.errors.join(', ')}`,
           code: 'VALIDATION_FAILED'
         };
@@ -96,7 +116,7 @@ export class DrawingExportService {
             exportPadding: exportOptions.padding,
             exportScale: exportOptions.scale,
           },
-          files: null, // TODO: Handle files if needed
+          files: files || null,
         });
 
         // Convert SVG to blob
@@ -116,7 +136,7 @@ export class DrawingExportService {
             exportPadding: exportOptions.padding,
             exportScale: exportOptions.scale,
           },
-          files: null, // TODO: Handle files if needed
+          files: files || null,
         });
       }
 

@@ -175,7 +175,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Get updated game data
         const gameResult = await unifiedGameService.current.getGameById(gameId);
         if (gameResult.success && gameResult.data) {
-          setCurrentGame(gameResult.data.game);
+          setCurrentGame(gameResult.data);
           setGameParticipants(gameResult.data.participants);
         }
       } else {
@@ -308,8 +308,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
-      // Extract elements and app state
-      const { elements, appState } = drawingData;
+      // Extract elements, app state, and files
+      const { elements, appState, files } = drawingData;
+
+      console.log('GameContext: Received drawing data:', {
+        elementCount: elements?.length || 0,
+        filesCount: files ? Object.keys(files).length : 0,
+        files: files
+      });
 
       if (!elements || elements.length === 0) {
         return { success: false, error: 'Drawing is empty', code: 'EMPTY_DRAWING' };
@@ -324,7 +330,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const exportResult = await drawingExportService.current.exportToImage(
           elements,
           appState,
-          { format: 'png', scale: 1, backgroundColor: '#ffffff' }
+          { format: 'png', scale: 1, backgroundColor: '#ffffff' },
+          files
         );
 
         if (!exportResult.success || !exportResult.data) {

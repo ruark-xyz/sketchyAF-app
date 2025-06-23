@@ -163,7 +163,15 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
           mimeType: asset.mimeType,
           timestamp: now,
         });
+
+        console.log('AssetDrawer: Adding file to Excalidraw:', file);
         excalidrawAPI.addFiles([file]);
+
+        // Debug: Check files after adding
+        setTimeout(() => {
+          const currentFiles = excalidrawAPI.getFiles();
+          console.log('AssetDrawer: Files after adding:', currentFiles);
+        }, 100);
       }
 
       // Add the image element to the canvas
