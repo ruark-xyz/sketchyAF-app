@@ -144,27 +144,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Fetch user profile from database with timeout
-  const fetchUserProfile = async (userId: string): Promise<void> => {
-    // Create a timeout promise
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Database query timeout after 5 seconds'));
-      }, 5000); // 5 second timeout
-    });
+  // Fetch user profile from database with timeout and retry
+  const fetchUserProfile = async (userId: string, retryCount = 0): Promise<void> => {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
 
     try {
-      // Race the database query against the timeout
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
-
       if (error) {
-        // If profile doesn't exist (common for new users), throw error to handle gracefully
+        // If profile doesn't exist and we haven't exhausted retries, try again
+        if (error.code === 'PGRST116' && retryCount < maxRetries) {
+          console.log(`User profile not found, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return fetchUserProfile(userId, retryCount + 1);
+        }
+
+        // If profile still doesn't exist after retries, throw error
         if (error.code === 'PGRST116') {
           throw new Error('User profile not found');
         }
@@ -229,13 +229,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       // First, check if username is already taken
-      const { data: existingUser } = await supabase
+      const { data: existingUsers, error: usernameCheckError } = await supabase
         .from('users')
         .select('username')
-        .eq('username', username)
-        .single();
+        .eq('username', username);
 
-      if (existingUser) {
+      // If there's an error other than "no rows returned", throw it
+      if (usernameCheckError && usernameCheckError.code !== 'PGRST116') {
+        throw new Error(`Username check failed: ${usernameCheckError.message}`);
+      }
+
+      // If any users found with this username, it's taken
+      if (existingUsers && existingUsers.length > 0) {
         throw new Error('Username is already taken');
       }
 
@@ -251,6 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
+        console.error('Supabase auth signup error:', error);
         throw new Error(error.message);
       }
 
@@ -266,7 +272,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // and fetched via the auth state change listener
       // Don't set isLoading to false here - let the auth state change handler manage it
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred during signup';
+      console.error('Signup error details:', err);
+      let errorMessage = 'An error occurred during signup';
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Handle specific database errors
+        if (err.message.includes('Database error saving new user')) {
+          errorMessage = 'Failed to create user profile. Please try again.';
+        } else if (err.message.includes('Username is already taken')) {
+          errorMessage = 'Username is already taken. Please choose a different username.';
+        }
+      }
+
       setError(errorMessage);
       setIsLoading(false); // Only set loading to false on error
       throw new Error(errorMessage);
