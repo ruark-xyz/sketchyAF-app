@@ -44,34 +44,22 @@ const ExcalidrawDraw = () => {
     navigate
   };
 
-  // Debug logging
-  console.log('ExcalidrawDraw component mounted/updated');
-  console.log('gameId:', gameId);
-  console.log('Auth state - isLoggedIn:', isLoggedIn);
-  console.log('Auth state - currentUser:', currentUser);
-  console.log('Auth state - isLoading:', isLoading);
-  console.log('Game state - currentGame:', currentGame);
-
-  // Check if auth is still loading
-  if (isLoading) {
-    console.log('Auth is still loading, showing loading screen');
+  // Debug logging (reduced)
+  if (!currentGame && gameId) {
+    console.log('ExcalidrawDraw: Loading game', gameId);
   }
 
   // Initialize game session
   useEffect(() => {
     // Skip if auth is still loading
     if (isLoading) {
-      console.log('Auth still loading, skipping game initialization');
       return;
     }
 
-    console.log('useEffect triggered with dependencies:', {
-      gameId,
-      isLoggedIn,
-      currentUser: !!currentUser,
-      currentGame: !!currentGame,
-      drawingContext: !!drawingContext
-    });
+    // Only log on meaningful changes
+    if (gameId && isLoggedIn && !currentGame) {
+      console.log('useEffect triggered - initializing game for:', gameId);
+    }
 
     const initializeGame = async () => {
       // Prevent duplicate initialization for the same gameId
@@ -201,8 +189,8 @@ const ExcalidrawDraw = () => {
     };
   }, [gameId, isLoggedIn, currentUser, currentGame, drawingContext, isLoading]);
 
-  // Show loading state
-  if (isInitializing || isLoading) {
+  // Show loading state (only for initialization, not auth loading)
+  if (isInitializing) {
     return (
       <>
         <Seo
@@ -212,9 +200,7 @@ const ExcalidrawDraw = () => {
         <div className="flex items-center justify-center min-h-screen bg-white">
           <div className="text-center">
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">
-              {isInitializing ? 'Joining game...' : 'Loading drawing canvas...'}
-            </p>
+            <p className="text-gray-600">Joining game...</p>
           </div>
         </div>
       </>

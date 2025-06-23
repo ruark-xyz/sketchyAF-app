@@ -47,13 +47,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let initialized = false;
 
     // Get initial user state using getUser() for more reliable auth state
     const initializeAuth = async () => {
       try {
         console.log('AuthContext: Initializing auth state...');
         const { data: { user }, error } = await supabase.auth.getUser();
-        if (mounted) {
+        if (mounted && !initialized) {
+          initialized = true;
           if (error) {
             console.warn('AuthContext: Auth initialization error:', error);
             // If the user doesn't exist in the database, clear the session
@@ -79,7 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (err) {
         console.error('AuthContext: Failed to initialize auth:', err);
-        if (mounted) {
+        if (mounted && !initialized) {
+          initialized = true;
           setUser(null);
           setSession(null);
           setIsLoading(false);
@@ -91,13 +94,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (mounted) {
+      if (mounted && initialized) {
         console.log('AuthContext: Auth state change event:', event);
-        setSession(session);
-        setUser(session ? session.user : null);
-        // Only set loading to false for meaningful events
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-          setIsLoading(false);
+        // Only update state for meaningful events, ignore INITIAL_SESSION after initialization
+        if (event !== 'INITIAL_SESSION') {
+          setSession(session);
+          setUser(session ? session.user : null);
         }
       }
     });
