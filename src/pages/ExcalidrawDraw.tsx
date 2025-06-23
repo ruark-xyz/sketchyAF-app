@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Seo from '../components/utils/Seo';
 import { useGame } from '../context/GameContext';
@@ -15,6 +15,8 @@ const ExcalidrawDraw = () => {
     currentGame,
     drawingContext,
     joinGame,
+    createGame,
+    transitionGameStatus,
     initializeDrawingSession,
     isLoading,
     error
@@ -22,10 +24,40 @@ const ExcalidrawDraw = () => {
 
   const [isInitializing, setIsInitializing] = useState(true);
   const gameId = searchParams.get('gameId');
+  const initializationRef = useRef<string | null>(null);
+
+  // Debug logging
+  console.log('ExcalidrawDraw component mounted/updated');
+  console.log('gameId:', gameId);
+  console.log('Auth state - isLoggedIn:', isLoggedIn);
+  console.log('Auth state - currentUser:', currentUser);
+  console.log('Auth state - isLoading:', isLoading);
+  console.log('Game state - currentGame:', currentGame);
+
+  // Check if auth is still loading
+  if (isLoading) {
+    console.log('Auth is still loading, showing loading screen');
+  }
 
   // Initialize game session
   useEffect(() => {
+    console.log('useEffect triggered with dependencies:', {
+      gameId,
+      isLoggedIn,
+      currentUser: !!currentUser,
+      currentGame: !!currentGame,
+      drawingContext: !!drawingContext
+    });
+
     const initializeGame = async () => {
+      // Prevent duplicate initialization for the same gameId
+      if (initializationRef.current === gameId) {
+        console.log('Initialization already in progress for gameId:', gameId);
+        return;
+      }
+      initializationRef.current = gameId;
+      console.log('Starting game initialization for gameId:', gameId);
+
       if (!isLoggedIn || !currentUser) {
         navigate('/uiux/login');
         return;
@@ -40,22 +72,65 @@ const ExcalidrawDraw = () => {
       try {
         setIsInitializing(true);
 
-        // Join game if not already joined
-        if (!currentGame || currentGame.id !== gameId) {
-          const result = await joinGame(gameId);
-          if (!result.success) {
-            console.error('Failed to join game:', result.error);
+        // Check if this is a test game (gameId starts with "test")
+        const isTestGame = gameId.startsWith('test');
+        let actualGameId = gameId; // Track the actual game ID to use
+
+        if (isTestGame) {
+          console.log('Development test mode detected for gameId:', gameId);
+
+          // For test games, we always create a new game since test IDs are not valid UUIDs
+          // and cannot exist in the database
+          console.log('Creating new test game...');
+
+          // Create a new test game (minimum 2 players due to database constraints)
+          const createResult = await createGame(`Test Drawing Session - ${gameId}`, {
+            maxPlayers: 2,
+            roundDuration: 300, // 5 minutes for testing
+            votingDuration: 30
+          });
+
+          if (createResult.success && createResult.data) {
+            console.log('Test game created successfully:', createResult.data.id);
+
+            // Update the actual game ID to use
+            actualGameId = createResult.data.id;
+
+            // Update URL to use the actual game ID
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('gameId', actualGameId);
+            window.history.replaceState({}, '', newUrl.toString());
+
+            // Set the game to drawing status immediately for testing
+            const transitionResult = await transitionGameStatus('drawing');
+            if (!transitionResult.success) {
+              console.warn('Failed to transition test game to drawing status:', transitionResult.error);
+            }
+          } else {
+            console.error('Failed to create test game:', createResult.error);
             navigate('/');
             return;
+          }
+        } else {
+          // Regular game flow - join existing game
+          if (!currentGame || currentGame.id !== gameId) {
+            const result = await joinGame(gameId);
+            if (!result.success) {
+              console.error('Failed to join game:', result.error);
+              navigate('/');
+              return;
+            }
           }
         }
 
         // Initialize drawing session if in drawing phase
+        // Use actualGameId which will be the created game ID for test games
         if (currentGame?.status === 'drawing' && !drawingContext) {
-          await initializeDrawingSession(gameId);
+          await initializeDrawingSession(actualGameId);
         }
       } catch (err) {
         console.error('Failed to initialize game:', err);
+        initializationRef.current = null; // Reset on error
         navigate('/');
       } finally {
         setIsInitializing(false);
@@ -63,7 +138,12 @@ const ExcalidrawDraw = () => {
     };
 
     initializeGame();
-  }, [gameId, isLoggedIn, currentUser, currentGame, drawingContext, joinGame, initializeDrawingSession, navigate]);
+
+    // Cleanup function to reset initialization ref
+    return () => {
+      initializationRef.current = null;
+    };
+  }, [gameId, isLoggedIn, currentUser, currentGame, drawingContext, joinGame, createGame, transitionGameStatus, initializeDrawingSession, navigate]);
 
   // Show loading state
   if (isInitializing || isLoading) {
