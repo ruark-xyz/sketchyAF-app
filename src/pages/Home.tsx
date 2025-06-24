@@ -47,9 +47,6 @@ const Home: React.FC = () => {
           <h2 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-6 transform rotate-[-1deg]">
             See SketchyAF in Action!
           </h2>
-          <p className="text-dark text-lg font-body mb-8 max-w-2xl mx-auto">
-            Watch our demo video to see how the game works and why it's so much fun!
-          </p>
           <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-lg border-4 border-dark hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]">
             <iframe 
               width="560" 
