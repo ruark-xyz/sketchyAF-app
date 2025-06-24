@@ -109,14 +109,21 @@ export class GameService {
       }
 
       // Check if user is already in the game
-      const { data: existingParticipant } = await supabase
+      const { data: existingParticipants, error: participantError } = await supabase
         .from('game_participants')
         .select('id, left_at')
         .eq('game_id', request.game_id)
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', user.id);
 
-      if (existingParticipant && !existingParticipant.left_at) {
+      // Handle query errors (but not "no results" which is expected)
+      if (participantError) {
+        console.error('Error checking existing participation:', participantError);
+        return { success: false, error: 'Failed to check game participation', code: 'DATABASE_ERROR' };
+      }
+
+      // Check if user is already actively in the game
+      const activeParticipant = existingParticipants?.find(p => !p.left_at);
+      if (activeParticipant) {
         return { success: false, error: 'Already joined this game', code: 'ALREADY_JOINED' };
       }
 

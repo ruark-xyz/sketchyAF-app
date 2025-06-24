@@ -44,8 +44,8 @@ const ExcalidrawDraw = () => {
     navigate
   };
 
-  // Debug logging (reduced)
-  if (!currentGame && gameId) {
+  // Debug logging (only on first load)
+  if (!currentGame && gameId && !initializationRef.current) {
     console.log('ExcalidrawDraw: Loading game', gameId);
   }
 
@@ -56,9 +56,16 @@ const ExcalidrawDraw = () => {
       return;
     }
 
-    // Only log on meaningful changes
-    if (gameId && isLoggedIn && !currentGame) {
-      console.log('useEffect triggered - initializing game for:', gameId);
+    // Only initialize if we have the required auth state and gameId
+    if (!gameId || !isLoggedIn || !currentUser) {
+      if (!isLoggedIn && gameId) {
+        console.log('User not authenticated, redirecting to login');
+        functionsRef.current.navigate('/uiux/login');
+      } else if (!gameId && isLoggedIn) {
+        // No game ID provided, redirect to lobby or game creation
+        functionsRef.current.navigate('/uiux/lobby');
+      }
+      return;
     }
 
     const initializeGame = async () => {
@@ -78,18 +85,6 @@ const ExcalidrawDraw = () => {
 
       initializationRef.current = gameId;
       console.log('Starting game initialization for gameId:', gameId);
-
-      if (!isLoggedIn || !currentUser) {
-        console.log('User not authenticated, redirecting to login');
-        functionsRef.current.navigate('/uiux/login');
-        return;
-      }
-
-      if (!gameId) {
-        // No game ID provided, redirect to lobby or game creation
-        functionsRef.current.navigate('/uiux/lobby');
-        return;
-      }
 
       try {
         setIsInitializing(true);
@@ -187,7 +182,7 @@ const ExcalidrawDraw = () => {
     return () => {
       // Cleanup function - but don't reset initializationRef to prevent duplicate initialization
     };
-  }, [gameId, isLoggedIn, currentUser, currentGame, drawingContext, isLoading]);
+  }, [gameId, isLoggedIn, currentUser, isLoading]); // Removed currentGame and drawingContext to prevent infinite loop
 
   // Show loading state (only for initialization, not auth loading)
   if (isInitializing) {

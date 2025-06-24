@@ -137,12 +137,23 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
 
         // Auto-submit if enabled and in drawing context
         if (autoSubmitOnExpiry && drawingContext && !drawingContext.hasSubmitted) {
+          console.log('useDrawingTimer: Timer expired, triggering auto-submit', {
+            autoSubmitOnExpiry,
+            hasSubmitted: drawingContext.hasSubmitted,
+            hasCallback: !!autoSubmitCallbackRef.current
+          });
           // Call auto-submit callback if available
           if (autoSubmitCallbackRef.current) {
             autoSubmitCallbackRef.current();
           } else {
             console.log('Auto-submit enabled but no callback provided');
           }
+        } else {
+          console.log('useDrawingTimer: Timer expired but auto-submit not triggered', {
+            autoSubmitOnExpiry,
+            hasDrawingContext: !!drawingContext,
+            hasSubmitted: drawingContext?.hasSubmitted
+          });
         }
       }
       
@@ -283,8 +294,16 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
 
   // Initialize timer from game context
   useEffect(() => {
-    if (currentGame && drawingContext && currentGame.status === 'drawing' && !isActive) {
+    if (currentGame && drawingContext && currentGame.status === 'drawing' && !isActive && !drawingContext.hasSubmitted) {
+      console.log('useDrawingTimer: Starting timer with:', {
+        timeRemaining: drawingContext.timeRemaining,
+        gameStatus: currentGame.status,
+        isActive,
+        hasSubmitted: drawingContext.hasSubmitted
+      });
       start(drawingContext.timeRemaining, 'drawing');
+    } else if (drawingContext?.hasSubmitted) {
+      console.log('useDrawingTimer: Not starting timer - user has already submitted');
     }
   }, [currentGame, drawingContext, isActive, start]);
 

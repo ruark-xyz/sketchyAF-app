@@ -18,7 +18,7 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
   useMobileOptimization();
 
   // Get game context functions at top level
-  const { submitDrawing } = useGame();
+  const { submitDrawingWithExport } = useGame();
 
   // Ref for Excalidraw API
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
@@ -32,7 +32,21 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
 
   // Handle auto-submit when timer expires
   const handleAutoSubmit = useCallback(async () => {
-    if (!gameContext || !excalidrawAPIRef.current) return;
+    console.log('ExcalidrawCanvas: handleAutoSubmit called', {
+      hasGameContext: !!gameContext,
+      hasExcalidrawAPI: !!excalidrawAPIRef.current,
+      hasSubmitted: gameContext?.hasSubmitted
+    });
+
+    if (!gameContext || !excalidrawAPIRef.current) {
+      console.log('ExcalidrawCanvas: Auto-submit aborted - missing context or API');
+      return;
+    }
+
+    if (gameContext.hasSubmitted) {
+      console.log('ExcalidrawCanvas: Auto-submit aborted - already submitted');
+      return;
+    }
 
     setSubmissionError(null);
 
@@ -47,8 +61,8 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
         files: files
       });
 
-      // Use the submitDrawing function from top level
-      const result = await submitDrawing({ elements, appState, files });
+      // Use the submitDrawingWithExport function from top level
+      const result = await submitDrawingWithExport({ elements, appState, files });
 
       if (result.success) {
         setShowSuccessMessage(true);
@@ -61,7 +75,7 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
       console.error('Failed to auto-submit drawing:', error);
       setSubmissionError(`Auto-submit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [submitDrawing]);
+  }, [submitDrawingWithExport]);
 
   // Drawing timer (only active when in game context)
   const {

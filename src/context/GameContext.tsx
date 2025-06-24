@@ -490,12 +490,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await unifiedGameService.current.transitionGameStatus(state.currentGame.id, newStatus, state.currentGame.status);
 
       if (result.success) {
-        // Update local game state
-        dispatch({ type: 'SET_CURRENT_GAME', payload: { ...state.currentGame, status: newStatus } });
+        // Fetch updated game data from database to get timestamps
+        const gameResult = await GameService.getGame(state.currentGame.id);
+        if (gameResult.success && gameResult.data) {
+          dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
+          dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
 
-        // Initialize drawing session if transitioning to drawing phase
-        if (newStatus === 'drawing') {
-          await initializeDrawingSession(state.currentGame.id);
+          // Update state machine to match the new game status
+          if (stateMachineRef.current) {
+            const gamePhaseMap: Record<GameStatus, GamePhase> = {
+              'waiting': GamePhase.WAITING,
+              'briefing': GamePhase.BRIEFING,
+              'drawing': GamePhase.DRAWING,
+              'voting': GamePhase.VOTING,
+              'results': GamePhase.RESULTS,
+              'completed': GamePhase.COMPLETED,
+              'cancelled': GamePhase.COMPLETED
+            };
+
+            const newGamePhase = gamePhaseMap[newStatus];
+            if (newGamePhase) {
+              stateMachineRef.current.updateState({
+                gamePhase: newGamePhase,
+                currentGame: gameResult.data
+              });
+              dispatch({ type: 'SET_GAME_PHASE', payload: newGamePhase });
+            }
+          }
+
+          // Initialize drawing session if transitioning to drawing phase
+          if (newStatus === 'drawing') {
+            await initializeDrawingSession(state.currentGame.id);
+          }
+        } else {
+          // Fallback to local update if fetch fails
+          dispatch({ type: 'SET_CURRENT_GAME', payload: { ...state.currentGame, status: newStatus } });
+
+          if (newStatus === 'drawing') {
+            await initializeDrawingSession(state.currentGame.id);
+          }
         }
       } else {
         dispatch({ type: 'SET_ERROR', payload: result.error || 'Failed to transition game status' });
@@ -515,11 +548,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initializeDrawingSession = useCallback(async (gameId: string): Promise<void> => {
     if (!state.currentGame || !currentUser) return;
 
+    // Calculate actual time remaining based on when drawing phase started
+    let timeRemaining = state.currentGame.round_duration;
+
+    if (state.currentGame.drawing_started_at) {
+      const drawingStartTime = new Date(state.currentGame.drawing_started_at).getTime();
+      const currentTime = Date.now();
+      const elapsedSeconds = Math.floor((currentTime - drawingStartTime) / 1000);
+      timeRemaining = Math.max(0, state.currentGame.round_duration - elapsedSeconds);
+
+      console.log('GameContext: Calculating time remaining for drawing session:', {
+        drawingStartedAt: state.currentGame.drawing_started_at,
+        roundDuration: state.currentGame.round_duration,
+        elapsedSeconds,
+        timeRemaining
+      });
+    } else {
+      console.log('GameContext: No drawing_started_at timestamp, using full duration:', timeRemaining);
+    }
+
     // Create drawing context
     const newDrawingContext: GameDrawingContext = {
       gameId,
       prompt: state.currentGame.prompt,
-      timeRemaining: state.currentGame.round_duration,
+      timeRemaining,
       isDrawingPhase: true, // Always true when initializing drawing session
       canSubmit: true,
       hasSubmitted: false,
