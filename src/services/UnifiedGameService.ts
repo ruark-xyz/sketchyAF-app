@@ -1,31 +1,75 @@
-// Unified Game Service - Integrates database and real-time game operations
-// Provides a single interface for creating games with both database persistence and real-time channel setup
+// Unified Game Service - Combines GameService and RealtimeGameService functionality
+// Provides both instance-based and static methods for backward compatibility
+// Integrates database and real-time game operations
 
 import { GameService } from './GameService';
 import { RealtimeGameService } from './RealtimeGameService';
-import { 
-  Game, 
-  CreateGameRequest, 
-  ServiceResponse, 
+import { SubmissionService } from './SubmissionService';
+import {
+  Game,
   GameStatus,
-  validateGameStatusTransition 
+  GameWithParticipants,
+  CreateGameRequest,
+  JoinGameRequest,
+  Submission,
+  ServiceResponse,
+  validateGameStatusTransition
 } from '../types/game';
+import { User } from '../types/auth';
 
 export class UnifiedGameService {
-  private static realtimeService: RealtimeGameService | null = null;
+  private static instance: UnifiedGameService | null = null;
+  private static staticRealtimeService: RealtimeGameService | null = null;
+  private realtimeService: RealtimeGameService;
+  private currentUser: User | null = null;
+
+  private constructor() {
+    this.realtimeService = RealtimeGameService.getInstance();
+  }
 
   /**
-   * Initialize the unified service with real-time capabilities
+   * Get singleton instance (for instance-based usage)
+   */
+  static getInstance(): UnifiedGameService {
+    if (!UnifiedGameService.instance) {
+      UnifiedGameService.instance = new UnifiedGameService();
+    }
+    return UnifiedGameService.instance;
+  }
+
+  /**
+   * Initialize the service with authenticated user (instance method)
+   */
+  async initialize(user: User): Promise<ServiceResponse<void>> {
+    try {
+      this.currentUser = user;
+
+      // Initialize real-time service
+      const result = await this.realtimeService.initialize(user);
+
+      return result;
+    } catch (error) {
+      console.error('Failed to initialize UnifiedGameService:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'INITIALIZATION_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Initialize the unified service with real-time capabilities (static method)
    */
   static async initialize(userId: string): Promise<ServiceResponse<void>> {
     try {
-      this.realtimeService = RealtimeGameService.getInstance();
-      await this.realtimeService.initialize({ id: userId } as any); // Simplified user object
+      this.staticRealtimeService = RealtimeGameService.getInstance();
+      await this.staticRealtimeService.initialize({ id: userId } as any); // Simplified user object
       return { success: true };
     } catch (error) {
       console.error('Failed to initialize unified game service:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Initialization failed',
         code: 'INITIALIZATION_ERROR'
       };
@@ -33,7 +77,36 @@ export class UnifiedGameService {
   }
 
   /**
-   * Create a game with integrated database and real-time setup
+   * Create a new game with automatic real-time setup (instance method)
+   */
+  async createGame(request: CreateGameRequest): Promise<ServiceResponse<Game>> {
+    try {
+      // Create game in database
+      const result = await GameService.createGame(request);
+
+      if (result.success && result.data) {
+        // Automatically join real-time channel for created game
+        const joinResult = await this.realtimeService.joinGame(result.data.id);
+
+        if (!joinResult.success) {
+          console.warn('Failed to join real-time channel for created game:', joinResult.error);
+          // Don't fail the game creation if real-time fails
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to create game:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'GAME_CREATION_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Create a game with integrated database and real-time setup (static method)
    */
   static async createGameWithRealtime(request: CreateGameRequest): Promise<ServiceResponse<Game>> {
     try {
@@ -47,7 +120,7 @@ export class UnifiedGameService {
 
       try {
         // 2. Initialize PubNub channels for the game
-        if (this.realtimeService) {
+        if (this.staticRealtimeService) {
           const realtimeResult = await this.initializeGameChannels(game.id);
           if (!realtimeResult.success) {
             console.warn('Failed to initialize real-time channels:', realtimeResult.error);
@@ -66,8 +139,8 @@ export class UnifiedGameService {
       }
     } catch (error) {
       console.error('Failed to create unified game session:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Game creation failed',
         code: 'CREATION_ERROR'
       };
@@ -75,7 +148,7 @@ export class UnifiedGameService {
   }
 
   /**
-   * Join a game with integrated database and real-time operations
+   * Join a game with integrated database and real-time operations (static method)
    */
   static async joinGameWithRealtime(gameId: string): Promise<ServiceResponse<void>> {
     try {
@@ -86,8 +159,8 @@ export class UnifiedGameService {
       }
 
       // 2. Join real-time channels
-      if (this.realtimeService) {
-        const realtimeJoinResult = await this.realtimeService.joinGame(gameId);
+      if (this.staticRealtimeService) {
+        const realtimeJoinResult = await this.staticRealtimeService.joinGame(gameId);
         if (!realtimeJoinResult.success) {
           console.warn('Failed to join real-time channels:', realtimeJoinResult.error);
           // Don't fail the operation, real-time is optional
@@ -97,8 +170,8 @@ export class UnifiedGameService {
       return { success: true };
     } catch (error) {
       console.error('Failed to join game with real-time:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Failed to join game',
         code: 'JOIN_ERROR'
       };
@@ -106,11 +179,40 @@ export class UnifiedGameService {
   }
 
   /**
-   * Transition game status with integrated database and real-time updates
+   * Join a game with automatic real-time setup (instance method)
+   */
+  async joinGame(request: JoinGameRequest): Promise<ServiceResponse<void>> {
+    try {
+      // Join game in database
+      const result = await GameService.joinGame(request);
+
+      if (result.success) {
+        // Join real-time channel
+        const joinResult = await this.realtimeService.joinGame(request.game_id);
+
+        if (!joinResult.success) {
+          console.warn('Failed to join real-time channel:', joinResult.error);
+          // Don't fail the game join if real-time fails
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to join game:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'GAME_JOIN_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Transition game status with integrated database and real-time updates (static method)
    */
   static async transitionGameStatusWithRealtime(
-    gameId: string, 
-    newStatus: GameStatus, 
+    gameId: string,
+    newStatus: GameStatus,
     previousStatus?: GameStatus
   ): Promise<ServiceResponse<void>> {
     try {
@@ -129,9 +231,9 @@ export class UnifiedGameService {
       }
 
       // 2. Broadcast real-time phase change (already handled in GameService, but ensure consistency)
-      if (this.realtimeService && previousStatus) {
+      if (this.staticRealtimeService && previousStatus) {
         try {
-          await this.realtimeService.broadcastPhaseChange(newStatus, previousStatus);
+          await this.staticRealtimeService.broadcastPhaseChange(newStatus, previousStatus);
         } catch (realtimeError) {
           console.warn('Failed to broadcast phase change:', realtimeError);
           // Don't fail the operation, real-time is optional
@@ -141,8 +243,8 @@ export class UnifiedGameService {
       return { success: true };
     } catch (error) {
       console.error('Failed to transition game status with real-time:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Status transition failed',
         code: 'TRANSITION_ERROR'
       };
@@ -150,14 +252,40 @@ export class UnifiedGameService {
   }
 
   /**
-   * Leave a game with cleanup of both database and real-time connections
+   * Leave current game with real-time cleanup (instance method)
+   */
+  async leaveGame(gameId: string): Promise<ServiceResponse<void>> {
+    try {
+      // Leave game in database
+      const result = await GameService.leaveGame(gameId);
+
+      // Leave real-time channel regardless of database result
+      const leaveResult = await this.realtimeService.leaveGame();
+
+      if (!leaveResult.success) {
+        console.warn('Failed to leave real-time channel:', leaveResult.error);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to leave game:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'GAME_LEAVE_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Leave a game with cleanup of both database and real-time connections (static method)
    */
   static async leaveGameWithRealtime(gameId: string): Promise<ServiceResponse<void>> {
     try {
       // 1. Leave real-time channels first
-      if (this.realtimeService) {
+      if (this.staticRealtimeService) {
         try {
-          await this.realtimeService.leaveGame();
+          await this.staticRealtimeService.leaveGame();
         } catch (realtimeError) {
           console.warn('Failed to leave real-time channels:', realtimeError);
           // Continue with database cleanup
@@ -173,10 +301,78 @@ export class UnifiedGameService {
       return { success: true };
     } catch (error) {
       console.error('Failed to leave game with real-time cleanup:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Failed to leave game',
         code: 'LEAVE_ERROR'
+      };
+    }
+  }
+
+  /**
+   * Get game by ID (instance method)
+   */
+  async getGameById(gameId: string): Promise<ServiceResponse<GameWithParticipants>> {
+    return await GameService.getGame(gameId);
+  }
+
+  /**
+   * Transition game status with real-time broadcasting (instance method)
+   */
+  async transitionGameStatus(gameId: string, newStatus: GameStatus, previousStatus?: GameStatus): Promise<ServiceResponse<void>> {
+    try {
+      // Transition status in database (this automatically broadcasts via database triggers)
+      const result = await GameService.transitionGameStatus(gameId, newStatus, previousStatus);
+
+      return result;
+    } catch (error) {
+      console.error('Failed to transition game status:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'STATUS_TRANSITION_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Submit drawing with real-time notification (instance method)
+   */
+  async submitDrawing(request: {
+    game_id: string;
+    drawing_data: any;
+    drawing_url?: string;
+    drawing_thumbnail_url?: string;
+    canvas_width?: number;
+    canvas_height?: number;
+    element_count?: number;
+    drawing_time_seconds?: number;
+  }): Promise<ServiceResponse<Submission>> {
+    try {
+      // Submit drawing to database
+      const result = await SubmissionService.submitDrawing(request);
+
+      if (result.success && result.data) {
+        // Broadcast drawing submission event
+        const broadcastResult = await this.realtimeService.broadcastDrawingSubmitted(
+          result.data.id,
+          request.element_count || 0,
+          request.drawing_time_seconds || 0
+        );
+
+        if (!broadcastResult.success) {
+          console.warn('Failed to broadcast drawing submission:', broadcastResult.error);
+          // Don't fail the submission if broadcast fails
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to submit drawing:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'DRAWING_SUBMISSION_FAILED'
       };
     }
   }
@@ -184,16 +380,16 @@ export class UnifiedGameService {
   // Private helper methods
 
   /**
-   * Initialize real-time channels for a game
+   * Initialize real-time channels for a game (static method)
    */
   private static async initializeGameChannels(gameId: string): Promise<ServiceResponse<void>> {
     try {
-      if (!this.realtimeService) {
+      if (!this.staticRealtimeService) {
         return { success: false, error: 'Real-time service not initialized', code: 'SERVICE_NOT_INITIALIZED' };
       }
 
       // Join the game channel
-      const joinResult = await this.realtimeService.joinGame(gameId);
+      const joinResult = await this.staticRealtimeService.joinGame(gameId);
       if (!joinResult.success) {
         return joinResult;
       }
@@ -202,8 +398,8 @@ export class UnifiedGameService {
       return { success: true };
     } catch (error) {
       console.error('Failed to initialize game channels:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Channel initialization failed',
         code: 'CHANNEL_INIT_ERROR'
       };
@@ -211,20 +407,53 @@ export class UnifiedGameService {
   }
 
   /**
-   * Enable presence tracking for a game
+<<<<<<< HEAD
+   * Get available games for joining (instance method)
+   */
+  async getAvailableGames(limit = 20): Promise<ServiceResponse<any>> {
+    return await GameService.getAvailableGames(limit);
+  }
+
+  /**
+   * Get user's games (instance method)
+   */
+  async getUserGames(limit = 20): Promise<ServiceResponse<any>> {
+    return await GameService.getUserGames(limit);
+  }
+
+  /**
+   * Broadcast player ready status (instance method)
+   */
+  async broadcastPlayerReady(isReady: boolean, selectedBoosterPack?: string): Promise<ServiceResponse<void>> {
+    return await this.realtimeService.broadcastPlayerReady(isReady, selectedBoosterPack);
+  }
+
+  /**
+   * Broadcast timer sync (instance method)
+   */
+  async broadcastTimerSync(timeRemaining: number, phase: GameStatus, totalDuration: number): Promise<ServiceResponse<void>> {
+    return await this.realtimeService.broadcastTimerSync(timeRemaining, phase, totalDuration);
+  }
+
+  /**
+   * Get real-time service for direct access to event handling (instance method)
+   */
+  getRealtimeService(): RealtimeGameService {
+    return this.realtimeService;
+  }
+
+  /**
+   * Enable presence tracking for a game (static method)
    */
   private static async enablePresenceTracking(gameId: string): Promise<void> {
     try {
-      if (!this.realtimeService) {
+      if (!this.staticRealtimeService) {
         console.warn('Real-time service not available for presence tracking');
         return;
       }
 
-      // Set up presence change handlers
-      this.realtimeService.onPresenceChange((presence) => {
-        console.log('Presence change in game:', gameId, presence);
-        // Could trigger database updates here if needed
-      });
+      // Note: Presence tracking setup would go here
+      // Currently not implemented in RealtimeGameService
 
       console.log(`Enabled presence tracking for game: ${gameId}`);
     } catch (error) {
@@ -234,16 +463,46 @@ export class UnifiedGameService {
   }
 
   /**
-   * Get the current real-time service instance
+   * Get the current real-time service instance (static method)
    */
   static getRealtimeService(): RealtimeGameService | null {
-    return this.realtimeService;
+    return this.staticRealtimeService;
   }
 
   /**
-   * Check if real-time capabilities are available
+<<<<<<< HEAD
+   * Check if user is authenticated (instance method)
+   */
+  isAuthenticated(): boolean {
+    return this.currentUser !== null;
+  }
+
+  /**
+   * Get current user (instance method)
+   */
+  getCurrentUser(): User | null {
+    return this.currentUser;
+  }
+
+  /**
+   * Disconnect from real-time services (instance method)
+   */
+  async disconnect(): Promise<void> {
+    try {
+      await this.realtimeService.disconnect();
+      this.currentUser = null;
+    } catch (error) {
+      console.error('Failed to disconnect UnifiedGameService:', error);
+    }
+  }
+
+  /**
+   * Check if real-time capabilities are available (static method)
    */
   static isRealtimeAvailable(): boolean {
-    return this.realtimeService !== null;
+    return this.staticRealtimeService !== null;
   }
 }
+
+// Export singleton instance for easy access
+export const unifiedGameService = UnifiedGameService.getInstance();

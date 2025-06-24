@@ -22,8 +22,17 @@ export class GameService {
    */
   static async createGame(request: CreateGameRequest): Promise<ServiceResponse<Game>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('GameService: Attempting to create game...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('GameService: getUser() result:', { user: user ? 'authenticated' : 'not authenticated', error: authError });
+
+      if (authError) {
+        console.error('GameService: Auth error:', authError);
+        return { success: false, error: `Authentication error: ${authError.message}`, code: 'UNAUTHENTICATED' };
+      }
+
       if (!user) {
+        console.error('GameService: No user found');
         return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
       }
 
@@ -54,10 +63,13 @@ export class GameService {
       }
 
       // Automatically join the creator to the game
+      console.log('GameService: Auto-joining creator to game:', data.id);
       const joinResult = await this.joinGame({ game_id: data.id });
       if (!joinResult.success) {
         // Game was created but creator couldn't join - this is a problem
-        console.error('Creator failed to join their own game:', joinResult.error);
+        console.error('GameService: Creator failed to join their own game:', joinResult.error);
+      } else {
+        console.log('GameService: Creator successfully joined game');
       }
 
       return { success: true, data };
@@ -97,14 +109,21 @@ export class GameService {
       }
 
       // Check if user is already in the game
-      const { data: existingParticipant } = await supabase
+      const { data: existingParticipants, error: participantError } = await supabase
         .from('game_participants')
         .select('id, left_at')
         .eq('game_id', request.game_id)
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', user.id);
 
-      if (existingParticipant && !existingParticipant.left_at) {
+      // Handle query errors (but not "no results" which is expected)
+      if (participantError) {
+        console.error('Error checking existing participation:', participantError);
+        return { success: false, error: 'Failed to check game participation', code: 'DATABASE_ERROR' };
+      }
+
+      // Check if user is already actively in the game
+      const activeParticipant = existingParticipants?.find(p => !p.left_at);
+      if (activeParticipant) {
         return { success: false, error: 'Already joined this game', code: 'ALREADY_JOINED' };
       }
 

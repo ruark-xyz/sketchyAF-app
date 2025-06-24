@@ -26,6 +26,7 @@ export class PubNubGameService implements RealtimeGameService {
   private currentConnectionStatus: ConnectionStatus = 'disconnected';
   private userId: string | null = null;
   private isInitialized = false;
+  private isInitializing = false; // Add flag to prevent concurrent initialization
   private errorHandler: RealtimeErrorHandler;
   private circuitBreaker: CircuitBreaker;
 
@@ -39,9 +40,26 @@ export class PubNubGameService implements RealtimeGameService {
    */
   async initialize(userId: string): Promise<void> {
     try {
+      // Check if already initialized for this user
       if (this.isInitialized && this.userId === userId) {
-        return; // Already initialized for this user
+        console.log('PubNub already initialized for user:', userId);
+        return;
       }
+
+      // Check if initialization is already in progress
+      if (this.isInitializing) {
+        console.log('PubNub initialization already in progress, waiting...');
+        // Wait for current initialization to complete
+        while (this.isInitializing) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        // Check if it was initialized for our user
+        if (this.isInitialized && this.userId === userId) {
+          return;
+        }
+      }
+
+      this.isInitializing = true;
 
       // Get PubNub configuration from environment
       const publishKey = import.meta.env.VITE_PUBNUB_PUBLISH_KEY;
@@ -93,6 +111,8 @@ export class PubNubGameService implements RealtimeGameService {
       console.error('Failed to initialize PubNub:', error);
       this.updateConnectionStatus('error');
       throw new Error(`PubNub initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      this.isInitializing = false; // Always reset the flag
     }
   }
 
@@ -119,6 +139,7 @@ export class PubNubGameService implements RealtimeGameService {
       }
 
       this.isInitialized = false;
+      this.isInitializing = false; // Reset initialization flag
       this.userId = null;
       this.updateConnectionStatus('disconnected');
 

@@ -3,8 +3,7 @@
 
 import React from 'react';
 import { renderHook } from '@testing-library/react';
-import { 
-  useGame,
+import {
   useGamePhase,
   useGameTimer,
   usePlayerActions,
@@ -14,7 +13,7 @@ import {
   useGameValidation,
   useGameProgress
 } from '../useGameContext';
-import { GameProvider } from '../../context/GameContext';
+import { GameProvider, useGame } from '../../context/GameContext';
 import { AuthProvider } from '../../context/AuthContext';
 import { GamePhase, PlayerStatus } from '../../types/gameContext';
 
@@ -277,15 +276,15 @@ describe('Hook Error Handling', () => {
 
     expect(() => {
       renderHook(() => useGame());
-    }).toThrow('useGame must be used within GameProvider');
+    }).toThrow('useGame must be used within a GameProvider');
 
     expect(() => {
       renderHook(() => useGamePhase());
-    }).toThrow('useGame must be used within GameProvider');
+    }).toThrow('useGame must be used within a GameProvider');
 
     expect(() => {
       renderHook(() => useGameTimer());
-    }).toThrow('useGame must be used within GameProvider');
+    }).toThrow('useGame must be used within a GameProvider');
 
     consoleSpy.mockRestore();
   });

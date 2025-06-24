@@ -3,6 +3,7 @@
 
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
+import React from 'react';
 
 // Mock environment variables for testing
 Object.defineProperty(import.meta, 'env', {
@@ -138,6 +139,145 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
+}));
+
+// Mock Canvas API for Excalidraw compatibility
+global.Path2D = vi.fn().mockImplementation(() => ({
+  addPath: vi.fn(),
+  arc: vi.fn(),
+  arcTo: vi.fn(),
+  bezierCurveTo: vi.fn(),
+  closePath: vi.fn(),
+  ellipse: vi.fn(),
+  lineTo: vi.fn(),
+  moveTo: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  rect: vi.fn(),
+}));
+
+global.CanvasRenderingContext2D = vi.fn().mockImplementation(() => ({
+  arc: vi.fn(),
+  arcTo: vi.fn(),
+  beginPath: vi.fn(),
+  bezierCurveTo: vi.fn(),
+  clearRect: vi.fn(),
+  clip: vi.fn(),
+  closePath: vi.fn(),
+  createImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
+  createLinearGradient: vi.fn(),
+  createPattern: vi.fn(),
+  createRadialGradient: vi.fn(),
+  drawImage: vi.fn(),
+  ellipse: vi.fn(),
+  fill: vi.fn(),
+  fillRect: vi.fn(),
+  fillText: vi.fn(),
+  getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
+  getLineDash: vi.fn(() => []),
+  isPointInPath: vi.fn(() => false),
+  isPointInStroke: vi.fn(() => false),
+  lineTo: vi.fn(),
+  measureText: vi.fn(() => ({ width: 0 })),
+  moveTo: vi.fn(),
+  putImageData: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  rect: vi.fn(),
+  restore: vi.fn(),
+  rotate: vi.fn(),
+  save: vi.fn(),
+  scale: vi.fn(),
+  setLineDash: vi.fn(),
+  setTransform: vi.fn(),
+  stroke: vi.fn(),
+  strokeRect: vi.fn(),
+  strokeText: vi.fn(),
+  transform: vi.fn(),
+  translate: vi.fn(),
+}));
+
+// Mock HTMLCanvasElement
+global.HTMLCanvasElement = vi.fn().mockImplementation(() => ({
+  getContext: vi.fn(() => new global.CanvasRenderingContext2D()),
+  toDataURL: vi.fn(() => 'data:image/png;base64,mock'),
+  toBlob: vi.fn((callback) => callback(new Blob(['mock'], { type: 'image/png' }))),
+  width: 800,
+  height: 600,
+}));
+
+// Mock OffscreenCanvas for advanced Canvas features
+global.OffscreenCanvas = vi.fn().mockImplementation(() => ({
+  getContext: vi.fn(() => new global.CanvasRenderingContext2D()),
+  convertToBlob: vi.fn(() => Promise.resolve(new Blob(['mock'], { type: 'image/png' }))),
+  width: 800,
+  height: 600,
+}));
+
+// Mock additional Canvas-related APIs that Excalidraw might use
+global.ImageData = vi.fn().mockImplementation((width, height) => ({
+  data: new Uint8ClampedArray(width * height * 4),
+  width,
+  height,
+}));
+
+global.DOMMatrix = vi.fn().mockImplementation(() => ({
+  a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
+  inverse: vi.fn(() => new global.DOMMatrix()),
+  multiply: vi.fn(() => new global.DOMMatrix()),
+  scale: vi.fn(() => new global.DOMMatrix()),
+  translate: vi.fn(() => new global.DOMMatrix()),
+  transformPoint: vi.fn(() => ({ x: 0, y: 0 })),
+}));
+
+// Mock createImageBitmap for image handling
+global.createImageBitmap = vi.fn(() =>
+  Promise.resolve({
+    width: 100,
+    height: 100,
+    close: vi.fn(),
+  })
+);
+
+// Mock URL.createObjectURL and revokeObjectURL for blob handling
+global.URL = global.URL || {};
+global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+global.URL.revokeObjectURL = vi.fn();
+
+// Mock Excalidraw components to prevent Canvas API calls in tests
+vi.mock('@excalidraw/excalidraw', () => ({
+  Excalidraw: vi.fn(({ excalidrawAPI, children, ...props }) => {
+    // Call the API callback with a mock API if provided
+    if (excalidrawAPI && typeof excalidrawAPI === 'function') {
+      excalidrawAPI({
+        updateScene: vi.fn(),
+        addFiles: vi.fn(),
+        scrollToContent: vi.fn(),
+        getSceneElements: vi.fn(() => []),
+        getAppState: vi.fn(() => ({})),
+        getFiles: vi.fn(() => ({})),
+        refresh: vi.fn(),
+        setToast: vi.fn(),
+        id: 'mock-excalidraw-id',
+        getSceneElementsIncludingDeleted: vi.fn(() => []),
+        history: {
+          clear: vi.fn(),
+        },
+        setActiveTool: vi.fn(),
+        setCursor: vi.fn(),
+        resetCursor: vi.fn(),
+        toggleSidebar: vi.fn(),
+      });
+    }
+    return React.createElement('div', {
+      'data-testid': 'excalidraw-mock',
+      ...props
+    }, children);
+  }),
+  exportToBlob: vi.fn(() => Promise.resolve(new Blob(['mock-image'], { type: 'image/png' }))),
+  exportToSvg: vi.fn(() => Promise.resolve({
+    outerHTML: '<svg>mock-svg</svg>'
+  })),
+  exportToCanvas: vi.fn(() => Promise.resolve(new global.HTMLCanvasElement())),
+  serializeAsJSON: vi.fn(() => '{"elements":[],"appState":{}}'),
 }));
 
 // Console error suppression for expected test errors

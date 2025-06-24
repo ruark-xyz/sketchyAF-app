@@ -188,5 +188,6 @@ export function createExcalidrawFile(options: {
     id: id as FileId,
     dataURL: dataURL as DataURL,
     created: timestamp,
+    lastRetrieved: timestamp,
   };
 }

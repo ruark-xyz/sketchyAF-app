@@ -1,10 +1,9 @@
 // Custom Game Context Hooks
 // Convenient hooks for accessing game state and actions
 
-import { useContext, useMemo } from 'react';
-import GameContext from '../context/GameContext';
+import { useMemo } from 'react';
+import { useGame } from '../context/GameContext';
 import {
-  GameContextType,
   GamePhase,
   PlayerStatus,
   canPlayerPerformAction,
@@ -14,17 +13,6 @@ import {
 import { GameActions } from '../types/gameContext';
 import { PlayerStateManager, createPlayerStateManager, getPlayerDisplayStatus } from '../utils/playerStateManager';
 import { useAuth } from '../context/AuthContext';
-
-/**
- * Main Game Hook - Access to full game context
- */
-export function useGame(): GameContextType {
-  const context = useContext(GameContext);
-  if (!context) {
-    throw new Error('useGame must be used within GameProvider');
-  }
-  return context;
-}
 
 /**
  * Game Phase Hook - Access to current phase and loading state

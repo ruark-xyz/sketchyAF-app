@@ -257,6 +257,7 @@ ALTER TABLE user_booster_packs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_usage_tracking ENABLE ROW LEVEL SECURITY;
 
 -- Games table policies
+DROP POLICY IF EXISTS "Users can view games they participate in" ON games;
 CREATE POLICY "Users can view games they participate in" ON games
   FOR SELECT USING (
     EXISTS (
@@ -267,16 +268,20 @@ CREATE POLICY "Users can view games they participate in" ON games
     )
   );
 
+DROP POLICY IF EXISTS "Users can view public waiting games" ON games;
 CREATE POLICY "Users can view public waiting games" ON games
   FOR SELECT USING (status = 'waiting' AND current_players < max_players);
 
+DROP POLICY IF EXISTS "Authenticated users can create games" ON games;
 CREATE POLICY "Authenticated users can create games" ON games
   FOR INSERT TO authenticated WITH CHECK (created_by = auth.uid());
 
+DROP POLICY IF EXISTS "Game creators can update their games" ON games;
 CREATE POLICY "Game creators can update their games" ON games
   FOR UPDATE USING (created_by = auth.uid());
 
 -- Game participants policies
+DROP POLICY IF EXISTS "Users can view participants in their games" ON game_participants;
 CREATE POLICY "Users can view participants in their games" ON game_participants
   FOR SELECT USING (
     EXISTS (
@@ -287,13 +292,16 @@ CREATE POLICY "Users can view participants in their games" ON game_participants
     )
   );
 
+DROP POLICY IF EXISTS "Users can join games" ON game_participants;
 CREATE POLICY "Users can join games" ON game_participants
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update their own participation" ON game_participants;
 CREATE POLICY "Users can update their own participation" ON game_participants
   FOR UPDATE USING (user_id = auth.uid());
 
 -- Submissions policies
+DROP POLICY IF EXISTS "Game participants can view all submissions in their games" ON submissions;
 CREATE POLICY "Game participants can view all submissions in their games" ON submissions
   FOR SELECT USING (
     EXISTS (
@@ -304,9 +312,11 @@ CREATE POLICY "Game participants can view all submissions in their games" ON sub
     )
   );
 
+DROP POLICY IF EXISTS "Users can create their own submissions" ON submissions;
 CREATE POLICY "Users can create their own submissions" ON submissions
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update their own submissions before voting" ON submissions;
 CREATE POLICY "Users can update their own submissions before voting" ON submissions
   FOR UPDATE USING (
     user_id = auth.uid() AND
@@ -318,6 +328,7 @@ CREATE POLICY "Users can update their own submissions before voting" ON submissi
   );
 
 -- Votes policies
+DROP POLICY IF EXISTS "Game participants can view votes in their games" ON votes;
 CREATE POLICY "Game participants can view votes in their games" ON votes
   FOR SELECT USING (
     EXISTS (
@@ -328,6 +339,7 @@ CREATE POLICY "Game participants can view votes in their games" ON votes
     )
   );
 
+DROP POLICY IF EXISTS "Users can cast votes in their games" ON votes;
 CREATE POLICY "Users can cast votes in their games" ON votes
   FOR INSERT TO authenticated WITH CHECK (
     voter_id = auth.uid() AND
@@ -340,9 +352,11 @@ CREATE POLICY "Users can cast votes in their games" ON votes
   );
 
 -- Booster packs policies (public read access)
+DROP POLICY IF EXISTS "Anyone can view active booster packs" ON booster_packs;
 CREATE POLICY "Anyone can view active booster packs" ON booster_packs
   FOR SELECT USING (is_active = true);
 
+DROP POLICY IF EXISTS "Admins can manage booster packs" ON booster_packs;
 CREATE POLICY "Admins can manage booster packs" ON booster_packs
   FOR ALL USING (
     auth.uid() IN (
@@ -351,16 +365,20 @@ CREATE POLICY "Admins can manage booster packs" ON booster_packs
   );
 
 -- User booster packs policies
+DROP POLICY IF EXISTS "Users can view their own booster packs" ON user_booster_packs;
 CREATE POLICY "Users can view their own booster packs" ON user_booster_packs
   FOR SELECT USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can unlock booster packs" ON user_booster_packs;
 CREATE POLICY "Users can unlock booster packs" ON user_booster_packs
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
 -- Asset usage tracking policies
+DROP POLICY IF EXISTS "Users can view their own asset usage" ON asset_usage_tracking;
 CREATE POLICY "Users can view their own asset usage" ON asset_usage_tracking
   FOR SELECT USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can track their own asset usage" ON asset_usage_tracking;
 CREATE POLICY "Users can track their own asset usage" ON asset_usage_tracking
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
