@@ -215,7 +215,7 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-heading font-bold text-lg flex items-center">
                 <Image size={20} className="mr-2" />
-                Image Library
+                Booster Packs
               </h3>
               <button
                 onClick={onClose}
@@ -232,7 +232,7 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
                 type="text"
                 value={state.searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search images..."
+                placeholder="Search..."
                 className="w-full pl-10 pr-4 py-2 border border-light-gray rounded-md text-sm focus:outline-none focus:border-purple"
               />
             </div>
@@ -307,16 +307,6 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
                         {asset.name}
                       </p>
                       
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-medium-gray uppercase">
-                          {asset.format}
-                        </span>
-                        {asset.width && asset.height && (
-                          <span className="text-xs text-medium-gray">
-                            {asset.width}×{asset.height}
-                          </span>
-                        )}
-                      </div>
                     </motion.button>
                   ))}
                 </div>
