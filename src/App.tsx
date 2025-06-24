@@ -47,7 +47,7 @@ function App() {
       <AuthProvider>
         <GameProvider>
           <Layout>
-          <Routes>
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/premium" element={<Premium />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
@@ -123,7 +123,7 @@ function App() {
                 <PostGameScreen />
               </ProtectedRoute>
             } />
-          </Routes>
+            </Routes>
           </Layout>
         </GameProvider>
       </AuthProvider>

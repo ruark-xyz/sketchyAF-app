@@ -1,17 +1,30 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Game, GameStatus, Submission, BoosterPack, ServiceResponse } from '../types/game';
-import { User } from '../types/auth';
-import { ImageAsset } from '../types/assets';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react';
+import { useAuth } from './AuthContext';
+import { useRealtimeGame } from '../hooks/useRealtimeGame';
+import {
+  GameContextType,
+  GameState,
+  GameActions,
+  GameContextAction,
+  GamePhase,
+  PlayerStatus,
+  INITIAL_GAME_STATE,
+  PHASE_TRANSITIONS
+} from '../types/gameContext';
 import { GameService } from '../services/GameService';
-import { RealtimeGameService } from '../services/RealtimeGameService';
 import { SubmissionService } from '../services/SubmissionService';
+import { VotingService } from '../services/VotingService';
 import { UnifiedGameService } from '../services/UnifiedGameService';
 import { DrawingExportService } from '../services/DrawingExportService';
 import { boosterPackAnalyticsService } from '../services/BoosterPackAnalyticsService';
-import { useAuth } from './AuthContext';
-import { useRealtimeGame } from '../hooks/useRealtimeGame';
+import { Game, GameParticipant, Submission, Vote, GameStatus, BoosterPack, ServiceResponse } from '../types/game';
+import { User } from '../types/auth';
+import { ImageAsset } from '../types/assets';
+import { GameStateMachine, createGameStateMachine } from '../utils/gameStateMachine';
+import { DataSynchronizationManager, createDataSynchronizationManager } from '../utils/dataSynchronization';
+import { GameErrorHandler, createGameErrorHandler } from '../utils/errorHandling';
 
-// Game Drawing Context Interface
+// Game Drawing Context Interface - Enhanced for integration
 export interface GameDrawingContext {
   // Game State
   gameId: string;
@@ -19,77 +32,201 @@ export interface GameDrawingContext {
   timeRemaining: number;
   isDrawingPhase: boolean;
   canSubmit: boolean;
-  
+
   // Drawing State
   hasSubmitted: boolean;
   submissionId?: string;
   drawingData?: any;
-  
+
   // Booster Packs
   selectedBoosterPack?: BoosterPack;
   availableAssets: ImageAsset[];
-  
+
   // Actions
   submitDrawing: (drawingData: any) => Promise<void>;
   saveProgress: (drawingData: any) => Promise<void>;
   loadProgress: () => Promise<any>;
 }
 
-// Game Context Interface
-export interface GameContextType {
-  // Current Game State
-  currentGame: Game | null;
-  gameParticipants: any[];
-  isGameHost: boolean;
-  isParticipant: boolean;
-  
-  // Drawing Context
+// Extended Game Context Type - Combines both approaches
+export interface ExtendedGameContextType extends GameContextType {
+  // Drawing Context (from HEAD)
   drawingContext: GameDrawingContext | null;
-  
-  // Game Actions
-  createGame: (prompt: string, options?: any) => Promise<ServiceResponse<Game>>;
-  joinGame: (gameId: string, boosterPackId?: string) => Promise<ServiceResponse<void>>;
-  leaveGame: () => Promise<ServiceResponse<void>>;
-  startGame: () => Promise<ServiceResponse<void>>;
-  transitionGameStatus: (newStatus: GameStatus) => Promise<ServiceResponse<void>>;
-  
-  // Drawing Actions
+
+  // Additional Drawing Actions (from HEAD)
   initializeDrawingSession: (gameId: string) => Promise<void>;
-  submitDrawing: (drawingData: any, imageBlob?: Blob) => Promise<ServiceResponse<Submission>>;
+  submitDrawingWithExport: (drawingData: any, imageBlob?: Blob) => Promise<ServiceResponse<Submission>>;
   saveDrawingProgress: (drawingData: any) => Promise<void>;
   loadDrawingProgress: () => Promise<any>;
-  
-  // State
-  isLoading: boolean;
-  error: string | null;
-  clearError: () => void;
+
+  // Game Management Actions (from HEAD)
+  createGame: (prompt: string, options?: any) => Promise<ServiceResponse<Game>>;
+  startGame: () => Promise<ServiceResponse<void>>;
+  transitionGameStatus: (newStatus: GameStatus) => Promise<ServiceResponse<void>>;
+
+  // Computed Properties (from HEAD)
+  isGameHost: boolean;
+  isParticipant: boolean;
+  gameParticipants: any[];
 }
 
-// Create the context
-const GameContext = createContext<GameContextType | undefined>(undefined);
+// Create the game context
+const GameContext = createContext<ExtendedGameContextType | undefined>(undefined);
 
-// Game Context Provider
+// Game state reducer
+function gameStateReducer(state: GameState, action: GameContextAction): GameState {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, isLoading: false };
+
+    case 'SET_CONNECTION_STATUS':
+      return { ...state, connectionStatus: action.payload };
+
+    case 'SET_CURRENT_GAME':
+      return {
+        ...state,
+        currentGame: action.payload,
+        isInGame: !!action.payload,
+        gamePhase: action.payload ? (action.payload.status as GamePhase) : GamePhase.WAITING
+      };
+
+    case 'SET_GAME_PHASE':
+      return { ...state, gamePhase: action.payload };
+
+    case 'SET_PLAYER_STATUS':
+      return { ...state, playerStatus: action.payload };
+
+    case 'SET_PLAYER_READY':
+      return { ...state, isReady: action.payload };
+
+    case 'SET_SELECTED_BOOSTER_PACK':
+      return { ...state, selectedBoosterPack: action.payload };
+
+    case 'SET_HAS_SUBMITTED':
+      return { ...state, hasSubmitted: action.payload };
+
+    case 'SET_HAS_VOTED':
+      return { ...state, hasVoted: action.payload };
+
+    case 'SET_PARTICIPANTS':
+      return { ...state, participants: action.payload };
+
+    case 'SET_SUBMISSIONS':
+      return { ...state, submissions: action.payload };
+
+    case 'SET_VOTES':
+      return { ...state, votes: action.payload };
+
+    case 'SET_RESULTS':
+      return { ...state, results: action.payload };
+
+    case 'SET_TIMER':
+      return {
+        ...state,
+        currentTimer: action.payload.timer,
+        timerDuration: action.payload.duration,
+        timerPhase: action.payload.phase
+      };
+
+    case 'RESET_STATE':
+      return INITIAL_GAME_STATE;
+
+    default:
+      return state;
+  }
+}
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isLoggedIn } = useAuth();
-  const [currentGame, setCurrentGame] = useState<Game | null>(null);
-  const [gameParticipants, setGameParticipants] = useState<any[]>([]);
+  const [state, dispatch] = useReducer(gameStateReducer, INITIAL_GAME_STATE);
+
+  // Drawing-specific state (from HEAD)
   const [drawingContext, setDrawingContext] = useState<GameDrawingContext | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Services
   const unifiedGameService = useRef(UnifiedGameService.getInstance());
   const drawingExportService = useRef(DrawingExportService.getInstance());
 
-  // Real-time game integration
+  // Real-time game hook
   const {
+    isConnected,
+    connectionStatus,
+    activeGameId,
     initializeRealtime,
     joinGame: joinRealtimeGame,
     leaveGame: leaveRealtimeGame,
+    broadcastPlayerReady,
     addEventListener,
     removeEventListener,
-    isConnected
+    error: realtimeError
   } = useRealtimeGame();
+
+  // Refs for cleanup and state machine
+  const isMountedRef = useRef(true);
+  const currentGameIdRef = useRef<string | null>(null);
+  const stateMachineRef = useRef<GameStateMachine | null>(null);
+  const syncManagerRef = useRef<DataSynchronizationManager | null>(null);
+  const errorHandlerRef = useRef<GameErrorHandler | null>(null);
+
+  // Initialize state machine and sync manager
+  useEffect(() => {
+    if (!stateMachineRef.current) {
+      stateMachineRef.current = createGameStateMachine(state);
+
+      // Set up phase transition callbacks
+      Object.values(GamePhase).forEach(phase => {
+        stateMachineRef.current!.onPhaseTransition(phase, async (newState) => {
+          // Update local state when phase transitions occur
+          dispatch({ type: 'SET_GAME_PHASE', payload: newState.gamePhase });
+
+          // Set appropriate timers for timed phases
+          const expectedDuration = stateMachineRef.current!.getPhaseExpectedDuration();
+          if (expectedDuration) {
+            dispatch({
+              type: 'SET_TIMER',
+              payload: {
+                timer: expectedDuration,
+                duration: expectedDuration,
+                phase: newState.gamePhase
+              }
+            });
+          }
+        });
+      });
+    }
+
+    if (!syncManagerRef.current) {
+      syncManagerRef.current = createDataSynchronizationManager();
+    }
+
+    if (!errorHandlerRef.current) {
+      errorHandlerRef.current = createGameErrorHandler();
+
+      // Set up error callbacks
+      errorHandlerRef.current.onError('NETWORK_ERROR', (error) => {
+        dispatch({ type: 'SET_ERROR', payload: error.userMessage });
+      });
+
+      errorHandlerRef.current.onError('AUTHENTICATION_ERROR', (error) => {
+        dispatch({ type: 'SET_ERROR', payload: error.userMessage });
+        // Could trigger logout here
+      });
+
+      errorHandlerRef.current.onError('REALTIME_ERROR', (error) => {
+        dispatch({ type: 'SET_ERROR', payload: error.userMessage });
+      });
+    }
+  }, []);
+
+  // Update state machine when state changes
+  useEffect(() => {
+    if (stateMachineRef.current) {
+      stateMachineRef.current.updateState(state);
+    }
+  }, [state]);
 
   // Initialize services when user is available
   useEffect(() => {
@@ -105,7 +242,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error) {
           console.error('Failed to initialize game services:', error);
-          setError('Failed to initialize game services');
+          dispatch({ type: 'SET_ERROR', payload: 'Failed to initialize game services' });
         }
       }
     };
@@ -113,23 +250,125 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeServices();
   }, [currentUser, isLoggedIn, isConnected, initializeRealtime]);
 
-  // Computed properties
-  const isGameHost = currentGame?.created_by === currentUser?.id;
-  const isParticipant = gameParticipants.some(p => p.user_id === currentUser?.id);
+  // Computed properties (from HEAD)
+  const isGameHost = state.currentGame?.created_by === currentUser?.id;
+  const isParticipant = state.participants.some(p => p.user_id === currentUser?.id);
+  const gameParticipants = state.participants;
+
+  // Update connection status and handle reconnection
+  useEffect(() => {
+    dispatch({ type: 'SET_CONNECTION_STATUS', payload: connectionStatus });
+
+    // Handle reconnection
+    if (connectionStatus === 'connected' && state.connectionStatus === 'disconnected') {
+      console.log('Reconnected, syncing state...');
+      if (syncManagerRef.current) {
+        syncManagerRef.current.handleReconnection(async () => {
+          // Inline refresh function to avoid circular dependency
+          if (!state.currentGame) return;
+
+          try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+
+            const gameResult = await GameService.getGame(state.currentGame.id);
+            if (gameResult.success && gameResult.data) {
+              dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
+              dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
+            }
+          } catch (error) {
+            console.error('Error refreshing game state:', error);
+          } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+          }
+        });
+      }
+    }
+  }, [connectionStatus, state.connectionStatus, state.currentGame]);
+
+  // Update realtime error
+  useEffect(() => {
+    if (realtimeError) {
+      dispatch({ type: 'SET_ERROR', payload: realtimeError });
+    }
+  }, [realtimeError]);
+
+  // Define refreshGameState early so it can be used in useEffect hooks
+  const refreshGameState = useCallback(async (gameId?: string): Promise<void> => {
+    const targetGameId = gameId || state.currentGame?.id;
+    if (!targetGameId) return;
+
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      // Fetch game data
+      const gameResult = await GameService.getGame(targetGameId);
+      if (gameResult.success && gameResult.data) {
+        dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
+        dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
+      }
+
+      // Fetch submissions
+      const submissionsResult = await SubmissionService.getGameSubmissions(targetGameId);
+      if (submissionsResult.success && submissionsResult.data) {
+        dispatch({ type: 'SET_SUBMISSIONS', payload: submissionsResult.data });
+      }
+
+      // Fetch votes
+      const votesResult = await VotingService.getGameVotes(targetGameId);
+      if (votesResult.success && votesResult.data) {
+        dispatch({ type: 'SET_VOTES', payload: votesResult.data });
+      }
+
+      // Check if current user has submitted or voted
+      if (currentUser) {
+        const userSubmission = await SubmissionService.getUserSubmission(targetGameId);
+        dispatch({ type: 'SET_HAS_SUBMITTED', payload: userSubmission.success && !!userSubmission.data });
+
+        const userVote = await VotingService.getUserVote(targetGameId);
+        dispatch({ type: 'SET_HAS_VOTED', payload: userVote.success && !!userVote.data });
+      }
+
+    } catch (error) {
+      console.error('Error refreshing game state:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to refresh game state' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [state.currentGame, currentUser]);
+
+  // Helper function to handle errors consistently
+  const handleError = useCallback(async (error: any, context?: any): Promise<void> => {
+    if (errorHandlerRef.current) {
+      const gameError = await errorHandlerRef.current.handleError(error, {
+        gamePhase: state.gamePhase,
+        playerStatus: state.playerStatus,
+        ...context
+      });
+
+      // Only update UI error state for user-facing errors
+      if (gameError.severity !== 'low') {
+        dispatch({ type: 'SET_ERROR', payload: gameError.userMessage });
+      }
+    } else {
+      // Fallback error handling
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    }
+  }, [state.gamePhase, state.playerStatus]);
 
   // Clear error
   const clearError = useCallback(() => {
-    setError(null);
+    dispatch({ type: 'SET_ERROR', payload: null });
   }, []);
 
-  // Create game
+  // Create game (from HEAD)
   const createGame = useCallback(async (prompt: string, options: any = {}): Promise<ServiceResponse<Game>> => {
     if (!currentUser) {
       return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
     }
 
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
       const result = await unifiedGameService.current.createGame({
@@ -140,148 +379,153 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (result.success && result.data) {
-        setCurrentGame(result.data);
+        dispatch({ type: 'SET_CURRENT_GAME', payload: result.data });
       } else {
-        setError(result.error || 'Failed to create game');
+        dispatch({ type: 'SET_ERROR', payload: result.error || 'Failed to create game' });
       }
 
       return result;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
+      dispatch({ type: 'SET_ERROR', payload: errorMsg });
       return { success: false, error: errorMsg, code: 'UNKNOWN_ERROR' };
     } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [currentUser]);
 
-  // Join game
-  const joinGame = useCallback(async (gameId: string, boosterPackId?: string): Promise<ServiceResponse<void>> => {
+  // Join game (integrated from both branches)
+  const joinGame = useCallback(async (gameId: string, boosterPackId?: string): Promise<void> => {
     if (!currentUser) {
-      return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
+      throw new Error('User must be authenticated to join game');
     }
 
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      // Join game using unified service
-      const result = await unifiedGameService.current.joinGame({
+      // Join game in database
+      const joinResult = await GameService.joinGame({
         game_id: gameId,
-        selected_booster_pack: boosterPackId
+        selected_booster_pack: boosterPackId || state.selectedBoosterPack || undefined
       });
 
-      if (result.success) {
-        // Get updated game data
-        const gameResult = await unifiedGameService.current.getGameById(gameId);
-        if (gameResult.success && gameResult.data) {
-          setCurrentGame(gameResult.data);
-          setGameParticipants(gameResult.data.participants);
-        }
-      } else {
-        setError(result.error || 'Failed to join game');
+      if (!joinResult.success) {
+        throw new Error(joinResult.error || 'Failed to join game');
       }
 
-      return result;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg, code: 'UNKNOWN_ERROR' };
+      // Join real-time game
+      const realtimeResult = await joinRealtimeGame(gameId);
+      if (!realtimeResult.success) {
+        throw new Error(realtimeResult.error || 'Failed to join real-time game');
+      }
+
+      // Fetch and set game data
+      await refreshGameState(gameId);
+
+      currentGameIdRef.current = gameId;
+      dispatch({ type: 'SET_PLAYER_STATUS', payload: 'in_lobby' });
+
+    } catch (error) {
+      await handleError(error, { action: 'joinGame', gameId });
+      throw error;
     } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [currentUser]);
+  }, [currentUser, state.selectedBoosterPack, joinRealtimeGame, refreshGameState, handleError]);
 
-  // Leave game
-  const leaveGame = useCallback(async (): Promise<ServiceResponse<void>> => {
-    if (!currentGame || !currentUser) {
-      return { success: true };
+  // Leave game (integrated from both branches)
+  const leaveGame = useCallback(async (): Promise<void> => {
+    if (!currentUser || !state.currentGame) {
+      return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      // Leave game using unified service
-      const result = await unifiedGameService.current.leaveGame(currentGame.id);
-
-      if (result.success) {
-        // Clear game state
-        setCurrentGame(null);
-        setGameParticipants([]);
-        setDrawingContext(null);
-      } else {
-        setError(result.error || 'Failed to leave game');
+      // Leave game in database
+      const leaveResult = await GameService.leaveGame(state.currentGame.id);
+      if (!leaveResult.success) {
+        console.warn('Failed to leave game in database:', leaveResult.error);
       }
 
-      return result;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg, code: 'UNKNOWN_ERROR' };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentGame, currentUser]);
+      // Leave real-time game
+      const realtimeResult = await leaveRealtimeGame();
+      if (!realtimeResult.success) {
+        console.warn('Failed to leave real-time game:', realtimeResult.error);
+      }
 
-  // Start game
+      // Reset state
+      dispatch({ type: 'RESET_STATE' });
+      setDrawingContext(null);
+      currentGameIdRef.current = null;
+
+    } catch (error) {
+      console.error('Error leaving game:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to leave game properly' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [currentUser, state.currentGame, leaveRealtimeGame]);
+
+  // Start game (from HEAD)
   const startGame = useCallback(async (): Promise<ServiceResponse<void>> => {
-    if (!currentGame || !isGameHost) {
+    if (!state.currentGame || !isGameHost) {
       return { success: false, error: 'Not authorized to start game', code: 'UNAUTHORIZED' };
     }
 
     return await transitionGameStatus('drawing');
-  }, [currentGame, isGameHost]);
+  }, [state.currentGame, isGameHost]);
 
-  // Transition game status
+  // Transition game status (from HEAD)
   const transitionGameStatus = useCallback(async (newStatus: GameStatus): Promise<ServiceResponse<void>> => {
-    if (!currentGame) {
+    if (!state.currentGame) {
       return { success: false, error: 'No active game', code: 'NO_GAME' };
     }
 
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const result = await unifiedGameService.current.transitionGameStatus(currentGame.id, newStatus, currentGame.status);
+      const result = await unifiedGameService.current.transitionGameStatus(state.currentGame.id, newStatus, state.currentGame.status);
 
       if (result.success) {
         // Update local game state
-        setCurrentGame(prev => prev ? { ...prev, status: newStatus } : null);
+        dispatch({ type: 'SET_CURRENT_GAME', payload: { ...state.currentGame, status: newStatus } });
 
         // Initialize drawing session if transitioning to drawing phase
         if (newStatus === 'drawing') {
-          await initializeDrawingSession(currentGame.id);
+          await initializeDrawingSession(state.currentGame.id);
         }
       } else {
-        setError(result.error || 'Failed to transition game status');
+        dispatch({ type: 'SET_ERROR', payload: result.error || 'Failed to transition game status' });
       }
 
       return result;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
+      dispatch({ type: 'SET_ERROR', payload: errorMsg });
       return { success: false, error: errorMsg, code: 'UNKNOWN_ERROR' };
     } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [currentGame]);
+  }, [state.currentGame]);
 
-  // Initialize drawing session
+  // Initialize drawing session (from HEAD)
   const initializeDrawingSession = useCallback(async (gameId: string): Promise<void> => {
-    if (!currentGame || !currentUser) return;
+    if (!state.currentGame || !currentUser) return;
 
     // Create drawing context
     const newDrawingContext: GameDrawingContext = {
       gameId,
-      prompt: currentGame.prompt,
-      timeRemaining: currentGame.round_duration,
+      prompt: state.currentGame.prompt,
+      timeRemaining: state.currentGame.round_duration,
       isDrawingPhase: true, // Always true when initializing drawing session
       canSubmit: true,
       hasSubmitted: false,
       availableAssets: [], // Will be populated by booster pack integration
       submitDrawing: async (drawingData: any) => {
-        await submitDrawing(drawingData);
+        await submitDrawingWithExport(drawingData);
       },
       saveProgress: async (drawingData: any) => {
         await saveDrawingProgress(drawingData);
@@ -292,11 +536,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setDrawingContext(newDrawingContext);
-  }, [currentGame, currentUser]);
+  }, [state.currentGame, currentUser]);
 
-  // Submit drawing
-  const submitDrawing = useCallback(async (drawingData: any, imageBlob?: Blob): Promise<ServiceResponse<Submission>> => {
-    if (!currentGame || !currentUser || !drawingContext) {
+  // Submit drawing with export (from HEAD)
+  const submitDrawingWithExport = useCallback(async (drawingData: any, imageBlob?: Blob): Promise<ServiceResponse<Submission>> => {
+    if (!state.currentGame || !currentUser || !drawingContext) {
       return { success: false, error: 'Invalid drawing session', code: 'INVALID_SESSION' };
     }
 
@@ -304,8 +548,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Drawing already submitted', code: 'ALREADY_SUBMITTED' };
     }
 
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
       // Extract elements, app state, and files
@@ -348,7 +592,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Upload image to Supabase Storage
       const uploadResult = await drawingExportService.current.uploadToStorage(
         finalImageBlob,
-        currentGame.id,
+        state.currentGame.id,
         currentUser.id,
         { generateThumbnail: true }
       );
@@ -368,7 +612,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const metadata = drawingExportService.current.extractMetadata(
         elements,
         appState,
-        currentGame.round_duration - drawingContext.timeRemaining,
+        state.currentGame.round_duration - drawingContext.timeRemaining,
         finalImageBlob.size,
         'png',
         drawingContext.selectedBoosterPack?.id
@@ -376,7 +620,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Submit to database using unified service
       const submissionResult = await unifiedGameService.current.submitDrawing({
-        game_id: currentGame.id,
+        game_id: state.currentGame.id,
         drawing_data: drawingData,
         drawing_url: drawingUrl,
         drawing_thumbnail_url: thumbnailUrl,
@@ -395,7 +639,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             await boosterPackAnalyticsService.trackBoosterPackUsage(
               currentUser.id,
-              currentGame.id,
+              state.currentGame.id,
               drawingContext.selectedBoosterPack.id,
               metadata.assetsUsed
             );
@@ -417,41 +661,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return submissionResult;
       } else {
-        setError(submissionResult.error || 'Failed to submit drawing');
+        dispatch({ type: 'SET_ERROR', payload: submissionResult.error || 'Failed to submit drawing' });
         return submissionResult;
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
+      dispatch({ type: 'SET_ERROR', payload: errorMsg });
       return { success: false, error: errorMsg, code: 'UNKNOWN_ERROR' };
     } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [currentGame, currentUser, drawingContext]);
+  }, [state.currentGame, currentUser, drawingContext]);
 
-  // Save drawing progress
+  // Save drawing progress (from HEAD)
   const saveDrawingProgress = useCallback(async (drawingData: any): Promise<void> => {
-    if (!currentGame || !currentUser) return;
+    if (!state.currentGame || !currentUser) return;
 
     try {
-      const progressKey = `drawing_progress_${currentGame.id}_${currentUser.id}`;
+      const progressKey = `drawing_progress_${state.currentGame.id}_${currentUser.id}`;
       const progressData = {
         ...drawingData,
         timestamp: Date.now(),
-        gameId: currentGame.id,
+        gameId: state.currentGame.id,
         userId: currentUser.id
       };
 
       localStorage.setItem(progressKey, JSON.stringify(progressData));
 
       // Also save a backup with timestamp for recovery
-      const backupKey = `drawing_backup_${currentGame.id}_${currentUser.id}_${Date.now()}`;
+      const backupKey = `drawing_backup_${state.currentGame.id}_${currentUser.id}_${Date.now()}`;
       localStorage.setItem(backupKey, JSON.stringify(progressData));
 
       // Clean up old backups (keep only last 5)
       const allKeys = Object.keys(localStorage);
       const backupKeys = allKeys
-        .filter(key => key.startsWith(`drawing_backup_${currentGame.id}_${currentUser.id}_`))
+        .filter(key => key.startsWith(`drawing_backup_${state.currentGame!.id}_${currentUser.id}_`))
         .sort()
         .reverse();
 
@@ -468,32 +712,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const allKeys = Object.keys(localStorage);
         const oldProgressKeys = allKeys.filter(key =>
           key.startsWith('drawing_progress_') &&
-          !key.includes(currentGame.id)
+          !key.includes(state.currentGame!.id)
         );
         oldProgressKeys.forEach(key => localStorage.removeItem(key));
 
         // Retry save
-        const progressKey = `drawing_progress_${currentGame.id}_${currentUser.id}`;
+        const progressKey = `drawing_progress_${state.currentGame.id}_${currentUser.id}`;
         localStorage.setItem(progressKey, JSON.stringify(drawingData));
       } catch (retryErr) {
         console.error('Failed to save drawing progress after cleanup:', retryErr);
       }
     }
-  }, [currentGame, currentUser]);
+  }, [state.currentGame, currentUser]);
 
-  // Load drawing progress
+  // Load drawing progress (from HEAD)
   const loadDrawingProgress = useCallback(async (): Promise<any> => {
-    if (!currentGame || !currentUser) return null;
+    if (!state.currentGame || !currentUser) return null;
 
     try {
-      const progressKey = `drawing_progress_${currentGame.id}_${currentUser.id}`;
+      const progressKey = `drawing_progress_${state.currentGame.id}_${currentUser.id}`;
       const saved = localStorage.getItem(progressKey);
 
       if (saved) {
         const parsedData = JSON.parse(saved);
 
         // Validate the data belongs to current game/user
-        if (parsedData.gameId === currentGame.id && parsedData.userId === currentUser.id) {
+        if (parsedData.gameId === state.currentGame.id && parsedData.userId === currentUser.id) {
           return parsedData;
         } else {
           console.warn('Saved progress data mismatch, clearing...');
@@ -504,7 +748,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try to recover from backup if main save failed
       const allKeys = Object.keys(localStorage);
       const backupKeys = allKeys
-        .filter(key => key.startsWith(`drawing_backup_${currentGame.id}_${currentUser.id}_`))
+        .filter(key => key.startsWith(`drawing_backup_${state.currentGame!.id}_${currentUser.id}_`))
         .sort()
         .reverse();
 
@@ -521,36 +765,315 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Failed to load drawing progress:', err);
       return null;
     }
-  }, [currentGame, currentUser]);
+  }, [state.currentGame, currentUser]);
 
-  // Context value
-  const value: GameContextType = {
-    // Current Game State
-    currentGame,
-    gameParticipants,
-    isGameHost,
-    isParticipant,
+  // Initialize real-time connection when user is authenticated
+  useEffect(() => {
+    if (isLoggedIn && currentUser && !isConnected) {
+      initializeRealtime().catch(error => {
+        console.error('Failed to initialize real-time connection:', error);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to connect to real-time service' });
+      });
+    }
+  }, [isLoggedIn, currentUser, isConnected, initializeRealtime]);
 
-    // Drawing Context
-    drawingContext,
+  // Set up real-time event listeners
+  useEffect(() => {
+    if (!isConnected || !activeGameId) return;
 
-    // Game Actions
-    createGame,
+    // Player joined event
+    const handlePlayerJoined = (event: any) => {
+      console.log('Player joined:', event);
+      refreshGameState();
+    };
+
+    // Player left event
+    const handlePlayerLeft = (event: any) => {
+      console.log('Player left:', event);
+      refreshGameState();
+    };
+
+    // Player ready event
+    const handlePlayerReady = (event: any) => {
+      console.log('Player ready status changed:', event);
+      refreshGameState();
+    };
+
+    // Game phase changed event
+    const handlePhaseChanged = (event: any) => {
+      console.log('Game phase changed:', event);
+      dispatch({ type: 'SET_GAME_PHASE', payload: event.data.newPhase });
+      refreshGameState();
+    };
+
+    // Timer sync event
+    const handleTimerSync = (event: any) => {
+      console.log('Timer sync:', event);
+      dispatch({
+        type: 'SET_TIMER',
+        payload: {
+          timer: event.data.timeRemaining,
+          duration: event.data.totalDuration,
+          phase: event.data.phase
+        }
+      });
+    };
+
+    // Drawing submitted event
+    const handleDrawingSubmitted = (event: any) => {
+      console.log('Drawing submitted:', event);
+      refreshGameState();
+    };
+
+    // Vote cast event
+    const handleVoteCast = (event: any) => {
+      console.log('Vote cast:', event);
+      refreshGameState();
+    };
+
+    // Game completed event
+    const handleGameCompleted = (event: any) => {
+      console.log('Game completed:', event);
+      dispatch({ type: 'SET_GAME_PHASE', payload: GamePhase.COMPLETED });
+      refreshGameState();
+    };
+
+    // Add event listeners
+    addEventListener('player_joined', handlePlayerJoined);
+    addEventListener('player_left', handlePlayerLeft);
+    addEventListener('player_ready', handlePlayerReady);
+    addEventListener('phase_changed', handlePhaseChanged);
+    addEventListener('timer_sync', handleTimerSync);
+    addEventListener('drawing_submitted', handleDrawingSubmitted);
+    addEventListener('vote_cast', handleVoteCast);
+    addEventListener('game_completed', handleGameCompleted);
+
+    // Cleanup
+    return () => {
+      removeEventListener('player_joined', handlePlayerJoined);
+      removeEventListener('player_left', handlePlayerLeft);
+      removeEventListener('player_ready', handlePlayerReady);
+      removeEventListener('phase_changed', handlePhaseChanged);
+      removeEventListener('timer_sync', handleTimerSync);
+      removeEventListener('drawing_submitted', handleDrawingSubmitted);
+      removeEventListener('vote_cast', handleVoteCast);
+      removeEventListener('game_completed', handleGameCompleted);
+    };
+  }, [isConnected, activeGameId, addEventListener, removeEventListener, refreshGameState]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Auto-check transitions when relevant state changes
+  useEffect(() => {
+    if (state.currentGame && stateMachineRef.current) {
+      // Check transitions when participants, submissions, or votes change
+      const checkPhaseTransitions = async () => {
+        if (stateMachineRef.current) {
+          await stateMachineRef.current.checkAndExecuteTransitions();
+        }
+      };
+      checkPhaseTransitions();
+    }
+  }, [state.participants, state.submissions, state.votes]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (state.currentTimer && state.currentTimer > 0) {
+      const interval = setInterval(() => {
+        dispatch({
+          type: 'SET_TIMER',
+          payload: {
+            timer: Math.max(0, state.currentTimer! - 1),
+            duration: state.timerDuration,
+            phase: state.timerPhase
+          }
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    } else if (state.currentTimer === 0 && stateMachineRef.current) {
+      // Timer expired, check for transitions
+      const checkPhaseTransitions = async () => {
+        if (stateMachineRef.current) {
+          await stateMachineRef.current.checkAndExecuteTransitions();
+        }
+      };
+      checkPhaseTransitions();
+    }
+  }, [state.currentTimer]);
+
+  // Game Actions from main branch
+  const setPlayerReady = useCallback(async (ready: boolean): Promise<void> => {
+    if (!currentUser || !state.currentGame) {
+      throw new Error('Must be in a game to set ready status');
+    }
+
+    // Apply optimistic update
+    const rollbackData = { isReady: state.isReady, playerStatus: state.playerStatus };
+    const updateId = syncManagerRef.current?.applyOptimisticUpdate(
+      'player_ready',
+      { isReady: ready, playerStatus: ready ? 'ready' : 'in_lobby' },
+      rollbackData
+    );
+
+    // Update local state immediately
+    dispatch({ type: 'SET_PLAYER_READY', payload: ready });
+    dispatch({ type: 'SET_PLAYER_STATUS', payload: ready ? 'ready' : 'in_lobby' });
+
+    try {
+      // Update ready status in database
+      const result = await GameService.updateReadyStatus(state.currentGame.id, ready);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update ready status');
+      }
+
+      // Broadcast ready status
+      await broadcastPlayerReady(ready, state.selectedBoosterPack || undefined);
+
+      // Confirm optimistic update
+      if (updateId) {
+        syncManagerRef.current?.confirmOptimisticUpdate(updateId);
+      }
+
+    } catch (error) {
+      // Rollback optimistic update
+      if (updateId) {
+        const rollback = syncManagerRef.current?.rollbackOptimisticUpdate(updateId);
+        if (rollback) {
+          dispatch({ type: 'SET_PLAYER_READY', payload: rollback.isReady });
+          dispatch({ type: 'SET_PLAYER_STATUS', payload: rollback.playerStatus });
+        }
+      }
+
+      await handleError(error, { action: 'setPlayerReady' });
+      throw error;
+    }
+  }, [currentUser, state.currentGame, state.selectedBoosterPack, state.isReady, state.playerStatus, broadcastPlayerReady]);
+
+  const selectBoosterPack = useCallback(async (packId: string | null): Promise<void> => {
+    if (!currentUser || !state.currentGame) {
+      throw new Error('Must be in a game to select booster pack');
+    }
+
+    try {
+      // For now, we'll just update local state and broadcast the change
+      // The booster pack selection will be handled when joining the game
+      dispatch({ type: 'SET_SELECTED_BOOSTER_PACK', payload: packId });
+
+      // If already in game, broadcast the change
+      if (state.isInGame) {
+        await broadcastPlayerReady(state.isReady, packId || undefined);
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to select booster pack';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      throw error;
+    }
+  }, [currentUser, state.currentGame, state.isReady, state.isInGame, broadcastPlayerReady]);
+
+  const submitDrawing = useCallback(async (drawingData: any, drawingUrl: string): Promise<void> => {
+    if (!currentUser || !state.currentGame) {
+      throw new Error('Must be in a game to submit drawing');
+    }
+
+    try {
+      const result = await SubmissionService.submitDrawing({
+        game_id: state.currentGame.id,
+        drawing_data: drawingData,
+        drawing_url: drawingUrl
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to submit drawing');
+      }
+
+      dispatch({ type: 'SET_HAS_SUBMITTED', payload: true });
+      await refreshGameState();
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit drawing';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      throw error;
+    }
+  }, [currentUser, state.currentGame, refreshGameState]);
+
+  const castVote = useCallback(async (submissionId: string): Promise<void> => {
+    if (!currentUser || !state.currentGame) {
+      throw new Error('Must be in a game to cast vote');
+    }
+
+    try {
+      const result = await VotingService.castVote({
+        game_id: state.currentGame.id,
+        submission_id: submissionId
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to cast vote');
+      }
+
+      dispatch({ type: 'SET_HAS_VOTED', payload: true });
+      await refreshGameState();
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to cast vote';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      throw error;
+    }
+  }, [currentUser, state.currentGame, refreshGameState]);
+
+  const resetGameState = useCallback((): void => {
+    dispatch({ type: 'RESET_STATE' });
+    setDrawingContext(null);
+    currentGameIdRef.current = null;
+    if (stateMachineRef.current) {
+      stateMachineRef.current.reset(INITIAL_GAME_STATE);
+    }
+  }, []);
+
+  // Actions object
+  const actions: GameActions = {
     joinGame,
     leaveGame,
-    startGame,
-    transitionGameStatus,
-
-    // Drawing Actions
-    initializeDrawingSession,
+    setPlayerReady,
+    selectBoosterPack,
     submitDrawing,
+    castVote,
+    refreshGameState,
+    clearError,
+    resetGameState
+  };
+
+  // Extended context value combining both approaches
+  const value: ExtendedGameContextType = {
+    // State from main branch
+    ...state,
+    actions,
+
+    // Drawing Context (from HEAD)
+    drawingContext,
+
+    // Additional Drawing Actions (from HEAD)
+    initializeDrawingSession,
+    submitDrawingWithExport,
     saveDrawingProgress,
     loadDrawingProgress,
 
-    // State
-    isLoading,
-    error,
-    clearError
+    // Game Management Actions (from HEAD)
+    createGame,
+    startGame,
+    transitionGameStatus,
+
+    // Computed Properties (from HEAD)
+    isGameHost,
+    isParticipant,
+    gameParticipants
   };
 
   return (
@@ -561,14 +1084,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 // Custom hook to use the game context
-export const useGame = (): GameContextType => {
+export const useGame = (): ExtendedGameContextType => {
   const context = useContext(GameContext);
-  
+
   if (context === undefined) {
     throw new Error('useGame must be used within a GameProvider');
   }
-  
+
   return context;
 };
+
+// Re-export custom hooks for convenience
+export {
+  useGamePhase,
+  useGameTimer,
+  usePlayerActions,
+  useGameActions,
+  useGameState,
+  useGameConnection,
+  useGameData,
+  useGameManagement,
+  useGameValidation,
+  useGameProgress
+} from '../hooks/useGameContext';
 
 export default GameContext;

@@ -44,10 +44,32 @@ vi.mock('pubnub', () => ({
   default: mocks.MockPubNubConstructor
 }));
 
-// Mock environment variables
+// Mock Supabase with proper auth methods
 vi.mock('../../utils/supabase', () => ({
-  supabase: {}
+  supabase: {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'test-user-123', email: 'test@example.com' } },
+        error: null,
+      }),
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'mock-token', user: { id: 'test-user-123' } } },
+        error: null,
+      }),
+    },
+  },
 }));
+
+// Mock global fetch for Edge Function calls
+global.fetch = vi.fn().mockResolvedValue({
+  ok: true,
+  json: vi.fn().mockResolvedValue({
+    token: 'mock-pubnub-token',
+    ttl: 3600,
+    authorized_uuid: 'test-user-123',
+    channels: ['game-test-channel']
+  })
+});
 
 // Environment variables are already mocked in setup.ts
 
