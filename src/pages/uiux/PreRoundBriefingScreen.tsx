@@ -90,7 +90,7 @@ const PreRoundBriefingScreen: React.FC = () => {
     if (currentGame && currentGame.status !== 'briefing' && gamePhase !== GamePhase.BRIEFING) {
       // If in drawing phase, go to drawing screen
       if (currentGame.status === 'drawing' || gamePhase === GamePhase.DRAWING) {
-        navigate('/uiux/drawing');
+        navigate('/draw');
       } 
       // If in waiting phase, go back to lobby
       else if (currentGame.status === 'waiting' || gamePhase === GamePhase.WAITING) {
@@ -137,7 +137,7 @@ const PreRoundBriefingScreen: React.FC = () => {
       
       // Navigate to drawing screen
       setTimeout(() => {
-        navigate('/uiux/drawing');
+        navigate('/draw');
       }, 1500);
     } catch (err) {
       console.error('Failed to start game:', err);

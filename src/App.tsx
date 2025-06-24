@@ -19,14 +19,13 @@ import Roadmap from './pages/Roadmap';
 import RoadmapDetail from './pages/RoadmapDetail';
 import LobbyScreen from './pages/uiux/LobbyScreen';
 import PreRoundBriefingScreen from './pages/uiux/PreRoundBriefingScreen';
-import DrawingCanvasScreen from './pages/uiux/DrawingCanvasScreen';
 import VotingScreen from './pages/uiux/VotingScreen';
 import ResultsScreen from './pages/uiux/ResultsScreen';
 import PostGameScreen from './pages/uiux/PostGameScreen';
 import AuthCallback from './pages/auth/AuthCallback';
 import ResetPassword from './pages/auth/ResetPassword';
 import { AuthProvider } from './context/AuthContext';
-import { GameProvider } from './context/GameContext';
+import { GameProvider, useGame } from './context/GameContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
@@ -106,14 +105,6 @@ function App() {
                 <ProtectedRoute>
                   <GamePhaseRoute requiredPhase="briefing" fallbackPath="/uiux/lobby">
                     <PreRoundBriefingScreen />
-                  </GamePhaseRoute>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/uiux/drawing" element={
-                <ProtectedRoute>
-                  <GamePhaseRoute requiredPhase="drawing" fallbackPath="/uiux/lobby">
-                    <DrawingCanvasScreen />
                   </GamePhaseRoute>
                 </ProtectedRoute>
               } />
