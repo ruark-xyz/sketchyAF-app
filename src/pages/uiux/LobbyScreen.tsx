@@ -49,6 +49,7 @@ const RECENT_SKETCHES = [
 const LobbyScreen: React.FC = () => {
   const [currentTip, setCurrentTip] = useState(0);
   const [currentSketch, setCurrentSketch] = useState(0);
+  const [queueCount, setQueueCount] = useState<number>(0);
   const navigate = useNavigate();
   const { currentUser, isLoggedIn } = useAuth();
   
@@ -91,6 +92,38 @@ const LobbyScreen: React.FC = () => {
     }
   }, [isLoggedIn, isInQueue, isLoading, matchFound, joinQueue]);
 
+  // Update queue count based on queue position
+  useEffect(() => {
+    if (isInQueue) {
+      // Calculate a realistic queue count based on position
+      // This ensures the number is always higher than the user's position
+      const baseCount = queuePosition ? queuePosition + 5 : 10;
+      // Add some randomness to make it feel dynamic
+      const randomOffset = Math.floor(Math.random() * 8) - 3;
+      const newCount = Math.max(baseCount + randomOffset, queuePosition ? queuePosition + 1 : 1);
+      setQueueCount(newCount);
+    } else {
+      // Reset to 0 when not in queue
+      setQueueCount(0);
+    }
+  }, [isInQueue, queuePosition]);
+
+  // Periodically update queue count with small fluctuations to simulate real-time changes
+  useEffect(() => {
+    if (!isInQueue) return;
+    
+    const interval = setInterval(() => {
+      setQueueCount(prev => {
+        // Random fluctuation between -2 and +3
+        const change = Math.floor(Math.random() * 6) - 2;
+        // Ensure count never goes below position+1
+        return Math.max(queuePosition ? queuePosition + 1 : 1, prev + change);
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isInQueue, queuePosition]);
+
   // Handle exit queue action
   const handleExitQueue = useCallback(() => {
     leaveQueue();
@@ -118,6 +151,11 @@ const LobbyScreen: React.FC = () => {
         });
     }
   }, []);
+
+  // Format number with commas for readability
+  const formatNumber = (num: number): string => {
+    return num.toLocaleString();
+  };
 
   // Get current sketch data
   const currentSketchData = RECENT_SKETCHES[currentSketch];
@@ -243,11 +281,12 @@ const LobbyScreen: React.FC = () => {
                     <span className="text-xs text-medium-gray">In Queue</span>
                   </div>
                   <motion.p 
+                    key={queueCount}
                     initial={{ scale: 1.2, color: "#7bc043" }}
                     animate={{ scale: 1, color: "#2d2d2d" }}
                     className="font-heading font-bold text-xl"
                   >
-                    {isInQueue ? (queuePosition ? queuePosition + Math.floor(Math.random() * 10) + 5 : '...') : '0'}
+                    {formatNumber(queueCount)}
                   </motion.p>
                 </motion.div>
               </div>
