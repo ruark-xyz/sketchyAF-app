@@ -14,70 +14,17 @@ import {
   Gift,
   Sparkles,
   TrendingUp,
-  Zap
+  Zap,
+  AlertCircle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { useGame } from '../../context/GameContext';
+import { useAuth } from '../../context/AuthContext';
+import { GamePhase } from '../../types/gameContext';
 
-// Mock data for demo purposes
-const GAME_PROMPT = "A raccoon having an existential crisis";
-
-const RESULTS_DATA = {
-  winner: {
-    id: 1,
-    username: 'SketchLord',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/8378736/pexels-photo-8378736.jpeg?auto=compress&cs=tinysrgb&w=600',
-    votes: 3,
-    percentage: 75
-  },
-  runnerUps: [
-    {
-      id: 2,
-      username: 'ArtisticTroll',
-      avatar: 'https://randomuser.me/api/portraits/men/15.jpg',
-      drawingUrl: 'https://images.pexels.com/photos/9637955/pexels-photo-9637955.jpeg?auto=compress&cs=tinysrgb&w=600',
-      votes: 1,
-      percentage: 25,
-      placement: 2
-    },
-    {
-      id: 3,
-      username: 'DoodleQueen',
-      avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      drawingUrl: 'https://images.pexels.com/photos/8378752/pexels-photo-8378752.jpeg?auto=compress&cs=tinysrgb&w=600',
-      votes: 0,
-      percentage: 0,
-      placement: 3
-    }
-  ],
-  currentPlayer: {
-    id: 4,
-    username: 'You',
-    placement: 3,
-    votes: 0,
-    earnedXP: 50,
-    earnedCoins: 25
-  }
-};
-
-const ACHIEVEMENT_UNLOCKS = [
-  {
-    id: 'first-vote',
-    name: 'Getting Noticed',
-    description: 'Received your first vote!',
-    icon: '👀',
-    isNew: false
-  },
-  {
-    id: 'participation',
-    name: 'Artistic Participant',
-    description: 'Completed your 5th game',
-    icon: '🎨',
-    isNew: true
-  }
-];
-
+// Confetti animation pieces
 const CONFETTI_PIECES = Array.from({ length: 50 }, (_, i) => ({
   id: i,
   emoji: ['🎉', '🎊', '✨', '🌟', '🎈'][Math.floor(Math.random() * 5)],
@@ -88,43 +35,137 @@ const CONFETTI_PIECES = Array.from({ length: 50 }, (_, i) => ({
 }));
 
 const ResultsScreen: React.FC = () => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { 
+    currentGame, 
+    gamePhase, 
+    submissions, 
+    participants, 
+    votes, 
+    results,
+    actions,
+    error,
+    isLoading
+  } = useGame();
+  
   const [showConfetti, setShowConfetti] = useState(true);
   const [showAchievements, setShowAchievements] = useState(false);
   const [currentPlayerRank, setCurrentPlayerRank] = useState<string>('');
+  const [winnerSubmission, setWinnerSubmission] = useState<any>(null);
+  const [runnerUps, setRunnerUps] = useState<any[]>([]);
 
+  // Calculate results when data is available
   useEffect(() => {
-    // Determine player's placement text
-    const placement = RESULTS_DATA.currentPlayer.placement;
-    const suffix = placement === 1 ? 'st' : placement === 2 ? 'nd' : placement === 3 ? 'rd' : 'th';
-    setCurrentPlayerRank(`${placement}${suffix}`);
+    if (submissions.length > 0 && votes.length > 0) {
+      // Calculate vote counts for each submission
+      const submissionsWithVotes = submissions.map(submission => {
+        const voteCount = votes.filter(vote => vote.submission_id === submission.id).length;
+        return {
+          ...submission,
+          voteCount
+        };
+      });
+      
+      // Sort by vote count (descending)
+      const sortedSubmissions = [...submissionsWithVotes].sort((a, b) => b.voteCount - a.voteCount);
+      
+      // Get winner and runner-ups
+      if (sortedSubmissions.length > 0) {
+        setWinnerSubmission(sortedSubmissions[0]);
+        setRunnerUps(sortedSubmissions.slice(1, 3));
+      }
+      
+      // Determine current player's placement
+      if (currentUser) {
+        const userSubmission = sortedSubmissions.find(s => s.user_id === currentUser.id);
+        if (userSubmission) {
+          const placement = sortedSubmissions.findIndex(s => s.id === userSubmission.id) + 1;
+          const suffix = placement === 1 ? 'st' : placement === 2 ? 'nd' : placement === 3 ? 'rd' : 'th';
+          setCurrentPlayerRank(`${placement}${suffix}`);
+        }
+      }
+    }
+  }, [submissions, votes, currentUser]);
 
-    // Show achievements after a delay
-    setTimeout(() => {
+  // Redirect if not in results phase
+  useEffect(() => {
+    if (currentGame && currentGame.status !== 'results' && gamePhase !== GamePhase.RESULTS) {
+      // If in voting phase, go back to voting
+      if (currentGame.status === 'voting' || gamePhase === GamePhase.VOTING) {
+        navigate('/uiux/voting');
+      } 
+      // If in completed phase, go to post-game
+      else if (currentGame.status === 'completed' || gamePhase === GamePhase.COMPLETED) {
+        navigate('/uiux/post-game');
+      }
+    }
+  }, [currentGame, gamePhase, navigate]);
+
+  // Show achievements after a delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
       setShowAchievements(true);
     }, 3000);
-
+    
     // Hide confetti after animation
-    setTimeout(() => {
+    const confettiTimer = setTimeout(() => {
       setShowConfetti(false);
     }, 8000);
+    
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(confettiTimer);
+    };
   }, []);
 
+  // Auto-transition to post-game after a delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentGame) {
+        // Transition to completed phase
+        actions.transitionGameStatus(currentGame.id, 'completed', 'results')
+          .then(() => {
+            navigate('/uiux/post-game');
+          })
+          .catch(err => {
+            console.error('Failed to transition to completed:', err);
+          });
+      }
+    }, 15000);
+    
+    return () => clearTimeout(timer);
+  }, [currentGame, navigate, actions]);
+
   const handlePlayAgain = () => {
-    console.log('Queue for another game');
-    // In real app, this would navigate back to lobby
+    navigate('/uiux/lobby');
   };
 
   const handleViewProfile = () => {
-    console.log('View player profile');
-    // In real app, this would navigate to profile
+    navigate('/profile');
   };
 
   const handleShare = () => {
-    console.log('Share results');
-    // In real app, this would open share dialog
+    if (navigator.share) {
+      navigator.share({
+        title: 'Check out my SketchyAF results!',
+        text: `I just played SketchyAF with the prompt "${currentGame?.prompt}"!`,
+        url: window.location.origin
+      });
+    } else {
+      // Fallback
+      navigator.clipboard.writeText(window.location.origin);
+      alert('Link copied to clipboard!');
+    }
   };
 
-  const isCurrentPlayerWinner = RESULTS_DATA.currentPlayer.placement === 1;
+  // Check if current player is the winner
+  const isCurrentPlayerWinner = winnerSubmission?.user_id === currentUser?.id;
+
+  // Find participant info for a submission
+  const getParticipantInfo = (userId: string) => {
+    return participants.find(p => p.user_id === userId);
+  };
 
   return (
     <>
@@ -175,83 +216,99 @@ const ResultsScreen: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               className="font-heading font-bold text-2xl md:text-3xl text-dark transform rotate-[-1deg]"
             >
-              🏆 Results: "{GAME_PROMPT}"
+              🏆 Results: "{currentGame?.prompt || 'Loading prompt...'}"
             </motion.h1>
           </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-4 mt-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
+            >
+              <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+              <p className="text-dark text-sm">{error}</p>
+            </motion.div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="p-4 pb-8">
           <div className="max-w-4xl mx-auto space-y-8">
             
             {/* Winner Spotlight */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-              className="text-center"
-            >
-              <div className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] relative overflow-hidden">
-                
-                {/* Winner Crown Animation */}
-                <motion.div
-                  initial={{ scale: 0, rotate: -45 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 1, type: "spring", stiffness: 300 }}
-                  className="absolute -top-4 -right-4 text-4xl"
-                >
-                  👑
-                </motion.div>
-
-                <motion.div
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="relative"
-                >
-                  <h2 className="font-heading font-bold text-2xl text-dark mb-4">
-                    🎉 Winner! 🎉
-                  </h2>
+            {winnerSubmission && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, duration: 0.6 }}
+                className="text-center"
+              >
+                <div className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] relative overflow-hidden">
                   
-                  <div className="flex flex-col items-center mb-4">
-                    <motion.img 
-                      src={RESULTS_DATA.winner.avatar} 
-                      alt={RESULTS_DATA.winner.username}
-                      className="w-20 h-20 rounded-full border-4 border-accent mb-3"
-                      whileHover={{ scale: 1.1 }}
-                    />
-                    <h3 className="font-heading font-bold text-xl text-primary">
-                      {RESULTS_DATA.winner.username}
-                    </h3>
-                    <div className="flex items-center mt-1">
-                      <Heart size={16} className="text-red mr-1 fill-red" />
-                      <span className="font-heading font-semibold">
-                        {RESULTS_DATA.winner.votes} votes ({RESULTS_DATA.winner.percentage}%)
-                      </span>
-                    </div>
-                  </div>
+                  {/* Winner Crown Animation */}
+                  <motion.div
+                    initial={{ scale: 0, rotate: -45 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 1, type: "spring", stiffness: 300 }}
+                    className="absolute -top-4 -right-4 text-4xl"
+                  >
+                    👑
+                  </motion.div>
 
-                  <div className="relative mb-4">
-                    <img 
-                      src={RESULTS_DATA.winner.drawingUrl} 
-                      alt="Winning drawing"
-                      className="w-full max-w-md mx-auto h-48 object-cover rounded-lg border-2 border-accent"
-                    />
-                    <div className="absolute -top-2 -left-2 bg-accent text-dark px-3 py-1 rounded-full text-sm font-heading font-bold border-2 border-dark transform -rotate-12">
-                      Winner!
+                  <motion.div
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="relative"
+                  >
+                    <h2 className="font-heading font-bold text-2xl text-dark mb-4">
+                      🎉 Winner! 🎉
+                    </h2>
+                    
+                    <div className="flex flex-col items-center mb-4">
+                      <motion.img 
+                        src={getParticipantInfo(winnerSubmission.user_id)?.avatar_url || `https://ui-avatars.com/api/?name=${getParticipantInfo(winnerSubmission.user_id)?.username || 'Winner'}&background=random`} 
+                        alt={getParticipantInfo(winnerSubmission.user_id)?.username || 'Winner'}
+                        className="w-20 h-20 rounded-full border-4 border-accent mb-3"
+                        whileHover={{ scale: 1.1 }}
+                      />
+                      <h3 className="font-heading font-bold text-xl text-primary">
+                        {getParticipantInfo(winnerSubmission.user_id)?.username || 'Winner'}
+                      </h3>
+                      <div className="flex items-center mt-1">
+                        <Heart size={16} className="text-red mr-1 fill-red" />
+                        <span className="font-heading font-semibold">
+                          {winnerSubmission.voteCount} votes ({Math.round((winnerSubmission.voteCount / votes.length) * 100)}%)
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {RESULTS_DATA.winner.percentage >= 50 && (
-                    <div className="inline-flex items-center bg-primary/10 px-4 py-2 rounded-full border border-primary/30">
-                      <Star size={16} className="text-primary mr-2" />
-                      <span className="text-sm font-heading font-semibold text-primary">
-                        MVP - Majority Vote!
-                      </span>
+                    <div className="relative mb-4">
+                      <img 
+                        src={winnerSubmission.drawing_url || 'https://via.placeholder.com/400x300?text=Loading+Drawing'} 
+                        alt="Winning drawing"
+                        className="w-full max-w-md mx-auto h-48 object-cover rounded-lg border-2 border-accent"
+                      />
+                      <div className="absolute -top-2 -left-2 bg-accent text-dark px-3 py-1 rounded-full text-sm font-heading font-bold border-2 border-dark transform -rotate-12">
+                        Winner!
+                      </div>
                     </div>
-                  )}
-                </motion.div>
-              </div>
-            </motion.div>
+
+                    {winnerSubmission.voteCount >= participants.length / 2 && (
+                      <div className="inline-flex items-center bg-primary/10 px-4 py-2 rounded-full border border-primary/30">
+                        <Star size={16} className="text-primary mr-2" />
+                        <span className="text-sm font-heading font-semibold text-primary">
+                          MVP - Majority Vote!
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Action Buttons - Moved here between Winner and Podium */}
             <motion.div
@@ -265,6 +322,7 @@ const ResultsScreen: React.FC = () => {
                 size="lg" 
                 onClick={handlePlayAgain}
                 className="w-full"
+                disabled={isLoading}
               >
                 <Play size={20} className="mr-2" />
                 Play Again
@@ -275,6 +333,7 @@ const ResultsScreen: React.FC = () => {
                 size="lg" 
                 onClick={handleViewProfile}
                 className="w-full"
+                disabled={isLoading}
               >
                 <User size={20} className="mr-2" />
                See performance
@@ -285,6 +344,7 @@ const ResultsScreen: React.FC = () => {
                 size="lg" 
                 onClick={handleShare}
                 className="w-full"
+                disabled={isLoading}
               >
                 <Share2 size={20} className="mr-2" />
                 Share Results
@@ -292,62 +352,66 @@ const ResultsScreen: React.FC = () => {
             </motion.div>
 
             {/* Podium Display */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.5, duration: 0.6 }}
-              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-            >
-              <h3 className="font-heading font-bold text-xl text-dark mb-6 text-center flex items-center justify-center">
-                <Medal size={24} className="mr-2 text-accent" />
-                Final Standings
-              </h3>
+            {runnerUps.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.5, duration: 0.6 }}
+                className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+              >
+                <h3 className="font-heading font-bold text-xl text-dark mb-6 text-center flex items-center justify-center">
+                  <Medal size={24} className="mr-2 text-accent" />
+                  Final Standings
+                </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Winner (already shown above, so show abbreviated version) */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.7 }}
-                  className="bg-accent/20 p-4 rounded-lg border-2 border-accent text-center order-2 md:order-1"
-                >
-                  <div className="relative">
-                    <div className="text-3xl mb-2">🥇</div>
-                    <img 
-                      src={RESULTS_DATA.winner.avatar} 
-                      alt={RESULTS_DATA.winner.username}
-                      className="w-12 h-12 rounded-full border-2 border-accent mx-auto mb-2"
-                    />
-                    <p className="font-heading font-bold text-sm">{RESULTS_DATA.winner.username}</p>
-                    <p className="text-xs text-medium-gray">{RESULTS_DATA.winner.votes} votes</p>
-                  </div>
-                </motion.div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Winner (already shown above, so show abbreviated version) */}
+                  {winnerSubmission && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 1.7 }}
+                      className="bg-accent/20 p-4 rounded-lg border-2 border-accent text-center order-2 md:order-1"
+                    >
+                      <div className="relative">
+                        <div className="text-3xl mb-2">🥇</div>
+                        <img 
+                          src={getParticipantInfo(winnerSubmission.user_id)?.avatar_url || `https://ui-avatars.com/api/?name=${getParticipantInfo(winnerSubmission.user_id)?.username || 'Winner'}&background=random`} 
+                          alt={getParticipantInfo(winnerSubmission.user_id)?.username || 'Winner'}
+                          className="w-12 h-12 rounded-full border-2 border-accent mx-auto mb-2"
+                        />
+                        <p className="font-heading font-bold text-sm">{getParticipantInfo(winnerSubmission.user_id)?.username || 'Winner'}</p>
+                        <p className="text-xs text-medium-gray">{winnerSubmission.voteCount} votes</p>
+                      </div>
+                    </motion.div>
+                  )}
 
-                {/* Runner-ups */}
-                {RESULTS_DATA.runnerUps.map((player, index) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.8 + index * 0.1 }}
-                    className={`bg-off-white p-4 rounded-lg border-2 border-light-gray text-center ${
-                      index === 0 ? 'order-1 md:order-2' : 'order-3'
-                    }`}
-                  >
-                    <div className="text-2xl mb-2">
-                      {player.placement === 2 ? '🥈' : '🥉'}
-                    </div>
-                    <img 
-                      src={player.avatar} 
-                      alt={player.username}
-                      className="w-12 h-12 rounded-full border-2 border-light-gray mx-auto mb-2"
-                    />
-                    <p className="font-heading font-bold text-sm">{player.username}</p>
-                    <p className="text-xs text-medium-gray">{player.votes} votes</p>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
+                  {/* Runner-ups */}
+                  {runnerUps.map((submission, index) => (
+                    <motion.div
+                      key={submission.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 1.8 + index * 0.1 }}
+                      className={`bg-off-white p-4 rounded-lg border-2 border-light-gray text-center ${
+                        index === 0 ? 'order-1 md:order-2' : 'order-3'
+                      }`}
+                    >
+                      <div className="text-2xl mb-2">
+                        {index === 0 ? '🥈' : '🥉'}
+                      </div>
+                      <img 
+                        src={getParticipantInfo(submission.user_id)?.avatar_url || `https://ui-avatars.com/api/?name=${getParticipantInfo(submission.user_id)?.username || 'User'}&background=random`} 
+                        alt={getParticipantInfo(submission.user_id)?.username || 'User'}
+                        className="w-12 h-12 rounded-full border-2 border-light-gray mx-auto mb-2"
+                      />
+                      <p className="font-heading font-bold text-sm">{getParticipantInfo(submission.user_id)?.username || 'User'}</p>
+                      <p className="text-xs text-medium-gray">{submission.voteCount} votes</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
             {/* Personal Results */}
             <motion.div
@@ -376,10 +440,10 @@ const ResultsScreen: React.FC = () => {
                 ) : (
                   <div>
                     <h3 className="font-heading font-bold text-xl text-dark mb-2">
-                      You came {currentPlayerRank}!
+                      You came {currentPlayerRank || '...'}!
                     </h3>
                     <p className="text-medium-gray mb-4">
-                      {RESULTS_DATA.currentPlayer.placement <= 2 
+                      {currentPlayerRank && parseInt(currentPlayerRank) <= 2 
                         ? "Great job! You're getting better at this sketchy business." 
                         : "Keep practicing those artistic skills! Every sketch counts."}
                     </p>
@@ -394,7 +458,7 @@ const ResultsScreen: React.FC = () => {
                       <span className="text-sm text-medium-gray">XP Gained</span>
                     </div>
                     <p className="font-heading font-bold text-2xl text-secondary">
-                      +{RESULTS_DATA.currentPlayer.earnedXP}
+                      +{isCurrentPlayerWinner ? 100 : currentPlayerRank && parseInt(currentPlayerRank) <= 3 ? 50 : 25}
                     </p>
                   </div>
                 </div>
@@ -411,52 +475,6 @@ const ResultsScreen: React.FC = () => {
                 )}
               </div>
             </motion.div>
-
-            {/* Achievement Unlocks */}
-            <AnimatePresence>
-              {showAchievements && ACHIEVEMENT_UNLOCKS.some(a => a.isNew) && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className="bg-green/10 rounded-lg border-2 border-green p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-                >
-                  <div className="text-center">
-                    <motion.div
-                      animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ duration: 0.6, repeat: 3 }}
-                      className="text-4xl mb-3"
-                    >
-                      🏆
-                    </motion.div>
-                    
-                    <h3 className="font-heading font-bold text-xl text-dark mb-4">
-                      Achievement Unlocked!
-                    </h3>
-
-                    <div className="space-y-3">
-                      {ACHIEVEMENT_UNLOCKS.filter(a => a.isNew).map(achievement => (
-                        <motion.div
-                          key={achievement.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className="bg-white p-4 rounded-lg border border-green flex items-center"
-                        >
-                          <span className="text-2xl mr-3">{achievement.icon}</span>
-                          <div className="text-left">
-                            <p className="font-heading font-bold text-dark">{achievement.name}</p>
-                            <p className="text-sm text-medium-gray">{achievement.description}</p>
-                          </div>
-                          <div className="ml-auto bg-green text-white rounded-full p-1">
-                            <Sparkles size={16} />
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Vote Breakdown (Optional Detail) */}
             <motion.div
@@ -475,20 +493,19 @@ const ResultsScreen: React.FC = () => {
                   Here's how the votes broke down:
                 </div>
                 
-                {/* Mock voting details */}
+                {/* Vote details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div className="bg-off-white p-3 rounded-lg border border-light-gray">
-                    <span className="font-heading font-semibold">DoodleQueen</span> voted for <span className="text-primary font-semibold">SketchLord</span>
-                  </div>
-                  <div className="bg-off-white p-3 rounded-lg border border-light-gray">
-                    <span className="font-heading font-semibold">ArtisticTroll</span> voted for <span className="text-primary font-semibold">SketchLord</span>
-                  </div>
-                  <div className="bg-off-white p-3 rounded-lg border border-light-gray">
-                    <span className="font-heading font-semibold">You</span> voted for <span className="text-primary font-semibold">SketchLord</span>
-                  </div>
-                  <div className="bg-off-white p-3 rounded-lg border border-light-gray">
-                    <span className="font-heading font-semibold">SketchLord</span> voted for <span className="text-secondary font-semibold">ArtisticTroll</span>
-                  </div>
+                  {votes.map((vote, index) => {
+                    const voter = getParticipantInfo(vote.voter_id);
+                    const submission = submissions.find(s => s.id === vote.submission_id);
+                    const submitter = submission ? getParticipantInfo(submission.user_id) : null;
+                    
+                    return (
+                      <div key={vote.id} className="bg-off-white p-3 rounded-lg border border-light-gray">
+                        <span className="font-heading font-semibold">{voter?.username || 'Unknown'}</span> voted for <span className="text-primary font-semibold">{submitter?.username || 'Unknown'}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>

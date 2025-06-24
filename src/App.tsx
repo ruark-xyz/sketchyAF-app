@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
 import ExcalidrawDraw from './pages/ExcalidrawDraw';
@@ -48,81 +48,102 @@ function App() {
         <GameProvider>
           <Layout>
             <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/premium" element={<Premium />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/art" element={<ArtGallery />} />
-            <Route path="/art/:drawingId" element={<ArtDetail />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/premium" element={<Premium />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/art" element={<ArtGallery />} />
+              <Route path="/art/:drawingId" element={<ArtDetail />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/user/:username" element={<UserProfile />} />
+              <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
+              <Route path="/roadmap" element={<Roadmap />} />
+              <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/reset-password" element={<ResetPassword />} />
 
-            {/* Protected Routes - Require Authentication */}
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
-
-            {/* Public Routes */}
-            <Route path="/user/:username" element={<UserProfile />} />
-            <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
-            <Route path="/roadmap" element={<Roadmap />} />
-            <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
-
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/auth/reset-password" element={<ResetPassword />} />
-
-            {/* UI/UX Concept Screens - Including moved auth pages */}
-            <Route path="/uiux/login" element={
-              <ProtectedRoute requireAuth={false} redirectTo="/">
-                <Login />
-              </ProtectedRoute>
+              {/* Protected Routes - Require Authentication */}
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
               } />
-            <Route path="/uiux/signup" element={
-              <ProtectedRoute requireAuth={false} redirectTo="/">
-                <Signup />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/forgot-password" element={
-              <ProtectedRoute requireAuth={false} redirectTo="/">
-                <ForgotPassword />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/lobby" element={
-              <ProtectedRoute>
-                <LobbyScreen />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/pre-round" element={
-              <ProtectedRoute>
-                <PreRoundBriefingScreen />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/drawing" element={
-              <ProtectedRoute>
-                <DrawingCanvasScreen />
-              </ProtectedRoute>
-            } />
-            <Route path="/draw" element={
-              <ProtectedRoute>
-                <ExcalidrawDraw />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/voting" element={
-              <ProtectedRoute>
-                <VotingScreen />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/results" element={
-              <ProtectedRoute>
-                <ResultsScreen />
-              </ProtectedRoute>
-            } />
-            <Route path="/uiux/post-game" element={
-              <ProtectedRoute>
-                <PostGameScreen />
-              </ProtectedRoute>
-            } />
+              
+              <Route path="/draw" element={
+                <ProtectedRoute>
+                  <ExcalidrawDraw />
+                </ProtectedRoute>
+              } />
+
+              {/* Game Flow Routes */}
+              <Route path="/uiux/login" element={
+                <ProtectedRoute requireAuth={false} redirectTo="/">
+                  <Login />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/signup" element={
+                <ProtectedRoute requireAuth={false} redirectTo="/">
+                  <Signup />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/forgot-password" element={
+                <ProtectedRoute requireAuth={false} redirectTo="/">
+                  <ForgotPassword />
+                </ProtectedRoute>
+              } />
+              
+              {/* Game Flow - Protected and Requires Game Context */}
+              <Route path="/uiux/lobby" element={
+                <ProtectedRoute>
+                  <LobbyScreen />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/pre-round" element={
+                <ProtectedRoute>
+                  <GamePhaseRoute requiredPhase="briefing" fallbackPath="/uiux/lobby">
+                    <PreRoundBriefingScreen />
+                  </GamePhaseRoute>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/drawing" element={
+                <ProtectedRoute>
+                  <GamePhaseRoute requiredPhase="drawing" fallbackPath="/uiux/lobby">
+                    <DrawingCanvasScreen />
+                  </GamePhaseRoute>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/voting" element={
+                <ProtectedRoute>
+                  <GamePhaseRoute requiredPhase="voting" fallbackPath="/uiux/lobby">
+                    <VotingScreen />
+                  </GamePhaseRoute>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/results" element={
+                <ProtectedRoute>
+                  <GamePhaseRoute requiredPhase="results" fallbackPath="/uiux/lobby">
+                    <ResultsScreen />
+                  </GamePhaseRoute>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/uiux/post-game" element={
+                <ProtectedRoute>
+                  <GamePhaseRoute requiredPhase="completed" fallbackPath="/uiux/lobby">
+                    <PostGameScreen />
+                  </GamePhaseRoute>
+                </ProtectedRoute>
+              } />
+              
+              {/* Catch-all redirect to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
         </GameProvider>
@@ -130,5 +151,28 @@ function App() {
     </Router>
   );
 }
+
+// Helper component to restrict access based on game phase
+interface GamePhaseRouteProps {
+  children: React.ReactNode;
+  requiredPhase: string;
+  fallbackPath: string;
+}
+
+const GamePhaseRoute: React.FC<GamePhaseRouteProps> = ({ children, requiredPhase, fallbackPath }) => {
+  const { gamePhase, currentGame } = useGame();
+  
+  // Allow access if:
+  // 1. The game phase matches the required phase, OR
+  // 2. The current game status matches the required phase
+  const hasAccess = gamePhase.toString().toLowerCase() === requiredPhase.toLowerCase() || 
+                    (currentGame && currentGame.status.toLowerCase() === requiredPhase.toLowerCase());
+  
+  if (!hasAccess) {
+    return <Navigate to={fallbackPath} replace />;
+  }
+  
+  return <>{children}</>;
+};
 
 export default App;

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Users, Trophy, Lightbulb, X, Wifi, Share2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Clock, Users, Trophy, Lightbulb, X, Wifi, Share2, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { useMatchmaking, QueueStatus } from '../../hooks/useMatchmaking';
+import { useAuth } from '../../context/AuthContext';
 
-// Mock data for demo purposes
+// Mock data for demo purposes - will be replaced with real data in production
 const TIPS_AND_TRIVIA = [
   "💡 Tip: The worse your drawing, the funnier it gets!",
   "🎨 Did you know? 73% of SketchyAF winners can't draw stick figures properly.",
@@ -43,26 +45,25 @@ const RECENT_SKETCHES = [
 ];
 
 const LobbyScreen: React.FC = () => {
-  const [queuePosition, setQueuePosition] = useState(3);
-  const [playersInQueue, setPlayersInQueue] = useState(47);
-  const [estimatedWaitTime, setEstimatedWaitTime] = useState(32);
   const [currentTip, setCurrentTip] = useState(0);
   const [currentSketch, setCurrentSketch] = useState(0);
-  const [showMatchFound, setShowMatchFound] = useState(false);
-
-  // Simulate queue updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Randomly update queue stats
-      if (Math.random() > 0.7) {
-        setQueuePosition(prev => Math.max(1, prev + (Math.random() > 0.6 ? -1 : 1)));
-        setPlayersInQueue(prev => prev + Math.floor(Math.random() * 6) - 2);
-        setEstimatedWaitTime(prev => Math.max(5, prev + Math.floor(Math.random() * 10) - 4));
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const [playersInQueue, setPlayersInQueue] = useState(47); // Fallback mock data
+  const navigate = useNavigate();
+  const { currentUser, isLoggedIn } = useAuth();
+  
+  // Use the matchmaking hook
+  const {
+    isInQueue,
+    queuePosition,
+    estimatedWaitTime,
+    matchFound,
+    isLoading,
+    error,
+    joinQueue,
+    leaveQueue,
+    acceptMatch,
+    declineMatch
+  } = useMatchmaking();
 
   // Rotate tips every 4 seconds
   useEffect(() => {
@@ -82,35 +83,33 @@ const LobbyScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Simulate match found after some time (for demo)
+  // Join queue on component mount if not already in queue
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (queuePosition <= 1) {
-        setShowMatchFound(true);
-      }
-    }, 8000);
+    if (isLoggedIn && !isInQueue && !isLoading) {
+      joinQueue();
+    }
+  }, [isLoggedIn, isInQueue, isLoading, joinQueue]);
 
-    return () => clearTimeout(timer);
-  }, [queuePosition]);
+  // Simulate other players in queue (for visual interest)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlayersInQueue(prev => {
+        // Random fluctuation between -3 and +3
+        const change = Math.floor(Math.random() * 7) - 3;
+        return Math.max(10, prev + change);
+      });
+    }, 3000);
 
-  const handleAcceptMatch = () => {
-    // In real app, this would navigate to pre-round briefing
-    console.log('Match accepted!');
-    setShowMatchFound(false);
-  };
-
-  const handleDeclineMatch = () => {
-    setShowMatchFound(false);
-    setQueuePosition(prev => prev + Math.floor(Math.random() * 3) + 1);
-  };
+    return () => clearInterval(interval);
+  }, []);
 
   const handleExitQueue = () => {
-    // In real app, this would navigate back to main menu
-    window.history.back();
+    leaveQueue();
+    navigate('/');
   };
 
   const handleInviteFriend = () => {
-    // In real app, this would open share dialog
+    // In a real app, this would open share dialog
     if (navigator.share) {
       navigator.share({
         title: 'Join me in SketchyAF!',
@@ -137,8 +136,10 @@ const LobbyScreen: React.FC = () => {
         {/* Header */}
         <div className="p-4 flex justify-between items-center">
           <div className="flex items-center">
-            <Wifi className="w-5 h-5 text-green mr-2" />
-            <span className="text-sm font-heading font-bold text-dark">Connected</span>
+            <Wifi className={`w-5 h-5 ${isInQueue ? 'text-green' : 'text-red'} mr-2`} />
+            <span className="text-sm font-heading font-bold text-dark">
+              {isInQueue ? 'Connected' : 'Connecting...'}
+            </span>
           </div>
           
           <Button 
@@ -151,6 +152,20 @@ const LobbyScreen: React.FC = () => {
             Exit Queue
           </Button>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-4 mb-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
+            >
+              <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+              <p className="text-dark text-sm">{error}</p>
+            </motion.div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center px-4 pb-8">
@@ -217,7 +232,7 @@ const LobbyScreen: React.FC = () => {
                     animate={{ scale: 1, color: "#2d2d2d" }}
                     className="font-heading font-bold text-xl"
                   >
-                    #{queuePosition}
+                    #{queuePosition || '...'}
                   </motion.p>
                 </motion.div>
 
@@ -252,7 +267,7 @@ const LobbyScreen: React.FC = () => {
                   animate={{ scale: 1 }}
                   className="font-heading font-bold text-lg"
                 >
-                  ~{estimatedWaitTime} seconds
+                  ~{estimatedWaitTime || '...'} seconds
                 </motion.p>
               </div>
             </motion.div>
@@ -356,7 +371,7 @@ const LobbyScreen: React.FC = () => {
 
         {/* Match Found Modal */}
         <AnimatePresence>
-          {showMatchFound && (
+          {matchFound && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -397,16 +412,18 @@ const LobbyScreen: React.FC = () => {
                     <Button 
                       variant="primary" 
                       size="sm" 
-                      onClick={handleAcceptMatch}
+                      onClick={acceptMatch}
                       className="flex-1"
+                      disabled={isLoading}
                     >
-                      Accept
+                      {isLoading ? 'Joining...' : 'Accept'}
                     </Button>
                     <Button 
                       variant="secondary" 
                       size="sm" 
-                      onClick={handleDeclineMatch}
+                      onClick={declineMatch}
                       className="flex-1"
+                      disabled={isLoading}
                     >
                       Decline
                     </Button>

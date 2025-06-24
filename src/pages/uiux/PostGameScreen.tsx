@@ -20,41 +20,23 @@ import {
   Users,
   Calendar,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { useGame } from '../../context/GameContext';
+import { useAuth } from '../../context/AuthContext';
+import { GamePhase } from '../../types/gameContext';
 
-// Mock data for demo purposes
-const PLAYER_STATS = {
-  username: 'You',
-  avatar: 'https://randomuser.me/api/portraits/women/63.jpg',
-  currentRank: 847,
-  previousRank: 923,
-  totalGames: 127,
-  totalWins: 23,
-  winRate: 18.1,
-  favoriteCategory: 'Animals',
-  level: 12,
-  xpToNextLevel: 150,
-  currentXP: 1850,
-  nextLevelXP: 2000
-};
-
-const RECENT_DRAWING = {
-  prompt: "A raccoon having an existential crisis",
-  drawingUrl: 'https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=600',
-  votes: 2,
-  placement: 3,
-  gameDate: new Date().toISOString()
-};
-
+// Achievement data (would come from backend in production)
 const ACHIEVEMENT_PROGRESS = [
   {
     id: 'games-played',
     name: 'Sketch Addict',
     description: 'Play 150 games',
-    progress: 127,
+    progress: 1,
     maxProgress: 150,
     icon: '🎮',
     category: 'Participation'
@@ -72,13 +54,14 @@ const ACHIEVEMENT_PROGRESS = [
     id: 'vote-getter',
     name: 'Vote Magnet',
     description: 'Get 100 total votes',
-    progress: 73,
+    progress: 1,
     maxProgress: 100,
     icon: '❤️',
     category: 'Social'
   }
 ];
 
+// Featured booster packs (would come from backend in production)
 const FEATURED_BOOSTER_PACKS = [
   {
     id: 'weekly-special',
@@ -108,63 +91,136 @@ const FEATURED_BOOSTER_PACKS = [
   }
 ];
 
-const FRIENDS_ONLINE = [
-  { username: 'SketchBuddy', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', status: 'In Game' },
-  { username: 'DoodlePal', avatar: 'https://randomuser.me/api/portraits/women/44.jpg', status: 'In Lobby' },
-  { username: 'ArtFriend', avatar: 'https://randomuser.me/api/portraits/men/15.jpg', status: 'Online' }
-];
-
 const PostGameScreen: React.FC = () => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { 
+    currentGame, 
+    gamePhase, 
+    submissions, 
+    participants, 
+    votes,
+    actions,
+    error,
+    isLoading
+  } = useGame();
+  
   const [showFullStats, setShowFullStats] = useState(false);
   const [selectedBoosterPack, setSelectedBoosterPack] = useState<string | null>(null);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [userSubmission, setUserSubmission] = useState<any>(null);
+  const [userStats, setUserStats] = useState({
+    totalGames: 1,
+    totalWins: 0,
+    winRate: 0,
+    currentRank: 0,
+    previousRank: 0,
+    level: 1,
+    currentXP: 0,
+    nextLevelXP: 100,
+    xpToNextLevel: 100
+  });
 
-  const rankImprovement = PLAYER_STATS.previousRank - PLAYER_STATS.currentRank;
-  const levelProgress = ((PLAYER_STATS.currentXP - (PLAYER_STATS.nextLevelXP - PLAYER_STATS.xpToNextLevel)) / PLAYER_STATS.xpToNextLevel) * 100;
+  // Calculate user stats when data is available
+  useEffect(() => {
+    if (submissions.length > 0 && currentUser) {
+      // Find user's submission
+      const submission = submissions.find(s => s.user_id === currentUser.id);
+      if (submission) {
+        setUserSubmission(submission);
+        
+        // Calculate vote count
+        const voteCount = votes.filter(v => v.submission_id === submission.id).length;
+        
+        // Calculate placement
+        const sortedSubmissions = [...submissions].sort((a, b) => {
+          const aVotes = votes.filter(v => v.submission_id === a.id).length;
+          const bVotes = votes.filter(v => v.submission_id === b.id).length;
+          return bVotes - aVotes;
+        });
+        
+        const placement = sortedSubmissions.findIndex(s => s.id === submission.id) + 1;
+        
+        // Update user stats
+        setUserStats(prev => ({
+          ...prev,
+          totalWins: placement === 1 ? prev.totalWins + 1 : prev.totalWins,
+          winRate: Math.round((placement === 1 ? prev.totalWins + 1 : prev.totalWins) / (prev.totalGames) * 100),
+          currentRank: 847 - (placement === 1 ? 50 : placement === 2 ? 30 : placement === 3 ? 15 : 5),
+          previousRank: 847,
+          currentXP: prev.currentXP + (placement === 1 ? 100 : placement === 2 ? 75 : placement === 3 ? 50 : 25),
+        }));
+      }
+    }
+  }, [submissions, votes, currentUser]);
+
+  // Redirect if not in completed phase
+  useEffect(() => {
+    if (currentGame && currentGame.status !== 'completed' && gamePhase !== GamePhase.COMPLETED) {
+      // If in results phase, go back to results
+      if (currentGame.status === 'results' || gamePhase === GamePhase.RESULTS) {
+        navigate('/uiux/results');
+      }
+    }
+  }, [currentGame, gamePhase, navigate]);
 
   const handleQueueAgain = () => {
-    console.log('Queue for another game');
-    // In real app, this would navigate back to lobby
+    // Reset game state
+    actions.resetGameState();
+    
+    // Navigate to lobby
+    navigate('/uiux/lobby');
   };
 
   const handleViewProfile = () => {
-    console.log('View public profile');
-    // In real app, this would navigate to profile
+    navigate('/profile');
   };
 
   const handleDownloadDrawing = () => {
-    console.log('Download drawing');
-    // In real app, this would download the drawing
-    alert('Drawing downloaded! (Demo)');
+    if (userSubmission?.drawing_url) {
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = userSubmission.drawing_url;
+      link.download = `sketchyaf-${currentGame?.id || 'drawing'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      console.log('No drawing to download');
+    }
   };
 
   const handleShareDrawing = () => {
-    console.log('Share drawing');
-    setShareSuccess(true);
-    setTimeout(() => setShareSuccess(false), 3000);
-    
-    if (navigator.share) {
+    if (navigator.share && userSubmission) {
       navigator.share({
         title: 'Check out my SketchyAF drawing!',
-        text: `I drew "${RECENT_DRAWING.prompt}" - see how sketchy it turned out!`,
-        url: window.location.origin,
+        text: `I drew "${currentGame?.prompt}" - see how sketchy it turned out!`,
+        url: userSubmission.drawing_url || window.location.origin
       });
     } else {
       // Fallback
       navigator.clipboard.writeText(window.location.origin);
     }
+    
+    setShareSuccess(true);
+    setTimeout(() => setShareSuccess(false), 3000);
   };
 
   const handleBoosterPackClick = (packId: string) => {
     setSelectedBoosterPack(packId);
-    console.log('Booster pack clicked:', packId);
-    // In real app, this would navigate to purchase flow
+    // In a real app, this would navigate to purchase flow
   };
 
-  const handleInviteFriend = (friend: typeof FRIENDS_ONLINE[0]) => {
+  const handleInviteFriend = (friend: any) => {
+    // In a real app, this would send invitation
     console.log('Invite friend:', friend.username);
-    // In real app, this would send invitation
   };
+
+  // Calculate level progress
+  const levelProgress = ((userStats.currentXP - (userStats.nextLevelXP - userStats.xpToNextLevel)) / userStats.xpToNextLevel) * 100;
+  
+  // Calculate rank improvement
+  const rankImprovement = userStats.previousRank - userStats.currentRank;
 
   return (
     <>
@@ -186,6 +242,20 @@ const PostGameScreen: React.FC = () => {
             </motion.h1>
           </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-4 mt-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
+            >
+              <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+              <p className="text-dark text-sm">{error}</p>
+            </motion.div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="p-4 pb-8">
@@ -213,7 +283,7 @@ const PostGameScreen: React.FC = () => {
                         animate={{ scale: 1 }}
                         className="font-heading font-bold text-3xl text-primary"
                       >
-                        #{PLAYER_STATS.currentRank}
+                        #{userStats.currentRank}
                       </motion.p>
                       <p className="text-medium-gray">Global Rank</p>
                       
@@ -235,15 +305,15 @@ const PostGameScreen: React.FC = () => {
 
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div className="text-center">
-                      <p className="font-heading font-bold text-lg">{PLAYER_STATS.totalGames}</p>
+                      <p className="font-heading font-bold text-lg">{userStats.totalGames}</p>
                       <p className="text-medium-gray">Games</p>
                     </div>
                     <div className="text-center">
-                      <p className="font-heading font-bold text-lg">{PLAYER_STATS.totalWins}</p>
+                      <p className="font-heading font-bold text-lg">{userStats.totalWins}</p>
                       <p className="text-medium-gray">Wins</p>
                     </div>
                     <div className="text-center">
-                      <p className="font-heading font-bold text-lg">{PLAYER_STATS.winRate}%</p>
+                      <p className="font-heading font-bold text-lg">{userStats.winRate}%</p>
                       <p className="text-medium-gray">Win Rate</p>
                     </div>
                   </div>
@@ -259,10 +329,10 @@ const PostGameScreen: React.FC = () => {
                   <div className="bg-accent/10 p-4 rounded-lg border border-accent/30 mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-heading font-bold text-2xl text-accent">
-                        Level {PLAYER_STATS.level}
+                        Level {userStats.level}
                       </span>
                       <span className="text-sm text-medium-gray">
-                        {PLAYER_STATS.xpToNextLevel} XP to go
+                        {userStats.xpToNextLevel} XP to go
                       </span>
                     </div>
                     
@@ -276,8 +346,8 @@ const PostGameScreen: React.FC = () => {
                     </div>
                     
                     <div className="flex justify-between text-xs text-medium-gray mt-1">
-                      <span>{PLAYER_STATS.currentXP} XP</span>
-                      <span>{PLAYER_STATS.nextLevelXP} XP</span>
+                      <span>{userStats.currentXP} XP</span>
+                      <span>{userStats.nextLevelXP} XP</span>
                     </div>
                   </div>
 
@@ -293,84 +363,90 @@ const PostGameScreen: React.FC = () => {
             </motion.div>
 
             {/* Recent Drawing Showcase */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-            >
-              <div className="flex items-center mb-4">
-                <Eye size={24} className="text-secondary mr-2" />
-                <h2 className="font-heading font-bold text-xl text-dark">Your Latest Masterpiece</h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="relative mb-4">
-                    <img 
-                      src={RECENT_DRAWING.drawingUrl} 
-                      alt="Your recent drawing"
-                      className="w-full h-48 object-cover rounded-lg border-2 border-secondary"
-                    />
-                    <div className="absolute bottom-2 right-2 bg-white rounded-full px-3 py-1 border border-dark text-sm flex items-center">
-                      <Heart size={14} className="text-red mr-1 fill-red" />
-                      <span className="font-heading font-semibold">{RECENT_DRAWING.votes}</span>
-                    </div>
-                  </div>
-                  
-                  <p className="font-heading font-bold text-lg text-dark mb-2">
-                    "{RECENT_DRAWING.prompt}"
-                  </p>
-                  <p className="text-medium-gray text-sm">
-                    Finished {new Date(RECENT_DRAWING.gameDate).toLocaleDateString()} • {RECENT_DRAWING.placement === 1 ? '🥇' : RECENT_DRAWING.placement === 2 ? '🥈' : RECENT_DRAWING.placement === 3 ? '🥉' : `#${RECENT_DRAWING.placement}`} Place
-                  </p>
+            {userSubmission && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+              >
+                <div className="flex items-center mb-4">
+                  <Eye size={24} className="text-secondary mr-2" />
+                  <h2 className="font-heading font-bold text-xl text-dark">Your Latest Masterpiece</h2>
                 </div>
 
-                <div className="space-y-3">
-                  <h3 className="font-heading font-semibold text-lg text-dark">Share Your Art</h3>
-                  
-                  <div className="grid grid-cols-1 gap-3">
-                    <Button 
-                      variant="primary" 
-                      size="md" 
-                      onClick={handleDownloadDrawing}
-                      className="w-full"
-                    >
-                      <Download size={18} className="mr-2" />
-                      Download Drawing
-                    </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="relative mb-4">
+                      <img 
+                        src={userSubmission.drawing_url || 'https://via.placeholder.com/400x300?text=Loading+Drawing'} 
+                        alt="Your recent drawing"
+                        className="w-full h-48 object-cover rounded-lg border-2 border-secondary"
+                      />
+                      <div className="absolute bottom-2 right-2 bg-white rounded-full px-3 py-1 border border-dark text-sm flex items-center">
+                        <Heart size={14} className="text-red mr-1 fill-red" />
+                        <span className="font-heading font-semibold">
+                          {votes.filter(v => v.submission_id === userSubmission.id).length}
+                        </span>
+                      </div>
+                    </div>
                     
-                    <Button 
-                      variant="secondary" 
-                      size="md" 
-                      onClick={handleShareDrawing}
-                      className="w-full"
-                    >
-                      <Share2 size={18} className="mr-2" />
-                      Share to Social
-                    </Button>
-                  </div>
-
-                  {shareSuccess && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-green/10 p-3 rounded-lg border border-green text-center"
-                    >
-                      <p className="text-sm text-green font-heading font-semibold">
-                        ✅ Shared successfully!
-                      </p>
-                    </motion.div>
-                  )}
-
-                  <div className="bg-turquoise/10 p-3 rounded-lg border border-turquoise/30">
-                    <p className="text-xs text-center text-dark">
-                      💡 Share your drawings to earn bonus XP on your next game and climb the leaderboard faster!
+                    <p className="font-heading font-bold text-lg text-dark mb-2">
+                      "{currentGame?.prompt || 'Loading prompt...'}"
+                    </p>
+                    <p className="text-medium-gray text-sm">
+                      Finished {new Date(userSubmission.submitted_at).toLocaleDateString()}
                     </p>
                   </div>
+
+                  <div className="space-y-3">
+                    <h3 className="font-heading font-semibold text-lg text-dark">Share Your Art</h3>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      <Button 
+                        variant="primary" 
+                        size="md" 
+                        onClick={handleDownloadDrawing}
+                        className="w-full"
+                        disabled={!userSubmission.drawing_url}
+                      >
+                        <Download size={18} className="mr-2" />
+                        Download Drawing
+                      </Button>
+                      
+                      <Button 
+                        variant="secondary" 
+                        size="md" 
+                        onClick={handleShareDrawing}
+                        className="w-full"
+                        disabled={!userSubmission.drawing_url}
+                      >
+                        <Share2 size={18} className="mr-2" />
+                        Share to Social
+                      </Button>
+                    </div>
+
+                    {shareSuccess && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-green/10 p-3 rounded-lg border border-green text-center"
+                      >
+                        <p className="text-sm text-green font-heading font-semibold">
+                          ✅ Shared successfully!
+                        </p>
+                      </motion.div>
+                    )}
+
+                    <div className="bg-turquoise/10 p-3 rounded-lg border border-turquoise/30">
+                      <p className="text-xs text-center text-dark">
+                        💡 Share your drawings to earn bonus XP on your next game and climb the leaderboard faster!
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
 
             {/* Quick Actions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -386,6 +462,7 @@ const PostGameScreen: React.FC = () => {
                   size="lg" 
                   onClick={handleQueueAgain}
                   className="w-full h-full min-h-[120px] flex flex-col items-center justify-center text-center"
+                  disabled={isLoading}
                 >
                   <Play size={32} className="mb-2" />
                   <span className="text-lg font-heading font-bold">Play Again</span>
@@ -404,6 +481,7 @@ const PostGameScreen: React.FC = () => {
                   size="lg" 
                   onClick={handleViewProfile}
                   className="w-full h-full min-h-[120px] flex flex-col items-center justify-center text-center"
+                  disabled={isLoading}
                 >
                   <User size={32} className="mb-2" />
                   <span className="text-lg font-heading font-bold">My Profile</span>
@@ -421,6 +499,7 @@ const PostGameScreen: React.FC = () => {
                   variant="tertiary" 
                   size="lg" 
                   className="w-full h-full min-h-[120px] flex flex-col items-center justify-center text-center bg-white border-2 border-dark hover:bg-purple/5"
+                  disabled={isLoading}
                 >
                   <Trophy size={32} className="mb-2 text-purple" />
                   <span className="text-lg font-heading font-bold text-dark">Achievements</span>
@@ -438,6 +517,7 @@ const PostGameScreen: React.FC = () => {
                   variant="tertiary" 
                   size="lg" 
                   className="w-full h-full min-h-[120px] flex flex-col items-center justify-center text-center bg-white border-2 border-dark hover:bg-green/5"
+                  disabled={isLoading}
                 >
                   <Users size={32} className="mb-2 text-green" />
                   <span className="text-lg font-heading font-bold text-dark">Invite Friends</span>
@@ -577,64 +657,6 @@ const PostGameScreen: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Friends Online */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 1 }}
-              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-            >
-              <div className="flex items-center mb-4">
-                <Users size={24} className="text-green mr-2" />
-                <h2 className="font-heading font-bold text-xl text-dark">Friends Online</h2>
-                <div className="ml-2 bg-green text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
-                  {FRIENDS_ONLINE.length}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {FRIENDS_ONLINE.map((friend, index) => (
-                  <motion.div
-                    key={friend.username}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 1.1 + index * 0.1 }}
-                    className="flex items-center justify-between p-3 bg-off-white rounded-lg border border-light-gray"
-                  >
-                    <div className="flex items-center">
-                      <div className="relative">
-                        <img 
-                          src={friend.avatar} 
-                          alt={friend.username}
-                          className="w-10 h-10 rounded-full border-2 border-green"
-                        />
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green rounded-full border border-white" />
-                      </div>
-                      <div className="ml-3">
-                        <p className="font-heading font-semibold text-dark">{friend.username}</p>
-                        <p className="text-xs text-green">{friend.status}</p>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      variant="tertiary" 
-                      size="sm"
-                      onClick={() => handleInviteFriend(friend)}
-                    >
-                      Invite
-                    </Button>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="mt-4 text-center">
-                <Button variant="tertiary" size="sm">
-                  Find More Friends
-                  <Users size={16} className="ml-2" />
-                </Button>
-              </div>
-            </motion.div>
-
             {/* Final CTA */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -668,6 +690,7 @@ const PostGameScreen: React.FC = () => {
                 size="lg" 
                 onClick={handleQueueAgain}
                 className="animate-pulse"
+                disabled={isLoading}
               >
                 <Zap size={20} className="mr-2" />
                 Queue for Another Game!
@@ -699,7 +722,7 @@ const PostGameScreen: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="bg-off-white p-3 rounded-lg">
                     <p className="text-medium-gray">Favorite Category</p>
-                    <p className="font-heading font-bold">{PLAYER_STATS.favoriteCategory}</p>
+                    <p className="font-heading font-bold">Animals</p>
                   </div>
                   <div className="bg-off-white p-3 rounded-lg">
                     <p className="text-medium-gray">Best Rank</p>
@@ -707,7 +730,7 @@ const PostGameScreen: React.FC = () => {
                   </div>
                   <div className="bg-off-white p-3 rounded-lg">
                     <p className="text-medium-gray">Total Votes</p>
-                    <p className="font-heading font-bold">847</p>
+                    <p className="font-heading font-bold">1</p>
                   </div>
                   <div className="bg-off-white p-3 rounded-lg">
                     <p className="text-medium-gray">Avg. Placement</p>

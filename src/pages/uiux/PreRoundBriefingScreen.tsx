@@ -1,21 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Users, Palette, CheckCircle, ArrowRight, Zap, Star } from 'lucide-react';
+import { Clock, Users, Palette, CheckCircle, ArrowRight, Zap, Star, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { useGame } from '../../context/GameContext';
+import { useGameTimer } from '../../hooks/useGameTimer';
+import { loadAllCollections } from '../../utils/assetLoader';
+import { GamePhase } from '../../types/gameContext';
+import { BoosterPack } from '../../types';
 
-// TypeScript interfaces for better type safety
-interface Player {
-  id: number;
-  username: string;
-  avatar: string;
-  isReady: boolean;
-  isCurrentUser?: boolean;
-  level: number;
-  isPremium: boolean;
-}
-
-interface BoosterPack {
+interface BoosterPackOption {
   id: string;
   name: string;
   icon: string;
@@ -23,119 +18,148 @@ interface BoosterPack {
   isPremium?: boolean;
 }
 
-// Mock data for demo purposes
-const MOCK_PLAYERS: Player[] = [
-  { 
-    id: 1, 
-    username: 'SketchLord', 
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg', 
-    isReady: false,
-    level: 47,
-    isPremium: true
-  },
-  { 
-    id: 2, 
-    username: 'DoodleQueen', 
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg', 
-    isReady: true,
-    level: 23,
-    isPremium: false
-  },
-  { 
-    id: 3, 
-    username: 'ArtisticTroll', 
-    avatar: 'https://randomuser.me/api/portraits/men/15.jpg', 
-    isReady: true,
-    level: 31,
-    isPremium: true
-  },
-  { 
-    id: 4, 
-    username: 'You', 
-    avatar: 'https://randomuser.me/api/portraits/women/63.jpg', 
-    isReady: false, 
-    isCurrentUser: true,
-    level: 12,
-    isPremium: false
-  },
-];
-
-const MOCK_BOOSTER_PACKS: BoosterPack[] = [
-  { id: 'meme-lords', name: 'Meme Lords', icon: '😂', available: true },
-  { id: 'internet-classics', name: 'Internet Classics', icon: '🌐', available: true },
-  { id: 'premium-chaos', name: 'Premium Chaos', icon: '⭐', available: false, isPremium: true },
-  { id: 'emoji-explosion', name: 'Emoji Explosion', icon: '🎭', available: true },
-];
-
-const GAME_PROMPTS = [
-  'A raccoon having an existential crisis',
-  'Your boss as a potato',
-  'A cat wearing a business suit',
-  'Aliens visiting a fast-food restaurant',
-  'A dinosaur riding a skateboard',
-];
-
 const PreRoundBriefingScreen: React.FC = () => {
-  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
-  const [selectedBoosterPack, setSelectedBoosterPack] = useState<string | null>(null);
-  const [currentPrompt] = useState(GAME_PROMPTS[Math.floor(Math.random() * GAME_PROMPTS.length)]);
-  const [countdown, setCountdown] = useState(15);
-  const [isReady, setIsReady] = useState(false);
+  const navigate = useNavigate();
+  const { 
+    currentGame, 
+    gamePhase, 
+    participants, 
+    isReady, 
+    actions, 
+    selectedBoosterPack,
+    isLoading,
+    error
+  } = useGame();
+  
+  const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackOption[]>([]);
   const [gameStarting, setGameStarting] = useState(false);
+  
+  // Set up timer
+  const { 
+    timeRemaining, 
+    formattedTime, 
+    isActive, 
+    start, 
+    isExpired 
+  } = useGameTimer({
+    gameId: currentGame?.id
+  });
 
-  // Countdown timer
+  // Load available booster packs
   useEffect(() => {
-    if (countdown <= 0) {
-      setGameStarting(true);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setCountdown(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [countdown]);
-
-  // Simulate other players getting ready
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPlayers(prev => 
-        prev.map(player => {
-          if (!player.isCurrentUser && !player.isReady && Math.random() > 0.7) {
-            return { ...player, isReady: true };
-          }
-          return player;
-        })
-      );
-    }, 2000);
-
-    return () => clearInterval(interval);
+    const loadBoosterPacks = async () => {
+      try {
+        const collections = await loadAllCollections();
+        
+        // Convert collections to booster pack options
+        const packOptions: BoosterPackOption[] = collections.map(collection => ({
+          id: collection.id,
+          name: collection.displayName,
+          icon: getIconForCollection(collection.name),
+          available: true,
+          isPremium: collection.name.includes('premium')
+        }));
+        
+        setAvailableBoosterPacks(packOptions);
+      } catch (err) {
+        console.error('Failed to load booster packs:', err);
+      }
+    };
+    
+    loadBoosterPacks();
   }, []);
 
-  const handleReadyUp = () => {
-    setIsReady(!isReady);
-    setPlayers(prev => 
-      prev.map(player => 
-        player.isCurrentUser ? { ...player, isReady: !isReady } : player
-      )
-    );
+  // Start timer when component mounts
+  useEffect(() => {
+    if (currentGame && currentGame.status === 'briefing') {
+      // Default briefing time is 15 seconds
+      const briefingTime = 15;
+      start(briefingTime, 'briefing');
+    }
+  }, [currentGame, start]);
+
+  // Auto-transition when timer expires
+  useEffect(() => {
+    if (isExpired && !gameStarting) {
+      handleStartGame();
+    }
+  }, [isExpired, gameStarting]);
+
+  // Redirect if not in briefing phase
+  useEffect(() => {
+    if (currentGame && currentGame.status !== 'briefing' && gamePhase !== GamePhase.BRIEFING) {
+      // If in drawing phase, go to drawing screen
+      if (currentGame.status === 'drawing' || gamePhase === GamePhase.DRAWING) {
+        navigate('/uiux/drawing');
+      } 
+      // If in waiting phase, go back to lobby
+      else if (currentGame.status === 'waiting' || gamePhase === GamePhase.WAITING) {
+        navigate('/uiux/lobby');
+      }
+      // For other phases, navigate accordingly
+      else if (currentGame.status === 'voting' || gamePhase === GamePhase.VOTING) {
+        navigate('/uiux/voting');
+      }
+    }
+  }, [currentGame, gamePhase, navigate]);
+
+  const handleReadyUp = async () => {
+    try {
+      await actions.setPlayerReady(!isReady);
+    } catch (err) {
+      console.error('Failed to set ready status:', err);
+    }
   };
 
-  const handleBoosterPackSelect = (packId: string) => {
-    setSelectedBoosterPack(packId === selectedBoosterPack ? null : packId);
+  const handleBoosterPackSelect = async (packId: string) => {
+    try {
+      // If already selected, deselect it
+      if (selectedBoosterPack === packId) {
+        await actions.selectBoosterPack(null);
+      } else {
+        await actions.selectBoosterPack(packId);
+      }
+    } catch (err) {
+      console.error('Failed to select booster pack:', err);
+    }
   };
 
-  const handleStartGame = () => {
-    // In real app, this would navigate to drawing canvas
-    console.log('Starting game with:', { 
-      prompt: currentPrompt, 
-      boosterPack: selectedBoosterPack 
-    });
+  const handleStartGame = async () => {
+    if (isLoading) return;
+    
+    setGameStarting(true);
+    
+    try {
+      // Transition to drawing phase
+      if (currentGame) {
+        await actions.transitionGameStatus(currentGame.id, 'drawing', 'briefing');
+      }
+      
+      // Navigate to drawing screen
+      setTimeout(() => {
+        navigate('/uiux/drawing');
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to start game:', err);
+      setGameStarting(false);
+    }
   };
 
-  const readyPlayersCount = players.filter(p => p.isReady).length;
-  const allPlayersReady = readyPlayersCount === players.length;
+  // Get icon for collection
+  const getIconForCollection = (name: string): string => {
+    switch (name.toLowerCase()) {
+      case 'shapes': return '🔷';
+      case 'troll': return '😈';
+      case 'memes': return '🤣';
+      case 'premium': return '⭐';
+      case 'emoji': return '😎';
+      default: return '🎨';
+    }
+  };
+
+  // Check if all players are ready
+  const readyPlayersCount = participants.filter(p => p.is_ready).length;
+  const allPlayersReady = readyPlayersCount === participants.length && participants.length > 0;
 
   return (
     <>
@@ -148,17 +172,31 @@ const PreRoundBriefingScreen: React.FC = () => {
         {/* Header with countdown */}
         <div className="p-4 text-center">
           <motion.div
-            key={countdown}
-            initial={{ scale: 1.2, color: countdown <= 5 ? '#ff5a5a' : '#2d2d2d' }}
-            animate={{ scale: 1, color: countdown <= 5 ? '#ff5a5a' : '#2d2d2d' }}
-            className="inline-flex items-center bg-white rounded-full px-4 py-2 border-2 border-dark hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)]"
+            key={timeRemaining}
+            initial={{ scale: timeRemaining <= 5 ? 1.1 : 1 }}
+            animate={{ scale: 1 }}
+            className={`inline-flex items-center bg-white rounded-full px-4 py-2 border-2 border-dark hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)]`}
           >
             <Clock size={20} className="mr-2" />
             <span className="font-heading font-bold text-xl">
-              {countdown <= 5 ? '🔥 ' : ''}{countdown}s
+              {timeRemaining <= 5 ? '🔥 ' : ''}{formattedTime}
             </span>
           </motion.div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-4 mb-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
+            >
+              <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+              <p className="text-dark text-sm">{error}</p>
+            </motion.div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center px-4 pb-8">
@@ -216,11 +254,11 @@ const PreRoundBriefingScreen: React.FC = () => {
                 className="bg-primary/10 p-4 rounded-lg border border-primary/30 mb-4"
               >
                 <p className="font-heading font-bold text-xl text-primary">
-                  "{currentPrompt}"
+                  "{currentGame?.prompt || 'Loading prompt...'}"
                 </p>
               </motion.div>
               <p className="text-medium-gray text-sm">
-                You have 60 seconds to draw this. Make it sketchy! 🎨
+                You have {currentGame?.round_duration || 60} seconds to draw this. Make it sketchy! 🎨
               </p>
             </motion.div>
 
@@ -236,70 +274,63 @@ const PreRoundBriefingScreen: React.FC = () => {
                 <div className="flex items-center">
                   <Users size={18} className="text-green mr-1" />
                   <span className="font-heading font-semibold text-green">
-                    {readyPlayersCount}/{players.length} Ready
+                    {readyPlayersCount}/{participants.length} Ready
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {players.map((player, index) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 * index, duration: 0.3 }}
-                    className={`flex items-center p-3 rounded-lg border-2 ${
-                      player.isReady 
-                        ? 'bg-green/10 border-green' 
-                        : 'bg-orange/10 border-orange'
-                    }`}
-                  >
-                    <div className="relative mr-3">
-                      <img 
-                        src={player.avatar} 
-                        alt={player.username}
-                        className="w-10 h-10 rounded-full border-2 border-dark"
-                      />
-                      {/* Level badge on avatar */}
-                      <div className="absolute -bottom-1 -right-1 bg-dark text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-heading font-bold">
-                        {player.level}
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {/* Username with premium badge */}
-                      <div className="flex items-center gap-1 mb-1">
-                        <p className="font-heading font-semibold text-sm truncate">
-                          {player.username}
-                          {player.isCurrentUser && ' (You)'}
-                        </p>
-                        {player.isPremium && (
-                          <div className="bg-primary text-white px-2 py-0.5 rounded-full text-xs font-heading font-bold flex items-center">
-                            <Star size={8} className="mr-1 fill-white" />
-                            PRO
-                          </div>
-                        )}
+                {participants.map((participant, index) => {
+                  const isCurrentUser = participant.user_id === currentUser?.id;
+                  return (
+                    <motion.div
+                      key={participant.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 * index, duration: 0.3 }}
+                      className={`flex items-center p-3 rounded-lg border-2 ${
+                        participant.is_ready 
+                          ? 'bg-green/10 border-green' 
+                          : 'bg-orange/10 border-orange'
+                      }`}
+                    >
+                      <div className="relative mr-3">
+                        <img 
+                          src={participant.avatar_url || `https://ui-avatars.com/api/?name=${participant.username}&background=random`} 
+                          alt={participant.username}
+                          className="w-10 h-10 rounded-full border-2 border-dark"
+                        />
                       </div>
                       
-                      {/* Ready status */}
-                      <div className="flex items-center">
-                        {player.isReady ? (
-                          <>
-                            <CheckCircle size={12} className="text-green mr-1" />
-                            <span className="text-xs text-green font-heading font-semibold">Ready</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock size={12} className="text-orange mr-1" />
-                            <span className="text-xs text-orange font-heading font-semibold">
-                              {player.isCurrentUser ? 'Ready up!' : 'Waiting...'}
-                            </span>
-                          </>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        {/* Username with premium badge */}
+                        <div className="flex items-center gap-1 mb-1">
+                          <p className="font-heading font-semibold text-sm truncate">
+                            {participant.username}
+                            {isCurrentUser && ' (You)'}
+                          </p>
+                        </div>
+                        
+                        {/* Ready status */}
+                        <div className="flex items-center">
+                          {participant.is_ready ? (
+                            <>
+                              <CheckCircle size={12} className="text-green mr-1" />
+                              <span className="text-xs text-green font-heading font-semibold">Ready</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock size={12} className="text-orange mr-1" />
+                              <span className="text-xs text-orange font-heading font-semibold">
+                                {isCurrentUser ? 'Ready up!' : 'Waiting...'}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
             </motion.div>
 
@@ -320,13 +351,13 @@ const PreRoundBriefingScreen: React.FC = () => {
               </p>
 
               <div className="grid grid-cols-2 gap-3">
-                {MOCK_BOOSTER_PACKS.map(pack => (
+                {availableBoosterPacks.map(pack => (
                   <motion.button
                     key={pack.id}
                     whileHover={{ scale: pack.available ? 1.05 : 1 }}
                     whileTap={{ scale: pack.available ? 0.95 : 1 }}
                     onClick={() => pack.available && handleBoosterPackSelect(pack.id)}
-                    disabled={!pack.available}
+                    disabled={!pack.available || isLoading}
                     className={`p-3 rounded-lg border-2 text-left transition-all ${
                       selectedBoosterPack === pack.id
                         ? 'bg-purple/20 border-purple'
@@ -369,6 +400,7 @@ const PreRoundBriefingScreen: React.FC = () => {
                 size="lg" 
                 onClick={handleReadyUp}
                 className="w-full"
+                disabled={isLoading}
               >
                 {isReady ? (
                   <>
@@ -394,23 +426,24 @@ const PreRoundBriefingScreen: React.FC = () => {
                     size="lg" 
                     onClick={handleStartGame}
                     className="w-full bg-green hover:bg-green/90"
+                    disabled={isLoading || gameStarting}
                   >
                     <ArrowRight size={20} className="mr-2" />
-                    Start Drawing Now!
+                    {gameStarting ? 'Starting...' : 'Start Drawing Now!'}
                   </Button>
                 </motion.div>
               )}
             </motion.div>
 
             {/* Auto-start indicator */}
-            {countdown <= 10 && !allPlayersReady && (
+            {timeRemaining <= 10 && !allPlayersReady && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="text-center bg-accent/20 p-3 rounded-lg border border-accent"
               >
                 <p className="text-sm text-dark">
-                  ⚡ Game auto-starts in {countdown}s even if not everyone is ready!
+                  ⚡ Game auto-starts in {timeRemaining}s even if not everyone is ready!
                 </p>
               </motion.div>
             )}
