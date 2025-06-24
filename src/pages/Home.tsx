@@ -52,11 +52,15 @@ const Home: React.FC = () => {
           </p>
           <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-lg border-4 border-dark hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]">
             <iframe 
-              className="absolute top-0 left-0 w-full h-full"
-              src="https://www.youtube.com/embed/X0cLbGBvAOY" 
-              title="SketchyAF Demo Video"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              width="560" 
+              height="315" 
+              src="https://www.youtube.com/embed/X0cLbGBvAOY?si=I6zDV1CdE7_5lqim" 
+              title="YouTube video player" 
+              frameBorder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+              referrerPolicy="strict-origin-when-cross-origin" 
               allowFullScreen
+              className="absolute top-0 left-0 w-full h-full"
             ></iframe>
           </div>
         </div>
