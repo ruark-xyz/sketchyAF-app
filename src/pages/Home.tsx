@@ -35,6 +35,33 @@ const Home: React.FC = () => {
         <FeatureSection features={gameFeatures} />
       </div>
       
+      {/* Demo Video Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="py-16 bg-white text-center"
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-6 transform rotate-[-1deg]">
+            See SketchyAF in Action!
+          </h2>
+          <p className="text-dark text-lg font-body mb-8 max-w-2xl mx-auto">
+            Watch our demo video to see how the game works and why it's so much fun!
+          </p>
+          <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-lg border-4 border-dark hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]">
+            <iframe 
+              className="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/X0cLbGBvAOY" 
+              title="SketchyAF Demo Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      </motion.section>
+      
       <EmailSignup ref={emailSignupRef} />
       
       {/* Roadmap Link Section */}
