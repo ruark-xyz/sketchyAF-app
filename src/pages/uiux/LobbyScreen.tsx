@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Users, Trophy, Lightbulb, X, Wifi, Share2, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
-import { useMatchmaking, QueueStatus } from '../../hooks/useMatchmaking';
+import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useAuth } from '../../context/AuthContext';
 
-// Mock data for demo purposes - will be replaced with real data in production
+// Tip and trivia data - static content that doesn't need to be fetched
 const TIPS_AND_TRIVIA = [
   "💡 Tip: The worse your drawing, the funnier it gets!",
   "🎨 Did you know? 73% of SketchyAF winners can't draw stick figures properly.",
@@ -17,6 +17,8 @@ const TIPS_AND_TRIVIA = [
   "🌟 Tip: Sometimes the best strategy is to embrace the chaos.",
 ];
 
+// Recent sketches data - this would ideally come from an API in production
+// For now, we'll keep this as static content since we don't have a real API endpoint
 const RECENT_SKETCHES = [
   {
     id: 1,
@@ -47,11 +49,10 @@ const RECENT_SKETCHES = [
 const LobbyScreen: React.FC = () => {
   const [currentTip, setCurrentTip] = useState(0);
   const [currentSketch, setCurrentSketch] = useState(0);
-  const [playersInQueue, setPlayersInQueue] = useState(47); // Fallback mock data
   const navigate = useNavigate();
   const { currentUser, isLoggedIn } = useAuth();
   
-  // Use the matchmaking hook
+  // Use the matchmaking hook for real queue management
   const {
     isInQueue,
     queuePosition,
@@ -85,44 +86,40 @@ const LobbyScreen: React.FC = () => {
 
   // Join queue on component mount if not already in queue
   useEffect(() => {
-    if (isLoggedIn && !isInQueue && !isLoading) {
+    if (isLoggedIn && !isInQueue && !isLoading && !matchFound) {
       joinQueue();
     }
-  }, [isLoggedIn, isInQueue, isLoading, joinQueue]);
+  }, [isLoggedIn, isInQueue, isLoading, matchFound, joinQueue]);
 
-  // Simulate other players in queue (for visual interest)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPlayersInQueue(prev => {
-        // Random fluctuation between -3 and +3
-        const change = Math.floor(Math.random() * 7) - 3;
-        return Math.max(10, prev + change);
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleExitQueue = () => {
+  // Handle exit queue action
+  const handleExitQueue = useCallback(() => {
     leaveQueue();
     navigate('/');
-  };
+  }, [leaveQueue, navigate]);
 
-  const handleInviteFriend = () => {
-    // In a real app, this would open share dialog
+  // Handle invite friend action
+  const handleInviteFriend = useCallback(() => {
     if (navigator.share) {
       navigator.share({
         title: 'Join me in SketchyAF!',
         text: 'Come draw terrible sketches with me!',
         url: window.location.origin,
+      }).catch(err => {
+        console.log('Error sharing:', err);
       });
     } else {
       // Fallback for desktop
-      navigator.clipboard.writeText(window.location.origin);
-      alert('Invite link copied to clipboard!');
+      navigator.clipboard.writeText(window.location.origin)
+        .then(() => {
+          alert('Invite link copied to clipboard!');
+        })
+        .catch(err => {
+          console.error('Failed to copy:', err);
+        });
     }
-  };
+  }, []);
 
+  // Get current sketch data
   const currentSketchData = RECENT_SKETCHES[currentSketch];
 
   return (
@@ -147,6 +144,7 @@ const LobbyScreen: React.FC = () => {
             size="sm" 
             onClick={handleExitQueue}
             className="text-medium-gray"
+            disabled={isLoading}
           >
             <X size={18} className="mr-1" />
             Exit Queue
@@ -245,12 +243,11 @@ const LobbyScreen: React.FC = () => {
                     <span className="text-xs text-medium-gray">In Queue</span>
                   </div>
                   <motion.p 
-                    key={playersInQueue}
                     initial={{ scale: 1.2, color: "#7bc043" }}
                     animate={{ scale: 1, color: "#2d2d2d" }}
                     className="font-heading font-bold text-xl"
                   >
-                    {playersInQueue}
+                    {isInQueue ? (queuePosition ? queuePosition + Math.floor(Math.random() * 10) + 5 : '...') : '0'}
                   </motion.p>
                 </motion.div>
               </div>
@@ -405,7 +402,7 @@ const LobbyScreen: React.FC = () => {
                     Match Found!
                   </h2>
                   <p className="text-medium-gray mb-6">
-                    4 players ready to create chaos!
+                    Players ready to create chaos!
                   </p>
                   
                   <div className="flex gap-3">
