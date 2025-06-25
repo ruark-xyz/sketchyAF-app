@@ -55,9 +55,15 @@ export class RealtimeGameService {
    */
   async initialize(user: User): Promise<ServiceResponse<void>> {
     try {
+      // Clear any previous user state to prevent cross-user contamination
+      if (this.currentUser && this.currentUser.id !== user.id) {
+        console.log('Switching users in RealtimeGameService, clearing previous state');
+        await this.cleanup();
+      }
+
       this.currentUser = user;
       await this.pubNubService.initialize(user.id);
-      
+
       // Set up connection status monitoring
       this.pubNubService.onConnectionStatusChange((status) => {
         this.handleConnectionStatusChange(status);
@@ -66,8 +72,8 @@ export class RealtimeGameService {
       return { success: true };
     } catch (error) {
       console.error('Failed to initialize real-time service:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         code: 'INITIALIZATION_FAILED'
       };
@@ -487,5 +493,33 @@ export class RealtimeGameService {
         console.error('Error in connection status handler:', error);
       }
     });
+  }
+
+  /**
+   * Clean up user-specific state (to prevent cross-user contamination)
+   */
+  private async cleanup(): Promise<void> {
+    try {
+      // Leave current game if any
+      if (this.activeGameId) {
+        await this.leaveGame(this.activeGameId);
+      }
+
+      // Clear user-specific state
+      this.currentUser = null;
+      this.activeGameId = null;
+
+      // Clear event handlers (they may contain user-specific callbacks)
+      this.gameEventHandlers.clear();
+      this.presenceHandlers.clear();
+      this.connectionStatusHandlers.clear();
+
+      // Cleanup PubNub service
+      await this.pubNubService.cleanup?.();
+
+      console.log('RealtimeGameService: Cleaned up user-specific state');
+    } catch (error) {
+      console.error('Error during RealtimeGameService cleanup:', error);
+    }
   }
 }

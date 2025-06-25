@@ -54,6 +54,18 @@ serve(async (req) => {
       )
     }
 
+    // For match notifications, broadcast to user-specific channel
+    let userChannelResult = null
+    if (gameEvent.type === 'MATCH_FOUND' && gameEvent.userId) {
+      userChannelResult = await broadcastToPubNub(
+        publishKey,
+        subscribeKey,
+        secretKey,
+        `user-${gameEvent.userId}`,
+        gameEvent
+      )
+    }
+
     // Broadcast to main game channel
     const gameChannelResult = await broadcastToPubNub(
       publishKey,
@@ -79,19 +91,22 @@ serve(async (req) => {
     console.log('Event broadcasted successfully:', {
       type: gameEvent.type,
       gameId: gameEvent.gameId,
+      userId: gameEvent.userId,
+      userChannel: userChannelResult?.timetoken,
       gameChannel: gameChannelResult?.timetoken,
       presenceChannel: presenceChannelResult?.timetoken
     })
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
+        userChannel: userChannelResult,
         gameChannel: gameChannelResult,
         presenceChannel: presenceChannelResult
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 

@@ -46,6 +46,12 @@ export class PubNubGameService implements RealtimeGameService {
         return;
       }
 
+      // If initialized for a different user, clean up first
+      if (this.isInitialized && this.userId !== userId) {
+        console.log(`PubNub switching users from ${this.userId} to ${userId}, cleaning up first`);
+        await this.disconnect();
+      }
+
       // Check if initialization is already in progress
       if (this.isInitializing) {
         console.log('PubNub initialization already in progress, waiting...');
@@ -264,6 +270,90 @@ export class PubNubGameService implements RealtimeGameService {
   }
 
   /**
+   * Subscribe to user-specific notifications (like match notifications)
+   */
+  async subscribeToUserChannel(userId: string, callback: (event: any) => void): Promise<void> {
+    if (!this.pubnub || !this.isInitialized) {
+      throw new Error('PubNub not initialized. Call initialize() first.');
+    }
+
+    try {
+      const channelName = `user-${userId}`;
+
+      // Check if already subscribed
+      if (this.subscriptions.has(`user-${userId}`)) {
+        console.log(`Already subscribed to user channel: ${channelName}`);
+        return;
+      }
+
+      const channel = this.pubnub.channel(channelName);
+      const subscription = channel.subscription();
+
+      // Set up message handler
+      subscription.onMessage = (messageEvent) => {
+        console.log('PubNub user channel message received:', messageEvent);
+        callback(messageEvent);
+      };
+
+      // Subscribe to the channel
+      subscription.subscribe();
+      this.subscriptions.set(`user-${userId}`, subscription);
+
+      console.log(`Subscribed to user channel: ${channelName}`);
+    } catch (error) {
+      console.error(`Failed to subscribe to user channel for user ${userId}:`, error);
+      throw new Error(`Failed to subscribe to user channel: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Unsubscribe from user-specific notifications
+   */
+  async unsubscribeFromUserChannel(userId: string): Promise<void> {
+    try {
+      const subscription = this.subscriptions.get(`user-${userId}`);
+      if (subscription) {
+        subscription.unsubscribe();
+        this.subscriptions.delete(`user-${userId}`);
+        console.log(`Unsubscribed from user channel: user-${userId}`);
+      }
+    } catch (error) {
+      console.error(`Error unsubscribing from user channel for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Publish a match notification to a user's personal channel
+   */
+  async publishMatchNotification(userId: string, gameId: string, matchData: any): Promise<void> {
+    if (!this.pubnub || !this.isInitialized) {
+      throw new Error('PubNub not initialized. Call initialize() first.');
+    }
+
+    try {
+      const notification = {
+        type: 'MATCH_FOUND',
+        userId,
+        gameId,
+        timestamp: Date.now(),
+        data: matchData
+      };
+
+      const result = await this.pubnub.publish({
+        channel: `user-${userId}`,
+        message: notification,
+        storeInHistory: false, // Notifications are ephemeral
+        sendByPost: false
+      });
+
+      console.log(`Match notification sent to user ${userId}:`, result);
+    } catch (error) {
+      console.error(`Failed to send match notification to user ${userId}:`, error);
+      // Don't throw - this is a nice-to-have feature, not critical
+    }
+  }
+
+  /**
    * Subscribe to game events with a callback handler
    */
   subscribeToGameEvents(gameId: string, callback: GameEventHandler): void {
@@ -465,6 +555,22 @@ export class PubNubGameService implements RealtimeGameService {
     } catch (error) {
       console.error('Channel authentication failed:', error);
       throw new Error(`Channel authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Clean up user-specific state (called by RealtimeGameService)
+   */
+  async cleanup(): Promise<void> {
+    try {
+      // Clear user-specific handlers and subscriptions
+      this.eventHandlers.clear();
+      this.presenceHandlers.clear();
+      this.subscriptions.clear();
+
+      console.log('PubNubService: Cleaned up user-specific state');
+    } catch (error) {
+      console.error('Error during PubNubService cleanup:', error);
     }
   }
 }

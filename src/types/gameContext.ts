@@ -75,7 +75,7 @@ export interface GameActions {
   castVote: (submissionId: string) => Promise<void>;
   
   // State Management
-  refreshGameState: () => Promise<void>;
+  refreshGameState: (gameId?: string) => Promise<void>;
   clearError: () => void;
   resetGameState: () => void;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Users, Trophy, Lightbulb, X, Wifi, Share2, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useAuth } from '../../context/AuthContext';
+import { MatchmakingService } from '../../services/MatchmakingService';
 
 // Tip and trivia data - static content that doesn't need to be fetched
 const TIPS_AND_TRIVIA = [
@@ -49,10 +50,15 @@ const RECENT_SKETCHES = [
 const LobbyScreen: React.FC = () => {
   const [currentTip, setCurrentTip] = useState(0);
   const [currentSketch, setCurrentSketch] = useState(0);
-  const [queueCount, setQueueCount] = useState<number>(0);
   const navigate = useNavigate();
-  const { currentUser, isLoggedIn } = useAuth();
-  
+  const { isLoggedIn, currentUser } = useAuth();
+  const hasAttemptedJoin = useRef(false);
+
+  // Debug: Log current user
+  useEffect(() => {
+    console.log('LobbyScreen: Current user:', currentUser?.id, currentUser?.email);
+  }, [currentUser]);
+
   // Use the matchmaking hook for real queue management
   const {
     isInQueue,
@@ -87,48 +93,42 @@ const LobbyScreen: React.FC = () => {
 
   // Join queue on component mount if not already in queue
   useEffect(() => {
-    if (isLoggedIn && !isInQueue && !isLoading && !matchFound) {
+    if (isLoggedIn && !isInQueue && !isLoading && !matchFound && !hasAttemptedJoin.current) {
+      console.log('LobbyScreen: Attempting to join queue...');
+      hasAttemptedJoin.current = true;
       joinQueue();
     }
-  }, [isLoggedIn, isInQueue, isLoading, matchFound, joinQueue]);
 
-  // Update queue count based on queue position
-  useEffect(() => {
-    if (isInQueue) {
-      // Calculate a realistic queue count based on position
-      // This ensures the number is always higher than the user's position
-      const baseCount = queuePosition ? queuePosition + 5 : 10;
-      // Add some randomness to make it feel dynamic
-      const randomOffset = Math.floor(Math.random() * 8) - 3;
-      const newCount = Math.max(baseCount + randomOffset, queuePosition ? queuePosition + 1 : 1);
-      setQueueCount(newCount);
-    } else {
-      // Reset to 0 when not in queue
-      setQueueCount(0);
+    // Reset the flag when user leaves queue
+    if (!isInQueue && !isLoading) {
+      hasAttemptedJoin.current = false;
     }
-  }, [isInQueue, queuePosition]);
+  }, [isLoggedIn, isInQueue, isLoading, matchFound]); // Removed joinQueue from dependencies
 
-  // Periodically update queue count with small fluctuations to simulate real-time changes
+  // Debug logging for queue state
   useEffect(() => {
-    if (!isInQueue) return;
-    
-    const interval = setInterval(() => {
-      setQueueCount(prev => {
-        // Random fluctuation between -2 and +3
-        const change = Math.floor(Math.random() * 6) - 2;
-        // Ensure count never goes below position+1
-        return Math.max(queuePosition ? queuePosition + 1 : 1, prev + change);
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isInQueue, queuePosition]);
+    console.log('LobbyScreen: Queue state:', {
+      isInQueue,
+      queuePosition,
+      estimatedWaitTime,
+      matchFound,
+      isLoading,
+      error
+    });
+  }, [isInQueue, queuePosition, estimatedWaitTime, matchFound, isLoading, error]);
 
   // Handle exit queue action
   const handleExitQueue = useCallback(() => {
     leaveQueue();
     navigate('/');
   }, [leaveQueue, navigate]);
+
+  // Show match found message (auto-redirect is handled in useMatchmaking)
+  useEffect(() => {
+    if (matchFound) {
+      console.log('Match found! Preparing to redirect to pre-round...');
+    }
+  }, [matchFound]);
 
   // Handle invite friend action
   const handleInviteFriend = useCallback(() => {
@@ -172,9 +172,14 @@ const LobbyScreen: React.FC = () => {
         <div className="p-4 flex justify-between items-center">
           <div className="flex items-center">
             <Wifi className={`w-5 h-5 ${isInQueue ? 'text-green' : 'text-red'} mr-2`} />
-            <span className="text-sm font-heading font-bold text-dark">
-              {isInQueue ? 'Connected' : 'Connecting...'}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-heading font-bold text-dark">
+                {isInQueue ? 'In Queue' : isLoading ? 'Connecting...' : 'Disconnected'}
+              </span>
+              <span className="text-xs text-medium-gray">
+                {currentUser?.email || 'Not logged in'}
+              </span>
+            </div>
           </div>
           
           <Button 
@@ -201,6 +206,76 @@ const LobbyScreen: React.FC = () => {
               <p className="text-dark text-sm">{error}</p>
             </motion.div>
           </div>
+        )}
+
+        {/* Debug Info */}
+        <div className="mx-4 mb-4">
+          <div className="bg-gray-100 border rounded-lg p-3 text-xs">
+            <div><strong>User:</strong> {currentUser?.id?.slice(0, 8)}... ({currentUser?.email})</div>
+            <div><strong>Queue Status:</strong> {isInQueue ? 'In Queue' : 'Not in Queue'}</div>
+            <div><strong>Position:</strong> {queuePosition || 'N/A'}</div>
+            <div><strong>Wait Time:</strong> {estimatedWaitTime ? `${estimatedWaitTime}s` : 'N/A'}</div>
+            <div><strong>Match Found:</strong> {matchFound ? 'Yes' : 'No'}</div>
+            <div><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</div>
+            <div className="mt-2 space-x-2">
+              <button
+                onClick={async () => {
+                  const queueState = await (MatchmakingService as any).getQueueState();
+                  console.log('Manual queue check:', queueState);
+                  alert(`Queue has ${queueState.count} players: ${queueState.players.map((p: string) => p.slice(0, 8)).join(', ')}`);
+                }}
+                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+              >
+                Check Queue
+              </button>
+              <button
+                onClick={async () => {
+                  console.log('Manually triggering queue processing...');
+                  const result = await MatchmakingService.triggerQueueProcessing();
+                  console.log('Queue processing result:', result);
+                  alert(result.success ? 'Queue processing triggered!' : `Error: ${result.error}`);
+                }}
+                className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+              >
+                Process Queue
+              </button>
+              <button
+                onClick={async () => {
+                  const matchResult = await (MatchmakingService as any).checkMatchStatus();
+                  console.log('Match status:', matchResult);
+                  alert(`Match found: ${matchResult.data?.match_found ? 'YES' : 'NO'}${matchResult.data?.game_id ? ` - Game: ${matchResult.data.game_id}` : ''}`);
+                }}
+                className="bg-purple-500 text-white px-2 py-1 rounded text-xs"
+              >
+                Check Match
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Match Found Overlay */}
+        {matchFound && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-green/90 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white rounded-lg p-8 text-center shadow-lg"
+            >
+              <div className="text-6xl mb-4">🎉</div>
+              <h2 className="font-heading font-bold text-2xl text-dark mb-2">Match Found!</h2>
+              <p className="text-dark-gray mb-4">Preparing your game...</p>
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-2 h-2 bg-green rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-green rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-green rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Main Content */}
@@ -278,15 +353,15 @@ const LobbyScreen: React.FC = () => {
                 >
                   <div className="flex items-center justify-center mb-1">
                     <Users size={16} className="text-green mr-1" />
-                    <span className="text-xs text-medium-gray">In Queue</span>
+                    <span className="text-xs text-medium-gray">Queue Position</span>
                   </div>
-                  <motion.p 
-                    key={queueCount}
+                  <motion.p
+                    key={queuePosition || 0}
                     initial={{ scale: 1.2, color: "#7bc043" }}
                     animate={{ scale: 1, color: "#2d2d2d" }}
                     className="font-heading font-bold text-xl"
                   >
-                    {formatNumber(queueCount)}
+                    {queuePosition ? `#${formatNumber(queuePosition)}` : '...'}
                   </motion.p>
                 </motion.div>
               </div>

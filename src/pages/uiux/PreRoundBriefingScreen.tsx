@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
 import { useGame } from '../../context/GameContext';
+import { useAuth } from '../../context/AuthContext';
 import { useGameTimer } from '../../hooks/useGameTimer';
 import { loadAllCollections } from '../../utils/assetLoader';
 import { GamePhase } from '../../types/gameContext';
@@ -20,12 +21,13 @@ interface BoosterPackOption {
 
 const PreRoundBriefingScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { 
-    currentGame, 
-    gamePhase, 
-    participants, 
-    isReady, 
-    actions, 
+  const { currentUser } = useAuth();
+  const {
+    currentGame,
+    gamePhase,
+    participants,
+    isReady,
+    actions,
     selectedBoosterPack,
     isLoading,
     error
@@ -69,14 +71,41 @@ const PreRoundBriefingScreen: React.FC = () => {
     loadBoosterPacks();
   }, []);
 
-  // Start timer when component mounts
+  // Start timer when component mounts - but only if all players are present
   useEffect(() => {
     if (currentGame && currentGame.status === 'briefing') {
-      // Default briefing time is 15 seconds
-      const briefingTime = 15;
-      start(briefingTime, 'briefing');
+      // For matchmaking games, wait until all expected players are present
+      const expectedPlayers = currentGame.max_players;
+      const currentPlayers = participants.length;
+
+      console.log('PreRoundBriefingScreen: Checking if should start timer:', {
+        expectedPlayers,
+        currentPlayers,
+        allPlayersPresent: currentPlayers >= expectedPlayers,
+        gameId: currentGame.id
+      });
+
+      // Only start timer if all players are present (for matchmaking games)
+      if (currentPlayers >= expectedPlayers) {
+        // Default briefing time is 15 seconds
+        const briefingTime = 15;
+        console.log('PreRoundBriefingScreen: All players present, starting timer');
+        start(briefingTime, 'briefing');
+      } else {
+        console.log(`PreRoundBriefingScreen: Waiting for more players before starting timer (${currentPlayers}/${expectedPlayers})`);
+
+        // Start timer anyway after a short delay to prevent indefinite waiting
+        // The smart redirect logic will handle players joining at different times
+        setTimeout(() => {
+          if (currentGame && currentGame.status === 'briefing') {
+            console.log('PreRoundBriefingScreen: Starting timer after delay to prevent indefinite waiting');
+            const briefingTime = 15;
+            start(briefingTime, 'briefing');
+          }
+        }, 5000); // 5 second delay
+      }
     }
-  }, [currentGame, start]);
+  }, [currentGame, participants.length, start]);
 
   // Auto-transition when timer expires
   useEffect(() => {
@@ -85,23 +114,16 @@ const PreRoundBriefingScreen: React.FC = () => {
     }
   }, [isExpired, gameStarting]);
 
-  // Redirect if not in briefing phase
+  // Log component mount for debugging
   useEffect(() => {
-    if (currentGame && currentGame.status !== 'briefing' && gamePhase !== GamePhase.BRIEFING) {
-      // If in drawing phase, go to drawing screen
-      if (currentGame.status === 'drawing' || gamePhase === GamePhase.DRAWING) {
-        navigate('/draw');
-      } 
-      // If in waiting phase, go back to lobby
-      else if (currentGame.status === 'waiting' || gamePhase === GamePhase.WAITING) {
-        navigate('/uiux/lobby');
-      }
-      // For other phases, navigate accordingly
-      else if (currentGame.status === 'voting' || gamePhase === GamePhase.VOTING) {
-        navigate('/uiux/voting');
-      }
-    }
-  }, [currentGame, gamePhase, navigate]);
+    console.log('PreRoundBriefingScreen: Component mounted', {
+      currentGame: currentGame ? {
+        id: currentGame.id,
+        status: currentGame.status
+      } : null,
+      gamePhase: gamePhase.toString()
+    });
+  }, [currentGame, gamePhase]);
 
   const handleReadyUp = async () => {
     try {

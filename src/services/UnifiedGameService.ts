@@ -42,6 +42,12 @@ export class UnifiedGameService {
    */
   async initialize(user: User): Promise<ServiceResponse<void>> {
     try {
+      // Clear any previous user state to prevent cross-user contamination
+      if (this.currentUser && this.currentUser.id !== user.id) {
+        console.log('Switching users in UnifiedGameService, clearing previous state');
+        this.currentUser = null;
+      }
+
       this.currentUser = user;
 
       // Initialize real-time service

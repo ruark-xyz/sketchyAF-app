@@ -48,6 +48,7 @@ export class GameService {
         round_duration: request.round_duration || GAME_CONSTANTS.DEFAULT_ROUND_DURATION,
         voting_duration: request.voting_duration || GAME_CONSTANTS.DEFAULT_VOTING_DURATION,
         created_by: user.id,
+        status: 'briefing' as const, // Start games in briefing phase for matchmaking
         expires_at: new Date(Date.now() + GAME_CONSTANTS.GAME_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       };
 
@@ -100,7 +101,8 @@ export class GameService {
         return { success: false, error: 'Game not found', code: 'GAME_NOT_FOUND' };
       }
 
-      if (game.status !== 'waiting') {
+      // Allow joining games in 'waiting' or 'briefing' status (briefing is for matchmaking games)
+      if (game.status !== 'waiting' && game.status !== 'briefing') {
         return { success: false, error: 'Game is no longer accepting players', code: 'INVALID_STATUS' };
       }
 

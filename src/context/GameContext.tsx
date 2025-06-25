@@ -303,8 +303,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fetch game data
       const gameResult = await GameService.getGame(targetGameId);
       if (gameResult.success && gameResult.data) {
+        console.log('refreshGameState: Successfully fetched game data:', {
+          gameId: targetGameId,
+          gameStatus: gameResult.data.status,
+          participantCount: gameResult.data.participants?.length || 0,
+          currentGamePhase: state.gamePhase.toString()
+        });
+
         dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
         dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
+
+        // Update game phase based on game status - THIS WAS MISSING!
+        const gamePhaseMap: Record<GameStatus, GamePhase> = {
+          'waiting': GamePhase.WAITING,
+          'briefing': GamePhase.BRIEFING,
+          'drawing': GamePhase.DRAWING,
+          'voting': GamePhase.VOTING,
+          'results': GamePhase.RESULTS,
+          'completed': GamePhase.COMPLETED,
+          'cancelled': GamePhase.COMPLETED
+        };
+
+        const newGamePhase = gamePhaseMap[gameResult.data.status];
+        if (newGamePhase && newGamePhase !== state.gamePhase) {
+          console.log('refreshGameState: Updating game phase:', {
+            previousPhase: state.gamePhase.toString(),
+            newPhase: newGamePhase.toString(),
+            gameStatus: gameResult.data.status
+          });
+          dispatch({ type: 'SET_GAME_PHASE', payload: newGamePhase });
+        }
+      } else {
+        console.error('refreshGameState: Failed to fetch game data:', gameResult.error);
       }
 
       // Fetch submissions
@@ -854,6 +884,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Game phase changed event
     const handlePhaseChanged = (event: any) => {
       console.log('Game phase changed:', event);
+      console.log('Current game state before phase change:', {
+        currentGameStatus: state.currentGame?.status,
+        gamePhase: state.gamePhase,
+        newPhase: event.data.newPhase
+      });
       dispatch({ type: 'SET_GAME_PHASE', payload: event.data.newPhase });
       refreshGameState();
     };
