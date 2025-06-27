@@ -3,7 +3,8 @@
 
 import { PubNubGameService } from './PubNubService';
 import { GameService } from './GameService';
-import { 
+import { supabase } from '../utils/supabase';
+import {
   GameEvent,
   GameEventType,
   PresenceEvent,
@@ -14,6 +15,8 @@ import {
   GameStartedEvent,
   GamePhaseChangedEvent,
   TimerSyncEvent,
+  ServerTimerSyncEvent,
+  TimerExpiredEvent,
   DrawingSubmittedEvent,
   VoteCastEvent,
   GameCompletedEvent,
@@ -249,6 +252,85 @@ export class RealtimeGameService {
       console.error('Failed to broadcast timer sync:', error);
       return { 
         success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'BROADCAST_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Broadcast server-authoritative timer sync
+   */
+  async broadcastServerTimerSync(gameId: string): Promise<ServiceResponse<void>> {
+    try {
+      // Get timer data from server
+      const { data } = await supabase.functions.invoke('get-game-timer', {
+        body: { gameId }
+      });
+
+      if (!data) {
+        return { success: false, error: 'Failed to get timer data from server', code: 'SERVER_ERROR' };
+      }
+
+      const event: ServerTimerSyncEvent = {
+        type: 'server_timer_sync',
+        gameId,
+        userId: 'server',
+        timestamp: Date.now(),
+        version: REALTIME_CONSTANTS.EVENT_VERSION,
+        data: {
+          phaseStartedAt: data.phaseStartedAt || new Date().toISOString(),
+          phaseDuration: data.phaseDuration || 0,
+          serverTime: data.serverTime,
+          timeRemaining: data.timeRemaining || 0,
+          phase: data.phase,
+          phaseExpiresAt: data.phaseExpiresAt || new Date().toISOString()
+        }
+      };
+
+      await this.pubNubService.publishGameEvent(event);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to broadcast server timer sync:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'BROADCAST_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Broadcast timer expiration event
+   */
+  async broadcastTimerExpired(
+    gameId: string,
+    expiredPhase: GameStatus,
+    nextPhase: GameStatus,
+    executionId?: string
+  ): Promise<ServiceResponse<void>> {
+    try {
+      const event: TimerExpiredEvent = {
+        type: 'timer_expired',
+        gameId,
+        userId: 'server',
+        timestamp: Date.now(),
+        version: REALTIME_CONSTANTS.EVENT_VERSION,
+        data: {
+          expiredPhase,
+          nextPhase,
+          expiredAt: new Date().toISOString(),
+          transitionTriggeredBy: 'server_timer',
+          executionId
+        }
+      };
+
+      await this.pubNubService.publishGameEvent(event);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to broadcast timer expired:', error);
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         code: 'BROADCAST_FAILED'
       };

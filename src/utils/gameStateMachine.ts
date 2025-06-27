@@ -224,7 +224,7 @@ export class GameStateMachine {
     
     switch (this.currentState.gamePhase) {
       case GamePhase.BRIEFING:
-        return 10; // 10 seconds briefing
+        return 20; // 20 seconds briefing
       case GamePhase.DRAWING:
         return game.round_duration;
       case GamePhase.VOTING:

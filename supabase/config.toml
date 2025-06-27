@@ -297,6 +297,8 @@ deno_version = 1
 [edge_runtime.secrets]
 PUBNUB_PUBLISH_KEY = "env(VITE_PUBNUB_PUBLISH_KEY)"
 PUBNUB_SUBSCRIBE_KEY = "env(VITE_PUBNUB_SUBSCRIBE_KEY)"
+PUBNUB_SECRET_KEY = "env(VITE_PUBNUB_SECRET_KEY)"
+CRON_SECRET = "env(CRON_SECRET)"
 
 [analytics]
 enabled = true

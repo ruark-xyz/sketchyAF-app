@@ -19,6 +19,8 @@ export type GameEventType =
   | 'game_started'
   | 'phase_changed'
   | 'timer_sync'
+  | 'server_timer_sync'  // NEW: Server-authoritative timer sync
+  | 'timer_expired'      // NEW: Server-side timer expiration
   | 'drawing_submitted'
   | 'vote_cast'
   | 'game_completed'
@@ -95,6 +97,31 @@ export interface TimerSyncEvent extends GameEvent {
     phase: GameStatus;
     serverTime: number;
     totalDuration: number;
+  };
+}
+
+// NEW: Server-authoritative timer sync event
+export interface ServerTimerSyncEvent extends GameEvent {
+  type: 'server_timer_sync';
+  data: {
+    phaseStartedAt: string;     // ISO timestamp from database
+    phaseDuration: number;      // seconds
+    serverTime: string;         // current server time ISO timestamp
+    timeRemaining: number;      // calculated server-side
+    phase: GameStatus;
+    phaseExpiresAt: string;     // ISO timestamp when phase expires
+  };
+}
+
+// NEW: Timer expiration event
+export interface TimerExpiredEvent extends GameEvent {
+  type: 'timer_expired';
+  data: {
+    expiredPhase: GameStatus;
+    nextPhase: GameStatus;
+    expiredAt: string;          // ISO timestamp
+    transitionTriggeredBy: 'server_timer';
+    executionId?: string;       // For tracking/debugging
   };
 }
 

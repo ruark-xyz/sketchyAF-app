@@ -294,6 +294,15 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
 
   // Initialize timer from game context
   useEffect(() => {
+    console.log('useDrawingTimer: Initialization check:', {
+      hasCurrentGame: !!currentGame,
+      hasDrawingContext: !!drawingContext,
+      gameStatus: currentGame?.status,
+      isActive,
+      hasSubmitted: drawingContext?.hasSubmitted,
+      timeRemaining: drawingContext?.timeRemaining
+    });
+
     if (currentGame && drawingContext && currentGame.status === 'drawing' && !isActive && !drawingContext.hasSubmitted) {
       console.log('useDrawingTimer: Starting timer with:', {
         timeRemaining: drawingContext.timeRemaining,
@@ -304,6 +313,8 @@ export function useDrawingTimer(options: UseDrawingTimerOptions = {}): UseDrawin
       start(drawingContext.timeRemaining, 'drawing');
     } else if (drawingContext?.hasSubmitted) {
       console.log('useDrawingTimer: Not starting timer - user has already submitted');
+    } else {
+      console.log('useDrawingTimer: Timer not started - conditions not met');
     }
   }, [currentGame, drawingContext, isActive, start]);
 

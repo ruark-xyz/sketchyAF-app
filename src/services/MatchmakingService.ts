@@ -105,6 +105,22 @@ export class MatchmakingService {
         return { success: true };
       }
 
+      // Check if player was recently removed from queue (to prevent race conditions)
+      // Look for recent game participations that might indicate a match was just created
+      const { data: veryRecentGames } = await supabase
+        .from('game_participants')
+        .select('game_id, joined_at, games!inner(status, created_at)')
+        .eq('user_id', user.id)
+        .in('games.status', ['waiting', 'briefing', 'drawing'])
+        .gte('games.created_at', new Date(Date.now() - 30 * 1000).toISOString()) // Last 30 seconds
+        .is('left_at', null)
+        .limit(1);
+
+      if (veryRecentGames && veryRecentGames.length > 0) {
+        console.log(`Player ${user.id} has a very recent match, not adding to queue:`, veryRecentGames[0]);
+        return { success: true };
+      }
+
       // Add player to queue
       const { error: insertError } = await supabase
         .from('matchmaking_queue')

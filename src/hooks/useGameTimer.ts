@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameStatus } from '../types/game';
 import { useGame } from '../context/GameContext';
 import { useRealtimeGame } from './useRealtimeGame';
+import { useServerTimer } from './useServerTimer';
 
 export interface UseGameTimerOptions {
   gameId?: string;
   autoSubmitOnExpiry?: boolean;
   syncInterval?: number; // Sync interval in seconds
   warningThresholds?: number[]; // Warning thresholds in seconds
+  useServerSync?: boolean; // Use server-synchronized timer (default: true)
 }
 
 export interface UseGameTimerReturn {
@@ -47,7 +49,8 @@ export function useGameTimer(options: UseGameTimerOptions = {}): UseGameTimerRet
     gameId,
     autoSubmitOnExpiry = false,
     syncInterval = 5, // Sync every 5 seconds
-    warningThresholds = [60, 30, 10] // 1 minute, 30 seconds, 10 seconds
+    warningThresholds = [60, 30, 10], // 1 minute, 30 seconds, 10 seconds
+    useServerSync = true // Default to server synchronization
   } = options;
 
   // State
@@ -71,12 +74,26 @@ export function useGameTimer(options: UseGameTimerOptions = {}): UseGameTimerRet
   const { currentGame, drawingContext } = useGame();
   
   // Real-time integration
-  const { 
-    broadcastTimerSync, 
-    addEventListener, 
+  const {
+    broadcastTimerSync,
+    addEventListener,
     removeEventListener,
-    isConnected 
+    isConnected
   } = useRealtimeGame({ gameId });
+
+  // Server timer integration (when enabled)
+  const serverTimer = useServerTimer({
+    gameId: gameId || '',
+    syncInterval: useServerSync ? syncInterval : 0, // Disable if not using server sync
+    onTimerExpired: () => {
+      if (timeExpiredCallbackRef.current) {
+        timeExpiredCallbackRef.current();
+      }
+    },
+    onSyncError: (error) => {
+      console.warn('Server timer sync error:', error);
+    }
+  });
 
   // Computed values
   const progress = totalDuration > 0 ? Math.max(0, Math.min(1, (totalDuration - timeRemaining) / totalDuration)) : 0;
@@ -303,19 +320,33 @@ export function useGameTimer(options: UseGameTimerOptions = {}): UseGameTimerRet
     }
   }, [currentGame, drawingContext, isActive, start]);
 
+  // Use server timer values when available and enabled
+  const effectiveTimeRemaining = useServerSync && serverTimer.timeRemaining !== null
+    ? serverTimer.timeRemaining
+    : timeRemaining;
+  const effectiveIsActive = useServerSync
+    ? serverTimer.isActive
+    : isActive;
+  const effectiveIsExpired = useServerSync
+    ? serverTimer.isExpired
+    : isExpired;
+  const effectivePhase = useServerSync && serverTimer.phase
+    ? serverTimer.phase
+    : phase;
+
   return {
-    // Timer State
-    timeRemaining,
-    totalDuration,
-    isActive,
-    isExpired,
+    // Timer State (server-synchronized when available)
+    timeRemaining: effectiveTimeRemaining,
+    totalDuration: useServerSync && serverTimer.phaseDuration ? serverTimer.phaseDuration : totalDuration,
+    isActive: effectiveIsActive,
+    isExpired: effectiveIsExpired,
     isPaused,
-    
+
     // Timer Status
-    phase,
-    progress,
-    formattedTime,
-    
+    phase: effectivePhase,
+    progress: totalDuration > 0 ? ((totalDuration - effectiveTimeRemaining) / totalDuration) * 100 : 0,
+    formattedTime: formatTime(effectiveTimeRemaining),
+
     // Warning System
     isWarning,
     warningLevel,

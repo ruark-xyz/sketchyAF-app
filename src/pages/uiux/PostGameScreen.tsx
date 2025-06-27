@@ -154,15 +154,7 @@ const PostGameScreen: React.FC = () => {
     }
   }, [submissions, votes, currentUser]);
 
-  // Redirect if not in completed phase
-  useEffect(() => {
-    if (currentGame && currentGame.status !== 'completed' && gamePhase !== GamePhase.COMPLETED) {
-      // If in results phase, go back to results
-      if (currentGame.status === 'results' || gamePhase === GamePhase.RESULTS) {
-        navigate('/uiux/results');
-      }
-    }
-  }, [currentGame, gamePhase, navigate]);
+  // Navigation is now handled by useUnifiedGameState in SimpleGameRoute
 
   const handleQueueAgain = () => {
     // Reset game state

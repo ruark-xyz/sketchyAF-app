@@ -19,10 +19,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
-import { useGame } from '../../context/GameContext';
-import { useGameTimer } from '../../hooks/useGameTimer';
+import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
+import { useSimpleTimer } from '../../hooks/useSimpleTimer';
 import { useAuth } from '../../context/AuthContext';
-import { GamePhase } from '../../types/gameContext';
 
 // Mock data for demo purposes
 const BOOSTER_STENCILS = [
@@ -52,15 +51,19 @@ const DRAWING_COLORS = [
 const DrawingCanvasScreen: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { 
-    currentGame, 
-    gamePhase, 
-    participants, 
+  const {
+    game: currentGame,
+    isLoading,
+    error
+  } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
+
+  // For now, we'll need to keep some GameContext usage for drawing-specific state
+  // TODO: Move drawing state to a separate hook or context
+  const {
+    participants,
     submissions,
     hasSubmitted,
     actions,
-    error,
-    isLoading,
     drawingContext
   } = useGame();
   
@@ -77,19 +80,14 @@ const DrawingCanvasScreen: React.FC = () => {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   
-  // Set up timer
-  const { 
-    timeRemaining, 
-    formattedTime, 
-    isActive, 
-    isExpired, 
-    isWarning,
-    warningLevel,
-    onTimeExpired,
-    onAutoSubmit
-  } = useGameTimer({
-    gameId: currentGame?.id,
-    autoSubmitOnExpiry: true
+  // Simple timer display (no auto-submit logic)
+  const {
+    timeRemaining,
+    formattedTime,
+    isLoading: timerLoading,
+    error: timerError
+  } = useSimpleTimer({
+    gameId: currentGame?.id || ''
   });
 
   // Initialize from game context
@@ -99,37 +97,9 @@ const DrawingCanvasScreen: React.FC = () => {
     }
   }, [hasSubmitted]);
 
-  // Redirect if not in drawing phase
-  useEffect(() => {
-    if (currentGame && currentGame.status !== 'drawing' && gamePhase !== GamePhase.DRAWING) {
-      // If in voting phase, go to voting screen
-      if (currentGame.status === 'voting' || gamePhase === GamePhase.VOTING) {
-        navigate('/uiux/voting');
-      } 
-      // If in briefing phase, go back to briefing
-      else if (currentGame.status === 'briefing' || gamePhase === GamePhase.BRIEFING) {
-        navigate('/uiux/pre-round');
-      }
-    }
-  }, [currentGame, gamePhase, navigate]);
+  // Navigation is now handled by useUnifiedGameState in SimpleGameRoute
 
-  // Handle timer expiry
-  useEffect(() => {
-    onTimeExpired(() => {
-      if (!isSubmitted) {
-        handleSubmit();
-      }
-    });
-  }, [isSubmitted]);
-
-  // Set up auto-submit callback
-  useEffect(() => {
-    onAutoSubmit(() => {
-      if (!isSubmitted) {
-        handleSubmit();
-      }
-    });
-  }, [isSubmitted]);
+  // Auto-submit logic is now handled server-side via timer expiration
 
   // Simulate drawing activity (for demo)
   useEffect(() => {
@@ -174,20 +144,7 @@ const DrawingCanvasScreen: React.FC = () => {
         setShowSuccessMessage(false);
       }, 5000);
       
-      // Auto-transition to voting phase if all players have submitted
-      if (submissions.length + 1 >= participants.length) {
-        setTimeout(() => {
-          if (currentGame) {
-            actions.transitionGameStatus(currentGame.id, 'voting', 'drawing')
-              .then(() => {
-                navigate('/uiux/voting');
-              })
-              .catch(err => {
-                console.error('Failed to transition to voting:', err);
-              });
-          }
-        }, 3000);
-      }
+      // Phase transitions are now handled server-side automatically
     } catch (err) {
       console.error('Failed to submit drawing:', err);
       setSubmissionError(err instanceof Error ? err.message : 'Failed to submit drawing');

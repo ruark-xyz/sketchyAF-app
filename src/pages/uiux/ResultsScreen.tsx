@@ -88,19 +88,7 @@ const ResultsScreen: React.FC = () => {
     }
   }, [submissions, votes, currentUser]);
 
-  // Redirect if not in results phase
-  useEffect(() => {
-    if (currentGame && currentGame.status !== 'results' && gamePhase !== GamePhase.RESULTS) {
-      // If in voting phase, go back to voting
-      if (currentGame.status === 'voting' || gamePhase === GamePhase.VOTING) {
-        navigate('/uiux/voting');
-      } 
-      // If in completed phase, go to post-game
-      else if (currentGame.status === 'completed' || gamePhase === GamePhase.COMPLETED) {
-        navigate('/uiux/post-game');
-      }
-    }
-  }, [currentGame, gamePhase, navigate]);
+  // Navigation is now handled by useUnifiedGameState in SimpleGameRoute
 
   // Show achievements after a delay
   useEffect(() => {
@@ -126,14 +114,14 @@ const ResultsScreen: React.FC = () => {
         // Transition to completed phase
         actions.transitionGameStatus(currentGame.id, 'completed', 'results')
           .then(() => {
-            navigate('/uiux/post-game');
+            navigate(`/uiux/post-game?gameId=${currentGame.id}`);
           })
           .catch(err => {
             console.error('Failed to transition to completed:', err);
           });
       }
     }, 15000);
-    
+
     return () => clearTimeout(timer);
   }, [currentGame, navigate, actions]);
 

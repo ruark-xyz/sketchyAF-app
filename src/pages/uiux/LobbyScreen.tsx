@@ -4,9 +4,10 @@ import { Clock, Users, Trophy, Lightbulb, X, Wifi, Share2, AlertCircle } from 'l
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
-import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useAuth } from '../../context/AuthContext';
 import { MatchmakingService } from '../../services/MatchmakingService';
+import { useSimpleQueue } from '../../hooks/useSimpleQueue';
+import { useMatchNotifications } from '../../hooks/useMatchNotifications';
 
 // Tip and trivia data - static content that doesn't need to be fetched
 const TIPS_AND_TRIVIA = [
@@ -59,19 +60,18 @@ const LobbyScreen: React.FC = () => {
     console.log('LobbyScreen: Current user:', currentUser?.id, currentUser?.email);
   }, [currentUser]);
 
-  // Use the matchmaking hook for real queue management
+  // Use simple queue management - navigation handled by server events
   const {
     isInQueue,
-    queuePosition,
-    estimatedWaitTime,
-    matchFound,
     isLoading,
     error,
     joinQueue,
     leaveQueue,
-    acceptMatch,
-    declineMatch
-  } = useMatchmaking();
+    clearError
+  } = useSimpleQueue();
+
+  // Listen for match notifications via PubNub
+  const { isListening } = useMatchNotifications();
 
   // Rotate tips every 4 seconds
   useEffect(() => {
@@ -93,7 +93,7 @@ const LobbyScreen: React.FC = () => {
 
   // Join queue on component mount if not already in queue
   useEffect(() => {
-    if (isLoggedIn && !isInQueue && !isLoading && !matchFound && !hasAttemptedJoin.current) {
+    if (isLoggedIn && !isInQueue && !isLoading && !hasAttemptedJoin.current) {
       console.log('LobbyScreen: Attempting to join queue...');
       hasAttemptedJoin.current = true;
       joinQueue();
@@ -103,19 +103,16 @@ const LobbyScreen: React.FC = () => {
     if (!isInQueue && !isLoading) {
       hasAttemptedJoin.current = false;
     }
-  }, [isLoggedIn, isInQueue, isLoading, matchFound]); // Removed joinQueue from dependencies
+  }, [isLoggedIn, isInQueue, isLoading]); // Removed joinQueue from dependencies
 
   // Debug logging for queue state
   useEffect(() => {
     console.log('LobbyScreen: Queue state:', {
       isInQueue,
-      queuePosition,
-      estimatedWaitTime,
-      matchFound,
       isLoading,
       error
     });
-  }, [isInQueue, queuePosition, estimatedWaitTime, matchFound, isLoading, error]);
+  }, [isInQueue, isLoading, error]);
 
   // Handle exit queue action
   const handleExitQueue = useCallback(() => {
@@ -123,12 +120,7 @@ const LobbyScreen: React.FC = () => {
     navigate('/');
   }, [leaveQueue, navigate]);
 
-  // Show match found message (auto-redirect is handled in useMatchmaking)
-  useEffect(() => {
-    if (matchFound) {
-      console.log('Match found! Preparing to redirect to pre-round...');
-    }
-  }, [matchFound]);
+  // Navigation is now handled by server events via PubNub -> useUnifiedGameState
 
   // Handle invite friend action
   const handleInviteFriend = useCallback(() => {
@@ -152,10 +144,7 @@ const LobbyScreen: React.FC = () => {
     }
   }, []);
 
-  // Format number with commas for readability
-  const formatNumber = (num: number): string => {
-    return num.toLocaleString();
-  };
+
 
   // Get current sketch data
   const currentSketchData = RECENT_SKETCHES[currentSketch];
@@ -213,10 +202,9 @@ const LobbyScreen: React.FC = () => {
           <div className="bg-gray-100 border rounded-lg p-3 text-xs">
             <div><strong>User:</strong> {currentUser?.id?.slice(0, 8)}... ({currentUser?.email})</div>
             <div><strong>Queue Status:</strong> {isInQueue ? 'In Queue' : 'Not in Queue'}</div>
-            <div><strong>Position:</strong> {queuePosition || 'N/A'}</div>
-            <div><strong>Wait Time:</strong> {estimatedWaitTime ? `${estimatedWaitTime}s` : 'N/A'}</div>
-            <div><strong>Match Found:</strong> {matchFound ? 'Yes' : 'No'}</div>
             <div><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</div>
+            <div><strong>Listening for Matches:</strong> {isListening ? 'Yes' : 'No'}</div>
+            <div><strong>Error:</strong> {error || 'None'}</div>
             <div className="mt-2 space-x-2">
               <button
                 onClick={async () => {
@@ -253,30 +241,7 @@ const LobbyScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Match Found Overlay */}
-        {matchFound && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-green/90 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-lg p-8 text-center shadow-lg"
-            >
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="font-heading font-bold text-2xl text-dark mb-2">Match Found!</h2>
-              <p className="text-dark-gray mb-4">Preparing your game...</p>
-              <div className="flex items-center justify-center space-x-2">
-                <div className="w-2 h-2 bg-green rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-green rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-green rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
+        {/* Match notifications now handled by server events */}
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center px-4 pb-8">
@@ -327,59 +292,22 @@ const LobbyScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Queue Stats */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <motion.div 
-                  className="bg-secondary/10 p-3 rounded-lg text-center border border-secondary/30"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <div className="flex items-center justify-center mb-1">
-                    <Trophy size={16} className="text-secondary mr-1" />
-                    <span className="text-xs text-medium-gray">Position</span>
-                  </div>
-                  <motion.p 
-                    key={queuePosition}
-                    initial={{ scale: 1.2, color: "#22a7e5" }}
-                    animate={{ scale: 1, color: "#2d2d2d" }}
-                    className="font-heading font-bold text-xl"
-                  >
-                    #{queuePosition || '...'}
-                  </motion.p>
-                </motion.div>
-
-                <motion.div 
-                  className="bg-green/10 p-3 rounded-lg text-center border border-green/30"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <div className="flex items-center justify-center mb-1">
-                    <Users size={16} className="text-green mr-1" />
-                    <span className="text-xs text-medium-gray">Queue Position</span>
-                  </div>
-                  <motion.p
-                    key={queuePosition || 0}
-                    initial={{ scale: 1.2, color: "#7bc043" }}
-                    animate={{ scale: 1, color: "#2d2d2d" }}
-                    className="font-heading font-bold text-xl"
-                  >
-                    {queuePosition ? `#${formatNumber(queuePosition)}` : '...'}
-                  </motion.p>
-                </motion.div>
-              </div>
-
-              {/* Estimated Wait Time */}
-              <div className="bg-accent/10 p-4 rounded-lg border border-accent/30 text-center">
+              {/* Queue Status */}
+              <div className="bg-green/10 p-4 rounded-lg border border-green/30 text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
-                  <Clock size={18} className="text-accent mr-2" />
-                  <span className="text-sm text-medium-gray">Estimated Wait</span>
+                  <Users size={18} className="text-green mr-2" />
+                  <span className="text-sm text-medium-gray">Queue Status</span>
                 </div>
-                <motion.p 
-                  key={estimatedWaitTime}
+                <motion.p
                   initial={{ scale: 1.1 }}
                   animate={{ scale: 1 }}
-                  className="font-heading font-bold text-lg"
+                  className="font-heading font-bold text-lg text-green"
                 >
-                  ~{estimatedWaitTime || '...'} seconds
+                  Waiting for players...
                 </motion.p>
+                <p className="text-xs text-medium-gray mt-1">
+                  Server will notify when match is ready
+                </p>
               </div>
             </motion.div>
 
@@ -480,74 +408,7 @@ const LobbyScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Match Found Modal */}
-        <AnimatePresence>
-          {matchFound && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="bg-white rounded-lg border-2 border-dark p-6 max-w-sm w-full hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-              >
-                <div className="text-center">
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.2, 1],
-                      rotate: [0, 5, -5, 0]
-                    }}
-                    transition={{ 
-                      duration: 0.6,
-                      repeat: Infinity,
-                      repeatDelay: 1
-                    }}
-                    className="text-4xl mb-4"
-                  >
-                    🎉
-                  </motion.div>
-                  
-                  <h2 className="font-heading font-bold text-2xl text-dark mb-2 transform rotate-[-1deg]">
-                    Match Found!
-                  </h2>
-                  <p className="text-medium-gray mb-6">
-                    Players ready to create chaos!
-                  </p>
-                  
-                  <div className="flex gap-3">
-                    <Button 
-                      variant="primary" 
-                      size="sm" 
-                      onClick={acceptMatch}
-                      className="flex-1"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Joining...' : 'Accept'}
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      onClick={declineMatch}
-                      className="flex-1"
-                      disabled={isLoading}
-                    >
-                      Decline
-                    </Button>
-                  </div>
-                  
-                  <p className="text-xs text-medium-gray mt-3">
-                    Auto-accepting in 10s...
-                  </p>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Match notifications handled by server events -> PubNub -> useUnifiedGameState */}
       </div>
     </>
   );

@@ -11,6 +11,7 @@
     "analyze:bundle": "npm run build && npx vite-bundle-analyzer dist",
     "build:analyze": "vite build --mode analyze",
     "generate:manifest": "node scripts/generate-asset-manifest.js",
+    "seed:users": "node scripts/seed/seed-users.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

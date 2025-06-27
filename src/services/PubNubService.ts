@@ -94,7 +94,10 @@ export class PubNubGameService implements RealtimeGameService {
         autoNetworkDetection: true
       };
 
-      this.pubnub = new PubNub({
+      // Handle potential ESM/CommonJS compatibility issues
+      const PubNubConstructor = (PubNub as any).default || PubNub;
+
+      this.pubnub = new PubNubConstructor({
         publishKey: config.publishKey,
         subscribeKey: config.subscribeKey,
         userId: config.userId,
@@ -180,6 +183,25 @@ export class PubNubGameService implements RealtimeGameService {
 
       // Set up message handler
       subscription.onMessage = (messageEvent) => {
+        console.log(`🎮 Game channel message received for ${gameId}:`, {
+          channel: messageEvent.channel,
+          messageType: messageEvent.message?.type,
+          timetoken: messageEvent.timetoken,
+          publisher: messageEvent.publisher,
+          fullMessage: messageEvent.message,
+          rawEvent: messageEvent
+        });
+
+        // Check if the message is a phase_changed event
+        if (messageEvent.message?.type === 'phase_changed') {
+          console.log('🎯 PHASE CHANGE EVENT DETECTED!', {
+            gameId: messageEvent.message.gameId,
+            eventType: messageEvent.message.type,
+            data: messageEvent.message.data,
+            fullEvent: messageEvent.message
+          });
+        }
+
         const event = messageEvent.message as GameEvent;
         this.handleGameMessage(gameId, event);
       };
@@ -456,13 +478,32 @@ export class PubNubGameService implements RealtimeGameService {
   }
 
   private handleGameMessage(gameId: string, event: GameEvent): void {
+    console.log(`🔄 Processing game message for ${gameId}:`, {
+      eventType: event?.type,
+      eventData: event?.data,
+      hasHandler: this.eventHandlers.has(gameId),
+      handlerCount: this.eventHandlers.size,
+      allGameIds: Array.from(this.eventHandlers.keys()),
+      eventIsNull: event === null,
+      eventIsUndefined: event === undefined,
+      eventKeys: event ? Object.keys(event) : 'N/A'
+    });
+
+    if (!event) {
+      console.error(`❌ Received null/undefined event for game ${gameId}`);
+      return;
+    }
+
     const handler = this.eventHandlers.get(gameId);
     if (handler) {
       try {
+        console.log(`✅ Calling event handler for ${gameId} with event type: ${event.type}`);
         handler(event);
       } catch (error) {
-        console.error('Error in game event handler:', error);
+        console.error(`❌ Error in game event handler for ${gameId}:`, error);
       }
+    } else {
+      console.warn(`⚠️ No event handler found for game ${gameId}. Available handlers:`, Array.from(this.eventHandlers.keys()));
     }
   }
 

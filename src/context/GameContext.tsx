@@ -23,6 +23,7 @@ import { ImageAsset } from '../types/assets';
 import { GameStateMachine, createGameStateMachine } from '../utils/gameStateMachine';
 import { DataSynchronizationManager, createDataSynchronizationManager } from '../utils/dataSynchronization';
 import { GameErrorHandler, createGameErrorHandler } from '../utils/errorHandling';
+import { GameFlowController } from '../services/GameFlowController';
 
 // Game Drawing Context Interface - Enhanced for integration
 export interface GameDrawingContext {
@@ -303,12 +304,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fetch game data
       const gameResult = await GameService.getGame(targetGameId);
       if (gameResult.success && gameResult.data) {
-        console.log('refreshGameState: Successfully fetched game data:', {
-          gameId: targetGameId,
-          gameStatus: gameResult.data.status,
-          participantCount: gameResult.data.participants?.length || 0,
-          currentGamePhase: state.gamePhase.toString()
-        });
+
 
         dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
         dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
@@ -507,7 +503,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await transitionGameStatus('drawing');
   }, [state.currentGame, isGameHost]);
 
-  // Transition game status (from HEAD)
+  // Transition game status (from HEAD) - Updated to use GameFlowController
   const transitionGameStatus = useCallback(async (newStatus: GameStatus): Promise<ServiceResponse<void>> => {
     if (!state.currentGame) {
       return { success: false, error: 'No active game', code: 'NO_GAME' };
@@ -517,9 +513,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const result = await unifiedGameService.current.transitionGameStatus(state.currentGame.id, newStatus, state.currentGame.status);
+      // Use GameFlowController for centralized, reliable transitions
 
-      if (result.success) {
+      const result = await GameFlowController.transitionToPhase(
+        state.currentGame.id,
+        newStatus,
+        { triggeredBy: 'manual' }
+      );
+
+      // Convert GameFlowController result to ServiceResponse format
+      const serviceResult: ServiceResponse<void> = {
+        success: result.success,
+        error: result.error,
+        code: result.success ? undefined : 'TRANSITION_ERROR'
+      };
+
+      if (serviceResult.success) {
         // Fetch updated game data from database to get timestamps
         const gameResult = await GameService.getGame(state.currentGame.id);
         if (gameResult.success && gameResult.data) {
@@ -561,10 +570,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } else {
-        dispatch({ type: 'SET_ERROR', payload: result.error || 'Failed to transition game status' });
+        dispatch({ type: 'SET_ERROR', payload: serviceResult.error || 'Failed to transition game status' });
       }
 
-      return result;
+      return serviceResult;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       dispatch({ type: 'SET_ERROR', payload: errorMsg });
@@ -576,7 +585,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize drawing session (from HEAD)
   const initializeDrawingSession = useCallback(async (gameId: string): Promise<void> => {
-    if (!state.currentGame || !currentUser) return;
+    console.log('GameContext: initializeDrawingSession called for gameId:', gameId, {
+      hasCurrentGame: !!state.currentGame,
+      hasCurrentUser: !!currentUser,
+      gameStatus: state.currentGame?.status,
+      roundDuration: state.currentGame?.round_duration,
+      drawingStartedAt: state.currentGame?.drawing_started_at
+    });
+
+    if (!state.currentGame || !currentUser) {
+      console.log('GameContext: Cannot initialize drawing session - missing game or user');
+      return;
+    }
+
+    // Check if game is in a drawable state
+    if (!['drawing', 'briefing'].includes(state.currentGame.status)) {
+      console.log('GameContext: Game is not in a drawable state:', state.currentGame.status);
+      // Still create context for non-drawing phases to show UI
+    }
 
     // Calculate actual time remaining based on when drawing phase started
     let timeRemaining = state.currentGame.round_duration;
@@ -586,15 +612,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentTime = Date.now();
       const elapsedSeconds = Math.floor((currentTime - drawingStartTime) / 1000);
       timeRemaining = Math.max(0, state.currentGame.round_duration - elapsedSeconds);
-
-      console.log('GameContext: Calculating time remaining for drawing session:', {
-        drawingStartedAt: state.currentGame.drawing_started_at,
-        roundDuration: state.currentGame.round_duration,
+      console.log('GameContext: Calculated time remaining:', {
+        drawingStartTime,
+        currentTime,
         elapsedSeconds,
         timeRemaining
       });
-    } else {
-      console.log('GameContext: No drawing_started_at timestamp, using full duration:', timeRemaining);
     }
 
     // Create drawing context
@@ -617,6 +640,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    console.log('GameContext: Setting drawing context:', newDrawingContext);
     setDrawingContext(newDrawingContext);
   }, [state.currentGame, currentUser]);
 
@@ -883,19 +907,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Game phase changed event
     const handlePhaseChanged = (event: any) => {
-      console.log('Game phase changed:', event);
-      console.log('Current game state before phase change:', {
-        currentGameStatus: state.currentGame?.status,
-        gamePhase: state.gamePhase,
-        newPhase: event.data.newPhase
-      });
       dispatch({ type: 'SET_GAME_PHASE', payload: event.data.newPhase });
       refreshGameState();
     };
 
     // Timer sync event
     const handleTimerSync = (event: any) => {
-      console.log('Timer sync:', event);
       dispatch({
         type: 'SET_TIMER',
         payload: {
@@ -908,7 +925,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Drawing submitted event
     const handleDrawingSubmitted = (event: any) => {
-      console.log('Drawing submitted:', event);
       refreshGameState();
     };
 
@@ -956,20 +972,31 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Auto-check transitions when relevant state changes
-  useEffect(() => {
-    if (state.currentGame && stateMachineRef.current) {
-      // Check transitions when participants, submissions, or votes change
-      const checkPhaseTransitions = async () => {
-        if (stateMachineRef.current) {
-          await stateMachineRef.current.checkAndExecuteTransitions();
-        }
-      };
-      checkPhaseTransitions();
-    }
-  }, [state.participants, state.submissions, state.votes]);
+  // DISABLED: Using GameFlowController for centralized transitions instead
+  // useEffect(() => {
+  //   if (state.currentGame && stateMachineRef.current) {
+  //     // Only auto-transition for certain phases to prevent aggressive transitions
+  //     // Skip auto-transitions for briefing phase to allow proper timing
+  //     if (state.gamePhase !== GamePhase.BRIEFING) {
+  //       const checkPhaseTransitions = async () => {
+  //         if (stateMachineRef.current) {
+  //           await stateMachineRef.current.checkAndExecuteTransitions();
+  //         }
+  //       };
+  //       checkPhaseTransitions();
+  //     }
+  //   }
+  // }, [state.participants, state.submissions, state.votes]);
 
-  // Timer countdown effect
+  // Server-synchronized timer effect (replaces client-side countdown)
   useEffect(() => {
+    // Server-side timer synchronization is now handled by useServerTimer hook
+    // Client-side countdown is only for display purposes between server syncs
+    // All timer-based phase transitions are handled server-side
+
+    // Note: Individual components should use useServerTimer hook for timer display
+    // This context maintains timer state for backward compatibility
+
     if (state.currentTimer && state.currentTimer > 0) {
       const interval = setInterval(() => {
         dispatch({
@@ -983,15 +1010,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }, 1000);
 
       return () => clearInterval(interval);
-    } else if (state.currentTimer === 0 && stateMachineRef.current) {
-      // Timer expired, check for transitions
-      const checkPhaseTransitions = async () => {
-        if (stateMachineRef.current) {
-          await stateMachineRef.current.checkAndExecuteTransitions();
-        }
-      };
-      checkPhaseTransitions();
     }
+    // REMOVED: All timer-based auto-transitions now handled server-side
+    // Client-side timer expiration no longer triggers phase transitions
   }, [state.currentTimer]);
 
   // Game Actions from main branch

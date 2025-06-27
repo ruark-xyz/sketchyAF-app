@@ -4,11 +4,11 @@ import { Clock, Users, Palette, CheckCircle, ArrowRight, Zap, Star, AlertCircle 
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
-import { useGameTimer } from '../../hooks/useGameTimer';
+import { useSimpleTimer } from '../../hooks/useSimpleTimer';
 import { loadAllCollections } from '../../utils/assetLoader';
-import { GamePhase } from '../../types/gameContext';
 import { BoosterPack } from '../../types';
 
 interface BoosterPackOption {
@@ -23,8 +23,13 @@ const PreRoundBriefingScreen: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const {
-    currentGame,
-    gamePhase,
+    game: currentGame,
+    isLoading: gameLoading,
+    error: gameError
+  } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
+
+  // Keep some GameContext usage for briefing-specific state
+  const {
     participants,
     isReady,
     actions,
@@ -36,15 +41,14 @@ const PreRoundBriefingScreen: React.FC = () => {
   const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackOption[]>([]);
   const [gameStarting, setGameStarting] = useState(false);
   
-  // Set up timer
-  const { 
-    timeRemaining, 
-    formattedTime, 
-    isActive, 
-    start, 
-    isExpired 
-  } = useGameTimer({
-    gameId: currentGame?.id
+  // Simple timer display
+  const {
+    timeRemaining,
+    formattedTime,
+    isLoading: timerLoading,
+    error: timerError
+  } = useSimpleTimer({
+    gameId: currentGame?.id || ''
   });
 
   // Load available booster packs
@@ -72,47 +76,7 @@ const PreRoundBriefingScreen: React.FC = () => {
   }, []);
 
   // Start timer when component mounts - but only if all players are present
-  useEffect(() => {
-    if (currentGame && currentGame.status === 'briefing') {
-      // For matchmaking games, wait until all expected players are present
-      const expectedPlayers = currentGame.max_players;
-      const currentPlayers = participants.length;
-
-      console.log('PreRoundBriefingScreen: Checking if should start timer:', {
-        expectedPlayers,
-        currentPlayers,
-        allPlayersPresent: currentPlayers >= expectedPlayers,
-        gameId: currentGame.id
-      });
-
-      // Only start timer if all players are present (for matchmaking games)
-      if (currentPlayers >= expectedPlayers) {
-        // Default briefing time is 15 seconds
-        const briefingTime = 15;
-        console.log('PreRoundBriefingScreen: All players present, starting timer');
-        start(briefingTime, 'briefing');
-      } else {
-        console.log(`PreRoundBriefingScreen: Waiting for more players before starting timer (${currentPlayers}/${expectedPlayers})`);
-
-        // Start timer anyway after a short delay to prevent indefinite waiting
-        // The smart redirect logic will handle players joining at different times
-        setTimeout(() => {
-          if (currentGame && currentGame.status === 'briefing') {
-            console.log('PreRoundBriefingScreen: Starting timer after delay to prevent indefinite waiting');
-            const briefingTime = 15;
-            start(briefingTime, 'briefing');
-          }
-        }, 5000); // 5 second delay
-      }
-    }
-  }, [currentGame, participants.length, start]);
-
-  // Auto-transition when timer expires
-  useEffect(() => {
-    if (isExpired && !gameStarting) {
-      handleStartGame();
-    }
-  }, [isExpired, gameStarting]);
+  // Timer and phase transitions are now handled server-side automatically
 
   // Log component mount for debugging
   useEffect(() => {
@@ -121,9 +85,9 @@ const PreRoundBriefingScreen: React.FC = () => {
         id: currentGame.id,
         status: currentGame.status
       } : null,
-      gamePhase: gamePhase.toString()
+      gamePhase: currentGame?.status || 'unknown'
     });
-  }, [currentGame, gamePhase]);
+  }, [currentGame]);
 
   const handleReadyUp = async () => {
     try {
@@ -146,25 +110,10 @@ const PreRoundBriefingScreen: React.FC = () => {
     }
   };
 
+  // Manual game start is no longer needed - server handles transitions automatically
   const handleStartGame = async () => {
-    if (isLoading) return;
-    
-    setGameStarting(true);
-    
-    try {
-      // Transition to drawing phase
-      if (currentGame) {
-        await actions.transitionGameStatus(currentGame.id, 'drawing', 'briefing');
-      }
-      
-      // Navigate to drawing screen
-      setTimeout(() => {
-        navigate('/draw');
-      }, 1500);
-    } catch (err) {
-      console.error('Failed to start game:', err);
-      setGameStarting(false);
-    }
+    // Phase transitions are now handled server-side automatically
+    console.log('Manual start game clicked - server will handle transition automatically');
   };
 
   // Get icon for collection

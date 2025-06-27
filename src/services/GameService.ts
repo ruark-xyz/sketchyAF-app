@@ -48,7 +48,7 @@ export class GameService {
         round_duration: request.round_duration || GAME_CONSTANTS.DEFAULT_ROUND_DURATION,
         voting_duration: request.voting_duration || GAME_CONSTANTS.DEFAULT_VOTING_DURATION,
         created_by: user.id,
-        status: 'briefing' as const, // Start games in briefing phase for matchmaking
+        status: 'waiting' as const, // Start games in waiting status, then transition to briefing
         expires_at: new Date(Date.now() + GAME_CONSTANTS.GAME_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       };
 
@@ -71,6 +71,16 @@ export class GameService {
         console.error('GameService: Creator failed to join their own game:', joinResult.error);
       } else {
         console.log('GameService: Creator successfully joined game');
+      }
+
+      // Transition to briefing status to properly set timer fields
+      console.log('GameService: Transitioning game to briefing status with timer:', data.id);
+      const transitionResult = await this.transitionGameStatus(data.id, 'briefing', 'waiting');
+      if (!transitionResult.success) {
+        console.error('GameService: Failed to transition game to briefing:', transitionResult.error);
+        // Don't fail the entire operation, but log the issue
+      } else {
+        console.log('GameService: Game successfully transitioned to briefing with timer');
       }
 
       return { success: true, data };
