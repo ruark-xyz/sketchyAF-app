@@ -261,8 +261,6 @@ export class GameFlowController {
     triggeredBy: string
   ): Promise<TransitionResult> {
     try {
-      console.log(`GameFlowController: Transitioning ${gameId} from ${fromStatus} to ${toStatus} (${triggeredBy})`);
-
       // Use GameService for the actual database transition
       const result = await GameService.transitionGameStatus(gameId, toStatus, fromStatus);
 
@@ -378,7 +376,6 @@ export class GameFlowController {
 
       // Verify status hasn't changed (race condition check)
       if (gameState.data.status !== currentStatus) {
-        console.log(`Timer transition validation failed: status changed from ${currentStatus} to ${gameState.data.status}`);
         return false;
       }
 
@@ -404,7 +401,6 @@ export class GameFlowController {
 
       return true;
     } catch (error) {
-      console.error('Timer transition validation error:', error);
       return false;
     }
   }

@@ -42,24 +42,19 @@ export class PubNubGameService implements RealtimeGameService {
     try {
       // Check if already initialized for this user
       if (this.isInitialized && this.userId === userId) {
-        console.log('PubNub already initialized for user:', userId);
         return;
       }
 
       // If initialized for a different user, clean up first
       if (this.isInitialized && this.userId !== userId) {
-        console.log(`PubNub switching users from ${this.userId} to ${userId}, cleaning up first`);
         await this.disconnect();
       }
 
       // Check if initialization is already in progress
       if (this.isInitializing) {
-        console.log('PubNub initialization already in progress, waiting...');
-        // Wait for current initialization to complete
         while (this.isInitializing) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        // Check if it was initialized for our user
         if (this.isInitialized && this.userId === userId) {
           return;
         }
@@ -115,9 +110,7 @@ export class PubNubGameService implements RealtimeGameService {
       this.isInitialized = true;
       this.updateConnectionStatus('connected');
 
-      console.log('PubNub initialized successfully for user:', userId);
     } catch (error) {
-      console.error('Failed to initialize PubNub:', error);
       this.updateConnectionStatus('error');
       throw new Error(`PubNub initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
@@ -152,9 +145,7 @@ export class PubNubGameService implements RealtimeGameService {
       this.userId = null;
       this.updateConnectionStatus('disconnected');
 
-      console.log('PubNub disconnected successfully');
     } catch (error) {
-      console.error('Error during PubNub disconnect:', error);
     }
   }
 
@@ -171,7 +162,6 @@ export class PubNubGameService implements RealtimeGameService {
 
       // Check if already subscribed
       if (this.subscriptions.has(gameId)) {
-        console.log(`Already subscribed to game channel: ${channelName}`);
         return;
       }
 
@@ -183,25 +173,6 @@ export class PubNubGameService implements RealtimeGameService {
 
       // Set up message handler
       subscription.onMessage = (messageEvent) => {
-        console.log(`🎮 Game channel message received for ${gameId}:`, {
-          channel: messageEvent.channel,
-          messageType: messageEvent.message?.type,
-          timetoken: messageEvent.timetoken,
-          publisher: messageEvent.publisher,
-          fullMessage: messageEvent.message,
-          rawEvent: messageEvent
-        });
-
-        // Check if the message is a phase_changed event
-        if (messageEvent.message?.type === 'phase_changed') {
-          console.log('🎯 PHASE CHANGE EVENT DETECTED!', {
-            gameId: messageEvent.message.gameId,
-            eventType: messageEvent.message.type,
-            data: messageEvent.message.data,
-            fullEvent: messageEvent.message
-          });
-        }
-
         const event = messageEvent.message as GameEvent;
         this.handleGameMessage(gameId, event);
       };
@@ -215,9 +186,7 @@ export class PubNubGameService implements RealtimeGameService {
       subscription.subscribe();
       this.subscriptions.set(gameId, subscription);
 
-      console.log(`Joined game channel: ${channelName}`);
     } catch (error) {
-      console.error(`Failed to join game channel for game ${gameId}:`, error);
       throw new Error(`Failed to join game channel: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -233,10 +202,8 @@ export class PubNubGameService implements RealtimeGameService {
         this.subscriptions.delete(gameId);
         this.eventHandlers.delete(gameId);
         this.presenceHandlers.delete(gameId);
-        console.log(`Left game channel: game-${gameId}`);
       }
     } catch (error) {
-      console.error(`Error leaving game channel for game ${gameId}:`, error);
     }
   }
 
@@ -275,7 +242,6 @@ export class PubNubGameService implements RealtimeGameService {
         }
       });
 
-      console.log('Event published successfully:', result);
       return result;
     };
 
@@ -304,7 +270,6 @@ export class PubNubGameService implements RealtimeGameService {
 
       // Check if already subscribed
       if (this.subscriptions.has(`user-${userId}`)) {
-        console.log(`Already subscribed to user channel: ${channelName}`);
         return;
       }
 
@@ -313,7 +278,6 @@ export class PubNubGameService implements RealtimeGameService {
 
       // Set up message handler
       subscription.onMessage = (messageEvent) => {
-        console.log('PubNub user channel message received:', messageEvent);
         callback(messageEvent);
       };
 
@@ -321,9 +285,7 @@ export class PubNubGameService implements RealtimeGameService {
       subscription.subscribe();
       this.subscriptions.set(`user-${userId}`, subscription);
 
-      console.log(`Subscribed to user channel: ${channelName}`);
     } catch (error) {
-      console.error(`Failed to subscribe to user channel for user ${userId}:`, error);
       throw new Error(`Failed to subscribe to user channel: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -337,10 +299,8 @@ export class PubNubGameService implements RealtimeGameService {
       if (subscription) {
         subscription.unsubscribe();
         this.subscriptions.delete(`user-${userId}`);
-        console.log(`Unsubscribed from user channel: user-${userId}`);
       }
     } catch (error) {
-      console.error(`Error unsubscribing from user channel for user ${userId}:`, error);
     }
   }
 
@@ -368,9 +328,7 @@ export class PubNubGameService implements RealtimeGameService {
         sendByPost: false
       });
 
-      console.log(`Match notification sent to user ${userId}:`, result);
     } catch (error) {
-      console.error(`Failed to send match notification to user ${userId}:`, error);
       // Don't throw - this is a nice-to-have feature, not critical
     }
   }
@@ -407,7 +365,6 @@ export class PubNubGameService implements RealtimeGameService {
       const channelData = response.channels[`game-${gameId}`];
       return channelData?.occupants?.map(occupant => occupant.uuid) || [];
     } catch (error) {
-      console.error('Failed to get presence:', error);
       return [];
     }
   }
@@ -452,58 +409,36 @@ export class PubNubGameService implements RealtimeGameService {
         switch (category) {
           case 'PNConnectedCategory':
             this.updateConnectionStatus('connected');
-            console.log('PubNub connected');
             break;
           case 'PNReconnectedCategory':
             this.updateConnectionStatus('connected');
-            console.log('PubNub reconnected');
             break;
           case 'PNNetworkDownCategory':
             this.updateConnectionStatus('disconnected');
-            console.log('PubNub network down');
             break;
           case 'PNNetworkUpCategory':
             this.updateConnectionStatus('connecting');
-            console.log('PubNub network up');
             break;
           case 'PNReconnectingCategory':
             this.updateConnectionStatus('reconnecting');
-            console.log('PubNub reconnecting');
             break;
           default:
-            console.log('PubNub status:', category);
         }
       }
     });
   }
 
   private handleGameMessage(gameId: string, event: GameEvent): void {
-    console.log(`🔄 Processing game message for ${gameId}:`, {
-      eventType: event?.type,
-      eventData: event?.data,
-      hasHandler: this.eventHandlers.has(gameId),
-      handlerCount: this.eventHandlers.size,
-      allGameIds: Array.from(this.eventHandlers.keys()),
-      eventIsNull: event === null,
-      eventIsUndefined: event === undefined,
-      eventKeys: event ? Object.keys(event) : 'N/A'
-    });
-
     if (!event) {
-      console.error(`❌ Received null/undefined event for game ${gameId}`);
       return;
     }
 
     const handler = this.eventHandlers.get(gameId);
     if (handler) {
       try {
-        console.log(`✅ Calling event handler for ${gameId} with event type: ${event.type}`);
         handler(event);
       } catch (error) {
-        console.error(`❌ Error in game event handler for ${gameId}:`, error);
       }
-    } else {
-      console.warn(`⚠️ No event handler found for game ${gameId}. Available handlers:`, Array.from(this.eventHandlers.keys()));
     }
   }
 
@@ -520,7 +455,6 @@ export class PubNubGameService implements RealtimeGameService {
         };
         handler(presence);
       } catch (error) {
-        console.error('Error in presence event handler:', error);
       }
     }
   }
@@ -532,7 +466,6 @@ export class PubNubGameService implements RealtimeGameService {
         try {
           handler(status);
         } catch (error) {
-          console.error('Error in connection status handler:', error);
         }
       });
     }
@@ -552,9 +485,7 @@ export class PubNubGameService implements RealtimeGameService {
         throw new Error('User not authenticated with Supabase');
       }
 
-      console.log('Supabase authentication validated for user:', userId);
     } catch (error) {
-      console.error('Supabase authentication validation failed:', error);
       throw new Error(`Authentication validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -592,9 +523,7 @@ export class PubNubGameService implements RealtimeGameService {
       }
 
       const authData = await response.json();
-      console.log('Channel access authenticated:', authData);
     } catch (error) {
-      console.error('Channel authentication failed:', error);
       throw new Error(`Channel authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -609,9 +538,7 @@ export class PubNubGameService implements RealtimeGameService {
       this.presenceHandlers.clear();
       this.subscriptions.clear();
 
-      console.log('PubNubService: Cleaned up user-specific state');
     } catch (error) {
-      console.error('Error during PubNubService cleanup:', error);
     }
   }
 }

@@ -74,7 +74,6 @@ export class BoosterPackAnalyticsService {
     boosterPackId?: string
   ): Promise<ServiceResponse<void>> {
     // Temporarily disabled - analytics service not needed for MVP
-    console.log('Asset usage tracking disabled:', { userId, gameId, assetId, assetName });
     return { success: true };
 
     /*
@@ -121,7 +120,6 @@ export class BoosterPackAnalyticsService {
     assetsUsed: string[]
   ): Promise<ServiceResponse<void>> {
     // Temporarily disabled - analytics service not needed for MVP
-    console.log('Booster pack usage tracking disabled:', { userId, gameId, boosterPackId, assetsUsed });
     return { success: true };
 
     /*
@@ -340,7 +338,6 @@ export class BoosterPackAnalyticsService {
    */
   private startPeriodicFlush(): void {
     // Temporarily disabled - analytics service not needed for MVP
-    console.log('Analytics service disabled - periodic flush not started');
     /*
     this.flushInterval = setInterval(() => {
       if (this.usageQueue.length > 0) {

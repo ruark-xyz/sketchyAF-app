@@ -60,7 +60,6 @@ export class RealtimeGameService {
     try {
       // Clear any previous user state to prevent cross-user contamination
       if (this.currentUser && this.currentUser.id !== user.id) {
-        console.log('Switching users in RealtimeGameService, clearing previous state');
         await this.cleanup();
       }
 
@@ -74,7 +73,6 @@ export class RealtimeGameService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to initialize real-time service:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -116,7 +114,6 @@ export class RealtimeGameService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to join game:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -145,7 +142,6 @@ export class RealtimeGameService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to leave game:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -179,7 +175,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast player ready:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -214,7 +209,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast phase change:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -249,7 +243,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast timer sync:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -291,7 +284,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast server timer sync:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -328,7 +320,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast timer expired:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -364,7 +355,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast drawing submitted:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -399,7 +389,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast vote cast:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -420,7 +409,6 @@ export class RealtimeGameService {
       const presence = await this.pubNubService.getGamePresence(this.activeGameId);
       return { success: true, data: presence };
     } catch (error) {
-      console.error('Failed to get game presence:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
