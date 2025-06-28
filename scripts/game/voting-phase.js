@@ -18,16 +18,17 @@
  *   node scripts/game/voting-phase.js
  *
  * After running, navigate to:
- *   http://localhost:5173/uiux/draw?gameId=<GAME_ID>
+ *   http://localhost:5173/uiux/voting?gameId=<GAME_ID>
  *
  * Requirements:
  * - Supabase local development environment running
  * - Environment variables in .env.local
- * - Test users created (run seed-users.js first if needed)
+ * - Test users must already exist (run seed-users.js first)
  */
 
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { getTestUsers, displayTestUserCredentials } from '../shared/test-users.js';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
@@ -44,32 +45,6 @@ const TEST_CONFIG = {
   maxPlayers: 4,
   roundDuration: 180, // 3 minutes
   votingDuration: 60,  // 1 minute
-  participants: [
-    {
-      email: 'alice@example.com',
-      password: 'testpass123',
-      username: 'alice_sketcher',
-      avatar_url: 'https://randomuser.me/api/portraits/women/1.jpg'
-    },
-    {
-      email: 'bob@example.com',
-      password: 'testpass123',
-      username: 'bob_artist',
-      avatar_url: 'https://randomuser.me/api/portraits/men/2.jpg'
-    },
-    {
-      email: 'charlie@example.com',
-      password: 'testpass123',
-      username: 'charlie_draws',
-      avatar_url: 'https://randomuser.me/api/portraits/men/3.jpg'
-    },
-    {
-      email: 'diana@example.com',
-      password: 'testpass123',
-      username: 'diana_creative',
-      avatar_url: 'https://randomuser.me/api/portraits/women/4.jpg'
-    }
-  ]
 };
 
 // Mock Excalidraw drawing data for test submissions
@@ -328,75 +303,7 @@ async function cleanupTestData() {
   }
 }
 
-/**
- * Ensure test users exist
- */
-async function ensureTestUsers() {
-  console.log('👥 Ensuring test users exist...');
 
-  const users = [];
-
-  for (const participant of TEST_CONFIG.participants) {
-    try {
-      // Check if user exists
-      const { data: existingUser, error: selectError } = await supabase
-        .from('users')
-        .select('id, email, username, avatar_url')
-        .eq('email', participant.email)
-        .single();
-
-      if (existingUser) {
-        console.log(`   ✅ User exists: ${participant.username} (${participant.email})`);
-        users.push(existingUser);
-        continue;
-      }
-
-      if (selectError && selectError.code !== 'PGRST116') {
-        throw selectError;
-      }
-
-      // Create user if doesn't exist
-      console.log(`   🔨 Creating user: ${participant.username} (${participant.email})`);
-
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: participant.email,
-        password: participant.password,
-        email_confirm: true,
-        user_metadata: {
-          username: participant.username,
-          avatar_url: participant.avatar_url
-        }
-      });
-
-      if (authError) {
-        throw new Error(`Auth error: ${authError.message}`);
-      }
-
-      // Get the created user from the users table
-      const { data: newUser, error: userError } = await supabase
-        .from('users')
-        .select('id, email, username, avatar_url')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (userError) {
-        throw new Error(`User fetch error: ${userError.message}`);
-      }
-
-      console.log(`   ✅ Created user: ${newUser.username}`);
-      users.push(newUser);
-
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-    } catch (error) {
-      console.log(`   ❌ Error with user ${participant.email}: ${error.message}`);
-      throw error;
-    }
-  }
-
-  return users;
-}
 
 /**
  * Create test game
@@ -544,16 +451,11 @@ function displayResults(game, users) {
   console.log(`Participants: ${users.length}`);
   console.log('');
 
-  console.log('👥 Test Users (login credentials):');
-  TEST_CONFIG.participants.forEach((participant, index) => {
-    console.log(`   ${index + 1}. ${participant.username}`);
-    console.log(`      Email: ${participant.email}`);
-    console.log(`      Password: ${participant.password}`);
-  });
+  displayTestUserCredentials();
   console.log('');
 
   console.log('🌐 Navigation Instructions:');
-  console.log(`1. Open: http://localhost:5173/uiux/draw?gameId=${game.id}`);
+  console.log(`1. Open: http://localhost:5173/uiux/voting?gameId=${game.id}`);
   console.log('2. Login with any of the test user credentials above');
   console.log('3. You should see the voting screen with 4 submissions');
   console.log('4. Test voting functionality and real-time updates');
@@ -595,8 +497,8 @@ async function main() {
     await cleanupTestData();
     console.log('');
 
-    // Step 2: Ensure test users exist
-    const users = await ensureTestUsers();
+    // Step 2: Get test users (assumes they already exist)
+    const users = await getTestUsers(supabase);
     console.log('');
 
     // Step 3: Create test game (use first user as creator)
@@ -622,6 +524,7 @@ async function main() {
     console.error('2. Check .env.local has correct environment variables');
     console.error('3. Verify database migrations are applied');
     console.error('4. Check network connectivity to Supabase');
+    console.error('5. Create test users first: node scripts/seed/seed-users.js');
     process.exit(1);
   }
 }
