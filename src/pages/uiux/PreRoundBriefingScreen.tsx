@@ -118,6 +118,17 @@ const PreRoundBriefingScreen: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to select booster pack:', err);
+
+      // Show user-friendly error message
+      if (err instanceof Error) {
+        if (err.message.includes('No active game') || err.message.includes('real-time service not initialized')) {
+          // This is likely a timing issue - the selection was saved but real-time broadcast failed
+          console.warn('Booster pack selection saved locally, but real-time sync failed. This is usually temporary.');
+        } else {
+          // Re-throw other errors to show them to the user
+          throw err;
+        }
+      }
     }
   };
 

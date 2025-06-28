@@ -1113,8 +1113,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error(result.error || 'Failed to update booster pack selection');
         }
 
-        // Broadcast the change via real-time
-        await broadcastPlayerReady(state.isReady, packId || undefined);
+        // Broadcast the change via real-time if service is ready
+        // Don't fail the entire operation if real-time broadcast fails
+        try {
+          if (activeGameId && isConnected) {
+            await broadcastPlayerReady(state.isReady, packId || undefined);
+          }
+        } catch (realtimeError) {
+          console.warn('Failed to broadcast booster pack selection via real-time:', realtimeError);
+          // Don't throw - the database update succeeded, which is the important part
+        }
       }
 
     } catch (error) {
@@ -1122,7 +1130,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       throw error;
     }
-  }, [currentUser, state.currentGame, state.isReady, state.isInGame, state.selectedBoosterPack, broadcastPlayerReady]);
+  }, [currentUser, state.currentGame, state.isReady, state.isInGame, state.selectedBoosterPack, activeGameId, isConnected, broadcastPlayerReady]);
 
   const submitDrawing = useCallback(async (drawingData: any, drawingUrl: string): Promise<void> => {
     if (!currentUser || !state.currentGame) {

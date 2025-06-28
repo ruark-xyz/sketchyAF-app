@@ -154,11 +154,17 @@ export const useRealtimeGame = (options: UseRealtimeGameOptions = {}): UseRealti
 
   // Broadcast player ready status
   const broadcastPlayerReady = useCallback(async (
-    isReady: boolean, 
+    isReady: boolean,
     selectedBoosterPack?: string
   ): Promise<ServiceResponse<void>> => {
-    if (!realtimeServiceRef.current || !activeGameId) {
-      const errorMsg = 'No active game or real-time service not initialized';
+    if (!realtimeServiceRef.current) {
+      const errorMsg = 'Real-time service not initialized';
+      setError(errorMsg);
+      return { success: false, error: errorMsg, code: 'SERVICE_NOT_INITIALIZED' };
+    }
+
+    if (!activeGameId) {
+      const errorMsg = 'No active game - must join a game first';
       setError(errorMsg);
       return { success: false, error: errorMsg, code: 'NO_ACTIVE_GAME' };
     }
