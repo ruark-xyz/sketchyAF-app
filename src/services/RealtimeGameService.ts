@@ -428,10 +428,22 @@ export class RealtimeGameService {
    * Add event handler for specific game event type
    */
   addEventListener(eventType: GameEventType, handler: GameEventHandler): void {
+    console.log('🔗 RealtimeGameService addEventListener called:', {
+      eventType,
+      currentHandlers: this.gameEventHandlers.get(eventType)?.size || 0,
+      totalEventTypes: this.gameEventHandlers.size,
+      timestamp: new Date().toISOString()
+    });
+
     if (!this.gameEventHandlers.has(eventType)) {
       this.gameEventHandlers.set(eventType, new Set());
     }
     this.gameEventHandlers.get(eventType)!.add(handler);
+
+    console.log('✅ Event handler added to RealtimeGameService:', {
+      eventType,
+      totalHandlers: this.gameEventHandlers.get(eventType)!.size
+    });
   }
 
   /**
@@ -534,14 +546,29 @@ export class RealtimeGameService {
 
   private handleGameEvent(event: GameEvent): void {
     const handlers = this.gameEventHandlers.get(event.type);
+    console.log('🎯 RealtimeGameService handleGameEvent called:', {
+      eventType: event.type,
+      gameId: event.gameId,
+      hasHandlers: this.gameEventHandlers.has(event.type),
+      handlerCount: handlers?.size || 0,
+      actualHandlers: handlers ? Array.from(handlers).length : 0,
+      allEventTypes: Array.from(this.gameEventHandlers.keys()),
+      timestamp: new Date().toISOString()
+    });
+
     if (handlers) {
-      handlers.forEach(handler => {
+      console.log(`🚀 Calling ${handlers.size} handlers for event type: ${event.type}`);
+      handlers.forEach((handler, index) => {
         try {
+          console.log(`📞 Calling handler ${index + 1}/${handlers.size} for ${event.type}`);
           handler(event);
+          console.log(`✅ Handler ${index + 1} completed successfully`);
         } catch (error) {
-          console.error('Error in game event handler:', error);
+          console.error(`❌ Error in game event handler ${index + 1}:`, error);
         }
       });
+    } else {
+      console.log(`❌ No handlers found for event type: ${event.type}`);
     }
   }
 

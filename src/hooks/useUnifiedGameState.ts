@@ -22,9 +22,9 @@ interface UseUnifiedGameStateOptions {
   autoNavigate?: boolean; // Automatically navigate on phase changes
 }
 
-export function useUnifiedGameState({ 
-  gameId, 
-  autoNavigate = true 
+export function useUnifiedGameState({
+  gameId,
+  autoNavigate = true
 }: UseUnifiedGameStateOptions = {}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -32,9 +32,21 @@ export function useUnifiedGameState({
   const effectiveGameId = gameId || searchParams.get('gameId');
   const { currentUser } = useAuth();
 
+  // Debug log to confirm hook is being called
+  console.log('🎮 useUnifiedGameState hook called:', {
+    providedGameId: gameId,
+    searchParamsGameId: searchParams.get('gameId'),
+    effectiveGameId,
+    autoNavigate,
+    hasCurrentUser: !!currentUser,
+    currentUserId: currentUser?.id,
+    timestamp: new Date().toISOString()
+  });
+
   // Direct PubNub service for phase change events (like match notifications)
   const pubNubServiceRef = useRef<PubNubGameService | null>(null);
   const eventListenerRegistered = useRef<string | null>(null); // Track which game has listener registered
+  const hookInitialized = useRef<string | null>(null); // Track which game has been fully initialized
 
   // Supabase Realtime channel for game status updates
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
@@ -60,7 +72,14 @@ export function useUnifiedGameState({
     try {
       // Loading state is already set in useEffect, no need to set it again
 
-      console.log(`Loading game ${id} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      console.log(`🔄 Loading game ${id} (attempt ${retryCount + 1}/${maxRetries + 1})`, {
+        gameId: id,
+        retryCount,
+        maxRetries,
+        currentTime: new Date().toISOString(),
+        currentLocation: window.location.pathname + window.location.search,
+        calledFrom: new Error().stack?.split('\n')[2]?.trim()
+      });
 
       const { data, error } = await supabase
         .from('games')
@@ -106,22 +125,37 @@ export function useUnifiedGameState({
         return;
       }
 
-      console.log(`Game ${id} loaded successfully:`, {
+      console.log(`✅ Game ${id} loaded successfully:`, {
         id: data.id,
         status: data.status,
         phase_expires_at: data.phase_expires_at,
         current_phase_duration: data.current_phase_duration,
-        fullData: data
+        current_players: data.current_players,
+        max_players: data.max_players,
+        prompt: data.prompt,
+        participants: data.game_participants?.length || 0,
+        submissions: data.submissions?.length || 0,
+        loadTime: new Date().toISOString()
       });
 
-      console.log('🎯 Setting hasGame to true for game:', id);
-      setState(prev => ({
-        ...prev,
-        game: data,
-        isLoading: false,
-        error: null,
-        lastUpdated: Date.now()
-      }));
+      console.log('🎯 Setting game state and triggering potential navigation for game:', id);
+      setState(prev => {
+        const statusChanged = prev.game?.status !== data.status;
+        console.log('🔍 Game state update:', {
+          previousStatus: prev.game?.status,
+          newStatus: data.status,
+          statusChanged,
+          willTriggerNavigation: statusChanged && autoNavigate
+        });
+
+        return {
+          ...prev,
+          game: data,
+          isLoading: false,
+          error: null,
+          lastUpdated: Date.now()
+        };
+      });
 
       // Manually join game if not already joined
       if (joinGame && isInitialized && isConnected && activeGameId !== id) {
@@ -135,50 +169,9 @@ export function useUnifiedGameState({
         });
       }
 
-      // Set up PubNub subscription using existing infrastructure (only once per game)
-      if (addEventListener && eventListenerRegistered.current !== id) {
-        const handlePhaseChanged = (event: any) => {
-          console.log('🎯 Phase change event received via useRealtimeGame:', event);
-          console.log('🔍 Event details:', {
-            eventType: event?.type,
-            eventGameId: event?.gameId,
-            targetGameId: id,
-            typeMatch: event?.type === 'phase_changed',
-            gameIdMatch: event?.gameId === id,
-            hasData: !!event?.data,
-            hasGame: !!event?.data?.game
-          });
-
-          if (event.type === 'phase_changed' && event.gameId === id) {
-            console.log(`🔄 Processing phase change: ${event.data?.previousPhase} → ${event.data?.newPhase}`);
-            console.log(`🎯 Phase change details:`, {
-              previousPhase: event.data?.previousPhase,
-              newPhase: event.data?.newPhase,
-              hasGameObject: !!event.data?.game,
-              gameStatus: event.data?.game?.status,
-              autoNavigateEnabled: true // This is from useRealtimeGame context
-            });
-
-            // Check if we have the full game object in the event
-            if (event.data?.game) {
-              console.log('✨ Using game object from event for navigation');
-              // Use handleGameUpdate to trigger navigation logic
-              handleGameUpdate(event.data.game);
-            } else {
-              console.log('🔄 No game object in event, reloading from database');
-              // Fallback to reloading if no game object in event
-              loadGame(id);
-            }
-          } else {
-            console.log('❌ Event conditions not met for phase change processing');
-          }
-        };
-
-        addEventListener('phase_changed', handlePhaseChanged);
-        eventListenerRegistered.current = id; // Mark this game as having a listener
-      } else {
-        setupPhaseChangeListener(id);
-      }
+      // SIMPLIFIED APPROACH: Always use direct PubNub setup for reliability
+      console.log('🔧 Setting up direct PubNub service for phase change events');
+      setupPhaseChangeListener(id);
 
 
 
@@ -218,7 +211,15 @@ export function useUnifiedGameState({
         autoNavigate,
         navigationInProgress: navigationInProgressRef.current,
         effectiveGameId,
-        willNavigate: statusChanged && autoNavigate && !navigationInProgressRef.current
+        willNavigate: statusChanged && autoNavigate && !navigationInProgressRef.current,
+        currentLocation: window.location.pathname + window.location.search,
+        timestamp: new Date().toISOString(),
+        gameData: {
+          id: newGame.id,
+          phaseExpiresAt: newGame.phase_expires_at,
+          currentPlayers: newGame.current_players,
+          maxPlayers: newGame.max_players
+        }
       });
 
       // Trigger navigation if status changed and auto-navigation is enabled
@@ -291,10 +292,18 @@ export function useUnifiedGameState({
     }
 
     try {
-      console.log('🔧 Setting up phase change listener for game:', gameId);
+      console.log('🔧 Setting up phase change listener for game:', {
+        gameId,
+        userId: currentUser.id,
+        currentTime: new Date().toISOString(),
+        existingService: !!pubNubServiceRef.current,
+        registeredGame: eventListenerRegistered.current
+      });
 
       const service = new PubNubGameService();
+      console.log('🔧 Initializing PubNub service...');
       await service.initialize(currentUser.id);
+      console.log('✅ PubNub service initialized successfully');
       pubNubServiceRef.current = service;
 
       // Track last reload time to prevent spam
@@ -303,7 +312,13 @@ export function useUnifiedGameState({
 
       // Game event handler - handles phase changes and vote updates
       const handleGameEvent = (event: any) => {
-        console.log('🎯 Game event received via PubNub:', event);
+        console.log('🎯 Game event received via PubNub:', {
+          type: event?.type,
+          gameId: event?.gameId,
+          timestamp: event?.timestamp,
+          data: event?.data,
+          fullEvent: event
+        });
         console.log('🔍 Event check:', {
           hasEvent: !!event,
           eventType: event?.type,
@@ -312,12 +327,25 @@ export function useUnifiedGameState({
           isPhaseChange: event?.type === 'phase_changed',
           isVoteCast: event?.type === 'vote_cast',
           gameIdMatch: event?.gameId === gameId,
-          shouldProcess: event && event.gameId === gameId && ['phase_changed', 'vote_cast'].includes(event.type)
+          shouldProcess: event && event.gameId === gameId && ['phase_changed', 'vote_cast'].includes(event.type),
+          currentTime: new Date().toISOString(),
+          currentLocation: window.location.pathname + window.location.search
         });
 
         if (event && event.gameId === gameId) {
           if (event.type === 'phase_changed') {
             console.log(`🔄 Processing phase change: ${event.data?.previousPhase} → ${event.data?.newPhase}`);
+            console.log('🔍 Phase change event details:', {
+              previousPhase: event.data?.previousPhase,
+              newPhase: event.data?.newPhase,
+              hasGameObject: !!event.data?.game,
+              gameObjectStatus: event.data?.game?.status,
+              gameObjectId: event.data?.game?.id,
+              eventTimestamp: event.timestamp,
+              eventData: event.data,
+              currentTime: new Date().toISOString()
+            });
+
             // Check if we have the full game object in the event
             if (event.data?.game) {
               console.log('✨ Using game object from phase change event for navigation');
@@ -325,10 +353,14 @@ export function useUnifiedGameState({
                 id: event.data.game.id,
                 status: event.data.game.status,
                 previousPhase: event.data?.previousPhase,
-                newPhase: event.data?.newPhase
+                newPhase: event.data?.newPhase,
+                phaseExpiresAt: event.data.game.phase_expires_at,
+                currentPlayers: event.data.game.current_players
               });
+
               // Use handleGameUpdate to trigger navigation logic
               if (typeof handleGameUpdate === 'function') {
+                console.log('🚀 Calling handleGameUpdate with game object from PubNub event');
                 handleGameUpdate(event.data.game);
               } else {
                 console.error('❌ handleGameUpdate is not a function:', handleGameUpdate);
@@ -371,8 +403,13 @@ export function useUnifiedGameState({
       };
 
       // Subscribe to game channel
+      console.log('🔗 Joining game channel:', gameId);
       await service.joinGameChannel(gameId);
+      console.log('✅ Successfully joined game channel');
+
+      console.log('📡 Subscribing to game events...');
       await service.subscribeToGameEvents(gameId, handleGameEvent);
+      console.log('✅ Successfully subscribed to game events');
 
       // Mark as registered to prevent duplicate subscriptions
       eventListenerRegistered.current = gameId;
@@ -446,6 +483,12 @@ export function useUnifiedGameState({
   useEffect(() => {
     console.log('useUnifiedGameState: effectiveGameId changed:', effectiveGameId);
 
+    // Skip if this game has already been initialized (prevents timer re-renders from re-initializing)
+    if (hookInitialized.current === effectiveGameId) {
+      console.log('🔄 Game already initialized, skipping re-initialization:', effectiveGameId);
+      return;
+    }
+
     // Cleanup previous PubNub subscription if gameId changed
     if (eventListenerRegistered.current && eventListenerRegistered.current !== effectiveGameId) {
       console.log('🧹 Cleaning up previous PubNub subscription for:', eventListenerRegistered.current);
@@ -453,10 +496,14 @@ export function useUnifiedGameState({
         pubNubServiceRef.current.leaveGameChannel(eventListenerRegistered.current);
       }
       eventListenerRegistered.current = null;
+      hookInitialized.current = null;
     }
 
     if (effectiveGameId) {
       console.log('useUnifiedGameState: Loading game:', effectiveGameId);
+      // Mark this game as initialized to prevent re-initialization
+      hookInitialized.current = effectiveGameId;
+
       // Set loading state immediately and synchronously
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       loadGame(effectiveGameId);
@@ -468,6 +515,7 @@ export function useUnifiedGameState({
         pubNubServiceRef.current.leaveGameChannel(eventListenerRegistered.current);
         eventListenerRegistered.current = null;
       }
+      hookInitialized.current = null;
       setState({
         game: null,
         isLoading: false,
@@ -475,14 +523,14 @@ export function useUnifiedGameState({
         lastUpdated: 0
       });
     }
-  }, [effectiveGameId, loadGame]);
+  }, [effectiveGameId]); // Removed loadGame from deps since it has stable dependencies
 
   // Manual refresh
   const refresh = useCallback(() => {
     if (effectiveGameId) {
       loadGame(effectiveGameId);
     }
-  }, [effectiveGameId, loadGame]);
+  }, [effectiveGameId]); // Removed loadGame from deps to prevent timer re-renders from affecting event listener setup
 
   // Navigation helpers
   const navigateToPhase = useCallback((phase: GameStatus) => {

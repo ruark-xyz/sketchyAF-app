@@ -229,13 +229,24 @@ export const useRealtimeGame = (options: UseRealtimeGameOptions = {}): UseRealti
 
   // Event listener management
   const addEventListener = useCallback((eventType: GameEventType, handler: GameEventHandler): void => {
+    console.log('🔗 useRealtimeGame addEventListener called:', {
+      eventType,
+      hasRealtimeService: !!realtimeServiceRef.current,
+      currentHandlers: eventHandlersRef.current.get(eventType)?.size || 0,
+      timestamp: new Date().toISOString()
+    });
+
     if (!eventHandlersRef.current.has(eventType)) {
       eventHandlersRef.current.set(eventType, new Set());
     }
     eventHandlersRef.current.get(eventType)!.add(handler);
 
     if (realtimeServiceRef.current) {
+      console.log('🔗 Delegating to realtimeService.addEventListener');
       realtimeServiceRef.current.addEventListener(eventType, handler);
+      console.log('✅ Successfully delegated to realtimeService');
+    } else {
+      console.log('❌ No realtimeService available for addEventListener');
     }
   }, []);
 

@@ -20,6 +20,21 @@ const PreRoundBriefingScreen: React.FC = () => {
     error: gameError
   } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
 
+  // Debug logging for game state changes
+  useEffect(() => {
+    console.log('🎮 PreRoundBriefingScreen: Game state changed:', {
+      hasGame: !!currentGame,
+      gameStatus: currentGame?.status,
+      gameId: currentGame?.id,
+      isLoading: gameLoading,
+      error: gameError,
+      timestamp: new Date().toISOString(),
+      location: window.location.pathname + window.location.search,
+      expiresAt: currentGame?.expires_at,
+      currentPlayers: currentGame?.current_players
+    });
+  }, [currentGame, gameLoading, gameError]);
+
   // Keep some GameContext usage for briefing-specific state
   const {
     participants,

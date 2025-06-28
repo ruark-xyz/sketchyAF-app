@@ -201,7 +201,24 @@ export class PubNubGameService implements RealtimeGameService {
 
       // Set up message handler
       subscription.onMessage = (messageEvent) => {
+        console.log('📨 PubNub message received:', {
+          channel: messageEvent.channel,
+          message: messageEvent.message,
+          timetoken: messageEvent.timetoken,
+          publisher: messageEvent.publisher,
+          timestamp: new Date().toISOString()
+        });
+
         const event = messageEvent.message as GameEvent;
+        console.log('🎯 Processing PubNub game event:', {
+          type: event.type,
+          gameId: event.gameId,
+          userId: event.userId,
+          timestamp: event.timestamp,
+          hasData: !!event.data,
+          dataKeys: event.data ? Object.keys(event.data) : []
+        });
+
         this.handleGameMessage(gameId, event);
       };
 
@@ -483,16 +500,31 @@ export class PubNubGameService implements RealtimeGameService {
   }
 
   private handleGameMessage(gameId: string, event: GameEvent): void {
+    console.log('🔄 PubNub handleGameMessage called:', {
+      gameId,
+      eventType: event?.type,
+      eventGameId: event?.gameId,
+      hasEvent: !!event,
+      hasHandler: this.eventHandlers.has(gameId),
+      timestamp: new Date().toISOString()
+    });
+
     if (!event) {
+      console.log('❌ No event provided to handleGameMessage');
       return;
     }
 
     const handler = this.eventHandlers.get(gameId);
     if (handler) {
       try {
+        console.log('🚀 Calling event handler for game:', gameId, 'event type:', event.type);
         handler(event);
+        console.log('✅ Event handler completed successfully');
       } catch (error) {
+        console.error('❌ Error in event handler:', error);
       }
+    } else {
+      console.log('❌ No event handler found for game:', gameId);
     }
   }
 
