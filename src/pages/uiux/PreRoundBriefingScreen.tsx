@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Users, Palette, CheckCircle, ArrowRight, Zap, Star, AlertCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import Button from '../../components/ui/Button';
+import { motion } from 'framer-motion';
+import { Clock, Users, Palette, CheckCircle, Star, AlertCircle } from 'lucide-react';
+
+
 import Seo from '../../components/utils/Seo';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useGame } from '../../context/GameContext';
@@ -12,7 +12,6 @@ import { BoosterPackService } from '../../services/BoosterPackService';
 import { BoosterPackWithOwnership } from '../../types/game';
 
 const PreRoundBriefingScreen: React.FC = () => {
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const {
     game: currentGame,
@@ -38,7 +37,6 @@ const PreRoundBriefingScreen: React.FC = () => {
   // Keep some GameContext usage for briefing-specific state
   const {
     participants,
-    isReady,
     actions,
     selectedBoosterPack,
     isLoading,
@@ -46,16 +44,13 @@ const PreRoundBriefingScreen: React.FC = () => {
   } = useGame();
   
   const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackWithOwnership[]>([]);
-  const [gameStarting, setGameStarting] = useState(false);
   const [packsLoading, setPacksLoading] = useState(false);
   const [packsError, setPacksError] = useState<string | null>(null);
   
   // Simple timer display
   const {
     timeRemaining,
-    formattedTime,
-    isLoading: timerLoading,
-    error: timerError
+    formattedTime
   } = useSimpleTimer({
     gameId: currentGame?.id || ''
   });
@@ -115,13 +110,7 @@ const PreRoundBriefingScreen: React.FC = () => {
 
 
 
-  const handleReadyUp = async () => {
-    try {
-      await actions.setPlayerReady(!isReady);
-    } catch (err) {
-      console.error('Failed to set ready status:', err);
-    }
-  };
+
 
   const handleBoosterPackSelect = async (packId: string) => {
     try {
@@ -147,10 +136,7 @@ const PreRoundBriefingScreen: React.FC = () => {
     }
   };
 
-  // Manual game start is no longer needed - server handles transitions automatically
-  const handleStartGame = async () => {
-    // Phase transitions are now handled server-side automatically
-  };
+
 
   // Get icon for booster pack based on category or asset directory name
   const getIconForBoosterPack = (pack: BoosterPackWithOwnership): string => {
@@ -166,9 +152,7 @@ const PreRoundBriefingScreen: React.FC = () => {
     }
   };
 
-  // Check if all players are ready
-  const readyPlayersCount = participants.filter(p => p.is_ready).length;
-  const allPlayersReady = readyPlayersCount === participants.length && participants.length > 0;
+
 
   return (
     <>
@@ -281,9 +265,9 @@ const PreRoundBriefingScreen: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-heading font-bold text-xl text-dark">Players</h2>
                 <div className="flex items-center">
-                  <Users size={18} className="text-green mr-1" />
-                  <span className="font-heading font-semibold text-green">
-                    {readyPlayersCount}/{participants.length} Ready
+                  <Users size={18} className="text-primary mr-1" />
+                  <span className="font-heading font-semibold text-primary">
+                    {participants.length} Players
                   </span>
                 </div>
               </div>
@@ -297,11 +281,7 @@ const PreRoundBriefingScreen: React.FC = () => {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.1 * index, duration: 0.3 }}
-                      className={`flex items-center p-3 rounded-lg border-2 ${
-                        participant.is_ready 
-                          ? 'bg-green/10 border-green' 
-                          : 'bg-orange/10 border-orange'
-                      }`}
+                      className="flex items-center p-3 rounded-lg border-2 bg-primary/10 border-primary"
                     >
                       <div className="relative mr-3">
                         <img 
@@ -320,22 +300,11 @@ const PreRoundBriefingScreen: React.FC = () => {
                           </p>
                         </div>
                         
-                        {/* Ready status and booster pack */}
+                        {/* Booster pack display */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            {participant.is_ready ? (
-                              <>
-                                <CheckCircle size={12} className="text-green mr-1" />
-                                <span className="text-xs text-green font-heading font-semibold">Ready</span>
-                              </>
-                            ) : (
-                              <>
-                                <Clock size={12} className="text-orange mr-1" />
-                                <span className="text-xs text-orange font-heading font-semibold">
-                                  {isCurrentUser ? 'Ready up!' : 'Waiting...'}
-                                </span>
-                              </>
-                            )}
+                            <Users size={12} className="text-primary mr-1" />
+                            <span className="text-xs text-primary font-heading font-semibold">Joined</span>
                           </div>
 
                           {/* Show selected booster pack if any */}
@@ -480,106 +449,29 @@ const PreRoundBriefingScreen: React.FC = () => {
               )}
             </motion.div>
 
-            {/* Ready Up Button */}
+            {/* Game Information */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="space-y-3"
+              className="text-center bg-primary/10 p-4 rounded-lg border border-primary"
             >
-              <Button 
-                variant={isReady ? "secondary" : "primary"}
-                size="lg" 
-                onClick={handleReadyUp}
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isReady ? (
-                  <>
-                    <CheckCircle size={20} className="mr-2" />
-                    Ready to Draw!
-                  </>
-                ) : (
-                  <>
-                    <Zap size={20} className="mr-2" />
-                    Ready Up
-                  </>
-                )}
-              </Button>
-
-              {allPlayersReady && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center"
-                >
-                  <Button 
-                    variant="primary" 
-                    size="lg" 
-                    onClick={handleStartGame}
-                    className="w-full bg-green hover:bg-green/90"
-                    disabled={isLoading || gameStarting}
-                  >
-                    <ArrowRight size={20} className="mr-2" />
-                    {gameStarting ? 'Starting...' : 'Start Drawing Now!'}
-                  </Button>
-                </motion.div>
-              )}
+              <div className="flex items-center justify-center mb-2">
+                <Clock size={20} className="text-primary mr-2" />
+                <h3 className="font-heading font-bold text-lg text-primary">Game Starting Soon</h3>
+              </div>
+              <p className="text-sm text-dark mb-2">
+                The drawing phase will begin automatically when the timer reaches zero.
+              </p>
+              <p className="text-xs text-medium-gray">
+                Use this time to review the prompt and select your booster pack!
+              </p>
             </motion.div>
-
-            {/* Auto-start indicator */}
-            {safeTimeRemaining <= 10 && !allPlayersReady && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center bg-accent/20 p-3 rounded-lg border border-accent"
-              >
-                <p className="text-sm text-dark">
-                  ⚡ Game auto-starts in {timeRemaining}s even if not everyone is ready!
-                </p>
-              </motion.div>
-            )}
           </div>
         </div>
 
-        {/* Game Starting Overlay */}
-        <AnimatePresence>
-          {gameStarting && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50"
-            >
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="text-center text-white"
-              >
-                <motion.h1
-                  animate={{ 
-                    scale: [1, 1.2, 1],
-                    rotate: [0, 5, -5, 0]
-                  }}
-                  transition={{ 
-                    duration: 0.8,
-                    repeat: Infinity,
-                    repeatDelay: 1
-                  }}
-                  className="font-heading font-bold text-6xl mb-4"
-                >
-                  🎨
-                </motion.h1>
-                <h2 className="font-heading font-bold text-3xl mb-2">
-                  Game Starting!
-                </h2>
-                <p className="text-xl">
-                  Time to get sketchy...
-                </p>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+
       </div>
     </>
   );
