@@ -129,10 +129,7 @@ export class SubmissionService {
       // Get submissions with user details
       const { data, error } = await supabase
         .from('submissions')
-        .select(`
-          *,
-          users!inner(username, avatar_url)
-        `)
+        .select('*, users!inner(username, avatar_url)')
         .eq('game_id', gameId)
         .order('submitted_at');
 

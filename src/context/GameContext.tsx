@@ -334,9 +334,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Fetch submissions
+      console.log('GameContext: Fetching submissions for game:', targetGameId);
       const submissionsResult = await SubmissionService.getGameSubmissions(targetGameId);
+      console.log('GameContext: Submissions result:', {
+        success: submissionsResult.success,
+        dataLength: submissionsResult.data?.length,
+        error: submissionsResult.error
+      });
       if (submissionsResult.success && submissionsResult.data) {
+        console.log('GameContext: Setting submissions:', submissionsResult.data.length);
         dispatch({ type: 'SET_SUBMISSIONS', payload: submissionsResult.data });
+      } else {
+        console.error('GameContext: Failed to fetch submissions:', submissionsResult.error);
       }
 
       // Fetch votes

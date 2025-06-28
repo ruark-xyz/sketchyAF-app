@@ -75,7 +75,10 @@ export function useUnifiedGameState({
             id,
             user_id,
             drawing_data,
-            submitted_at
+            drawing_url,
+            submitted_at,
+            vote_count,
+            users(username, avatar_url)
           )
         `)
         .eq('id', id)
@@ -281,55 +284,98 @@ export function useUnifiedGameState({
       return;
     }
 
+    // Skip if already set up for this game
+    if (eventListenerRegistered.current === gameId) {
+      console.log('✅ Phase change listener already registered for game:', gameId);
+      return;
+    }
+
     try {
+      console.log('🔧 Setting up phase change listener for game:', gameId);
+
       const service = new PubNubGameService();
       await service.initialize(currentUser.id);
       pubNubServiceRef.current = service;
 
-      // Phase change handler - use game object from event
-      const handlePhaseChanged = (event: any) => {
-        console.log('🎯 Phase change event received via fallback PubNub:', event);
-        console.log('🔍 Fallback event check:', {
+      // Track last reload time to prevent spam
+      let lastReloadTime = 0;
+      const RELOAD_THROTTLE_MS = 3000; // 3 seconds minimum between reloads
+
+      // Game event handler - handles phase changes and vote updates
+      const handleGameEvent = (event: any) => {
+        console.log('🎯 Game event received via PubNub:', event);
+        console.log('🔍 Event check:', {
           hasEvent: !!event,
           eventType: event?.type,
           eventGameId: event?.gameId,
           targetGameId: gameId,
-          typeMatch: event?.type === 'phase_changed',
+          isPhaseChange: event?.type === 'phase_changed',
+          isVoteCast: event?.type === 'vote_cast',
           gameIdMatch: event?.gameId === gameId,
-          conditionMet: event && event.type === 'phase_changed' && event.gameId === gameId
+          shouldProcess: event && event.gameId === gameId && ['phase_changed', 'vote_cast'].includes(event.type)
         });
 
-        if (event && event.type === 'phase_changed' && event.gameId === gameId) {
-          console.log(`🔄 Processing fallback phase change: ${event.data?.previousPhase} → ${event.data?.newPhase}`);
-          // Check if we have the full game object in the event
-          if (event.data?.game) {
-            console.log('✨ Using game object from fallback event for navigation');
-            console.log('🔍 Game object from event:', {
-              id: event.data.game.id,
-              status: event.data.game.status,
-              previousPhase: event.data?.previousPhase,
-              newPhase: event.data?.newPhase
-            });
-            // Use handleGameUpdate to trigger navigation logic
-            console.log('🔍 About to call handleGameUpdate, function exists:', typeof handleGameUpdate === 'function');
-            if (typeof handleGameUpdate === 'function') {
-              handleGameUpdate(event.data.game);
+        if (event && event.gameId === gameId) {
+          if (event.type === 'phase_changed') {
+            console.log(`🔄 Processing phase change: ${event.data?.previousPhase} → ${event.data?.newPhase}`);
+            // Check if we have the full game object in the event
+            if (event.data?.game) {
+              console.log('✨ Using game object from phase change event for navigation');
+              console.log('🔍 Game object from event:', {
+                id: event.data.game.id,
+                status: event.data.game.status,
+                previousPhase: event.data?.previousPhase,
+                newPhase: event.data?.newPhase
+              });
+              // Use handleGameUpdate to trigger navigation logic
+              if (typeof handleGameUpdate === 'function') {
+                handleGameUpdate(event.data.game);
+              } else {
+                console.error('❌ handleGameUpdate is not a function:', handleGameUpdate);
+              }
             } else {
-              console.error('❌ handleGameUpdate is not a function:', handleGameUpdate);
+              // Throttle reloads to prevent infinite loops
+              const now = Date.now();
+              if (now - lastReloadTime > RELOAD_THROTTLE_MS) {
+                console.log('🔄 No game object in phase change event, reloading from database (throttled)');
+                lastReloadTime = now;
+                loadGame(gameId);
+              } else {
+                console.log('⏳ Reload throttled, skipping to prevent loop');
+              }
+            }
+          } else if (event.type === 'vote_cast') {
+            // Throttle reloads to prevent infinite loops
+            const now = Date.now();
+            if (now - lastReloadTime > RELOAD_THROTTLE_MS) {
+              console.log('🗳️ Processing vote cast event - refreshing game state (throttled)');
+              lastReloadTime = now;
+              loadGame(gameId);
+            } else {
+              console.log('⏳ Vote reload throttled, skipping to prevent loop');
             }
           } else {
-            console.log('🔄 No game object in fallback event, reloading from database');
-            // Fallback to reloading if no game object in event
-            loadGame(gameId);
+            // Throttle reloads to prevent infinite loops
+            const now = Date.now();
+            if (now - lastReloadTime > RELOAD_THROTTLE_MS) {
+              console.log(`🔄 Processing other game event (${event.type}) - refreshing game state (throttled)`);
+              lastReloadTime = now;
+              loadGame(gameId);
+            } else {
+              console.log('⏳ Other event reload throttled, skipping to prevent loop');
+            }
           }
         } else {
-          console.log('❌ Fallback event conditions not met');
+          console.log('❌ Event conditions not met');
         }
       };
 
       // Subscribe to game channel
       await service.joinGameChannel(gameId);
-      await service.subscribeToGameEvents(gameId, handlePhaseChanged);
+      await service.subscribeToGameEvents(gameId, handleGameEvent);
+
+      // Mark as registered to prevent duplicate subscriptions
+      eventListenerRegistered.current = gameId;
 
     } catch (error) {
       console.error('❌ Failed to set up phase change listener:', error);
@@ -399,6 +445,16 @@ export function useUnifiedGameState({
   // Load game on mount or gameId change
   useEffect(() => {
     console.log('useUnifiedGameState: effectiveGameId changed:', effectiveGameId);
+
+    // Cleanup previous PubNub subscription if gameId changed
+    if (eventListenerRegistered.current && eventListenerRegistered.current !== effectiveGameId) {
+      console.log('🧹 Cleaning up previous PubNub subscription for:', eventListenerRegistered.current);
+      if (pubNubServiceRef.current) {
+        pubNubServiceRef.current.leaveGameChannel(eventListenerRegistered.current);
+      }
+      eventListenerRegistered.current = null;
+    }
+
     if (effectiveGameId) {
       console.log('useUnifiedGameState: Loading game:', effectiveGameId);
       // Set loading state immediately and synchronously
@@ -406,6 +462,12 @@ export function useUnifiedGameState({
       loadGame(effectiveGameId);
     } else {
       console.log('useUnifiedGameState: No gameId, resetting state');
+      // Cleanup PubNub subscription when no gameId
+      if (eventListenerRegistered.current && pubNubServiceRef.current) {
+        console.log('🧹 Cleaning up PubNub subscription (no gameId)');
+        pubNubServiceRef.current.leaveGameChannel(eventListenerRegistered.current);
+        eventListenerRegistered.current = null;
+      }
       setState({
         game: null,
         isLoading: false,
@@ -482,6 +544,23 @@ export function useUnifiedGameState({
   }, [effectiveGameId, autoNavigate, handleGameUpdate]);
 
 
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 useUnifiedGameState: Cleaning up on unmount');
+      if (eventListenerRegistered.current && pubNubServiceRef.current) {
+        console.log('🧹 Cleaning up PubNub subscription on unmount:', eventListenerRegistered.current);
+        pubNubServiceRef.current.leaveGameChannel(eventListenerRegistered.current);
+        eventListenerRegistered.current = null;
+      }
+      if (realtimeChannelRef.current) {
+        console.log('🔌 Cleaning up Supabase Realtime subscription on unmount');
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     // Game state

@@ -102,10 +102,20 @@ export class VotingService {
         return { success: false, error: 'Failed to cast vote', code: 'DATABASE_ERROR' };
       }
 
+      // Get updated vote count for the submission
+      const { data: voteCount, error: countError } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('submission_id', request.submission_id);
+
+      const totalVotes = voteCount?.length || 1; // At least 1 since we just cast a vote
+
       // Broadcast vote cast event via real-time service
       try {
+        console.log('Broadcasting vote cast event:', { submissionId: request.submission_id, totalVotes });
         const realtimeService = RealtimeGameService.getInstance();
-        await realtimeService.broadcastVoteCast(request.submission_id);
+        const broadcastResult = await realtimeService.broadcastVoteCast(request.submission_id, totalVotes);
+        console.log('Vote cast broadcast result:', broadcastResult);
       } catch (realtimeError) {
         console.warn('Failed to broadcast vote cast:', realtimeError);
         // Don't fail the vote operation if real-time broadcast fails
@@ -152,8 +162,8 @@ export class VotingService {
         return { success: false, error: 'Game not found', code: 'GAME_NOT_FOUND' };
       }
 
-      if (!['results', 'completed'].includes(game.status)) {
-        return { success: false, error: 'Vote details are only available after voting is complete', code: 'INVALID_STATUS' };
+      if (!['voting', 'results', 'completed'].includes(game.status)) {
+        return { success: false, error: 'Vote details are only available during voting or after voting is complete', code: 'INVALID_STATUS' };
       }
 
       // Get votes with user details

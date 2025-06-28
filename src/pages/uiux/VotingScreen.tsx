@@ -1,49 +1,109 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Clock, 
-  Users, 
-  Check, 
+import {
+  Clock,
+  Users,
+  Check,
   Heart,
   Eye,
   ZoomIn,
   X,
   Vote,
   Star,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
-import { useGame } from '../../context/GameContext';
 import { useSimpleTimer } from '../../hooks/useSimpleTimer';
-import { Submission } from '../../types/game';
+import { useRealtimeGame } from '../../hooks/useRealtimeGame';
+import { useAuth } from '../../context/AuthContext';
+import { VotingService } from '../../services/VotingService';
 
 const VotingScreen: React.FC = () => {
+  const { currentUser } = useAuth();
+
   const {
     game: currentGame,
+    gameId,
     isLoading: gameLoading,
-    error: gameError
+    error: gameError,
+    lastUpdated,
+    refresh
   } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
 
-  // Keep some GameContext usage for voting-specific state
-  const {
-    submissions,
-    hasVoted,
-    actions,
-    error,
-    isLoading
-  } = useGame();
+  // Debug game loading
+  console.log('VotingScreen: Game loading state:', {
+    gameId,
+    currentGame: !!currentGame,
+    gameLoading,
+    gameError
+  });
 
-  // Use participants from unified game state (includes user data)
-  const participants = (currentGame as any)?.game_participants || [];
-  
+  // Extract data from unified game state (memoized to prevent re-render loops)
+  const participants = useMemo(() =>
+    (currentGame as any)?.game_participants || [],
+    [currentGame]
+  );
+  const submissions = useMemo(() =>
+    (currentGame as any)?.submissions || [],
+    [currentGame]
+  );
+
+  // Local state for voting functionality
+  const [votes, setVotes] = useState<any[]>([]);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load votes when game loads or updates
+  useEffect(() => {
+    if (!currentGame?.id || !currentUser?.id) return;
+
+    const loadVotes = async () => {
+      try {
+        console.log('🗳️ Loading votes for game:', currentGame.id);
+        const result = await VotingService.getGameVotes(currentGame.id);
+        if (result.success && result.data) {
+          console.log('🗳️ Votes loaded:', result.data.length, 'votes');
+          setVotes(result.data);
+          // Check if current user has voted
+          const userVote = result.data.find((vote: any) => vote.voter_id === currentUser.id);
+          setHasVoted(!!userVote);
+        } else {
+          console.log('🗳️ No votes found or error loading votes:', result.error);
+        }
+      } catch (error) {
+        console.error('Failed to load votes:', error);
+      }
+    };
+
+    loadVotes();
+  }, [currentGame?.id, currentUser?.id, lastUpdated]); // Add lastUpdated to trigger reload when game data changes
+
+  // Debug: Log the game data to see what submissions look like
+  console.log('VotingScreen: currentGame data:', {
+    gameId: currentGame?.id,
+    status: currentGame?.status,
+    submissions: submissions.length,
+    participants: participants.length,
+    submissionsData: submissions
+  });
+
+  // Set up real-time game events for vote updates
+  const {
+    addEventListener,
+    removeEventListener,
+    isConnected: realtimeConnected
+  } = useRealtimeGame();
+
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
   const [showZoomedImage, setShowZoomedImage] = useState<string | null>(null);
   const [votingPhase, setVotingPhase] = useState<'voting' | 'waiting' | 'revealing'>('voting');
   const [showVoteBreakdown, setShowVoteBreakdown] = useState(false);
-  
+  const [voteError, setVoteError] = useState<string | null>(null);
+
   // Simple timer display - server manages the timer, we just display it
   const {
     timeRemaining,
@@ -54,41 +114,110 @@ const VotingScreen: React.FC = () => {
     gameId: currentGame?.id || ''
   });
 
-  // Navigation is now handled by useUnifiedGameState in SimpleGameRoute
+  // Set up real-time event listeners for vote updates
+  useEffect(() => {
+    console.log('VotingScreen: Setting up real-time listeners', {
+      gameId: currentGame?.id,
+      realtimeConnected,
+      hasAddEventListener: !!addEventListener
+    });
 
-  // Auto-submit logic is now handled server-side via timer expiration
+    if (!currentGame?.id || !realtimeConnected) {
+      console.log('VotingScreen: Skipping real-time setup - missing requirements');
+      return;
+    }
 
-  // Update voting phase based on votes
+    const handleVoteCast = (event: any) => {
+      console.log('🗳️ Vote cast event received:', event);
+      // Refresh game state to get updated vote counts
+      refresh();
+    };
+
+    const handleGameStatusChange = (event: any) => {
+      console.log('🎮 Game status change event received:', event);
+      // Game status changes are handled by useUnifiedGameState
+    };
+
+    // Add event listeners
+    console.log('VotingScreen: Adding event listeners for vote_cast and game_status_changed');
+    addEventListener('vote_cast', handleVoteCast);
+    addEventListener('game_status_changed', handleGameStatusChange);
+
+    return () => {
+      console.log('VotingScreen: Removing event listeners');
+      removeEventListener('vote_cast', handleVoteCast);
+      removeEventListener('game_status_changed', handleGameStatusChange);
+    };
+  }, [currentGame?.id, realtimeConnected, addEventListener, removeEventListener, refresh]);
+
+  // Count players who have voted and total eligible voters (memoized)
+  const { votedPlayersCount, totalEligibleVoters } = useMemo(() => {
+    const votedCount = votes?.length || 0;
+    const eligibleCount = submissions.length;
+
+    // Debug vote counts (only when values change)
+    console.log('Vote counts:', {
+      votedPlayersCount: votedCount,
+      totalEligibleVoters: eligibleCount,
+      totalSubmissions: submissions.length,
+      totalParticipants: participants.length,
+      votes: votes.length
+    });
+
+    return {
+      votedPlayersCount: votedCount,
+      totalEligibleVoters: eligibleCount
+    };
+  }, [votes, submissions, participants]);
+
+  // Update voting phase based on votes and user state
   useEffect(() => {
     // If user has voted, show waiting phase
     if (hasVoted && votingPhase === 'voting') {
       setVotingPhase('waiting');
     }
-    
-    // Check if all players have voted
-    const allVoted = participants.length > 0 && 
-                    submissions.every(s => s.vote_count > 0);
-    
-    if (allVoted && votingPhase !== 'revealing') {
+
+    // Check if all eligible players have voted
+    const totalVotesCast = votes?.length || 0;
+
+    if (totalEligibleVoters > 0 && totalVotesCast >= totalEligibleVoters && votingPhase !== 'revealing') {
       setVotingPhase('revealing');
       setTimeout(() => {
         setShowVoteBreakdown(true);
       }, 1000);
     }
-  }, [hasVoted, participants, submissions, votingPhase]);
+  }, [hasVoted, participants, votes, votingPhase, totalEligibleVoters]);
 
   // Phase transitions are now handled server-side automatically
 
   const handleVote = useCallback(async () => {
-    if (!selectedSubmission || hasVoted || isLoading) return;
-    
+    if (!selectedSubmission || hasVoted || isLoading || !currentGame?.id) return;
+
     try {
-      await actions.castVote(selectedSubmission);
-      setVotingPhase('waiting');
+      setVoteError(null);
+      setIsLoading(true);
+
+      const result = await VotingService.castVote({
+        game_id: currentGame.id,
+        submission_id: selectedSubmission
+      });
+
+      if (result.success) {
+        setHasVoted(true);
+        setVotingPhase('waiting');
+        setSelectedSubmission(null); // Clear selection after voting
+        refresh(); // Refresh game state to get updated vote counts
+      } else {
+        setVoteError(result.error || 'Failed to cast vote');
+      }
     } catch (err) {
       console.error('Failed to cast vote:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to cast vote';
+      setVoteError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }, [selectedSubmission, hasVoted, isLoading, actions]);
+  }, [selectedSubmission, hasVoted, isLoading, currentGame?.id, refresh]);
 
   const handleZoomImage = (submissionId: string) => {
     setShowZoomedImage(submissionId);
@@ -98,11 +227,11 @@ const VotingScreen: React.FC = () => {
     setShowZoomedImage(null);
   };
 
-  // Get non-current-user submissions for voting
-  const votableSubmissions = submissions.filter(s => s.user_id !== currentGame?.created_by);
-  
-  // Count voted players
-  const votedPlayersCount = participants.filter((p: any) => p.is_ready).length;
+  // Get submissions for voting (exclude current user's submission) - memoized
+  const votableSubmissions = useMemo(() =>
+    submissions.filter((s: any) => s.user_id !== currentUser?.id),
+    [submissions, currentUser?.id]
+  );
 
   return (
     <>
@@ -150,7 +279,7 @@ const VotingScreen: React.FC = () => {
         </div>
 
         {/* Error message */}
-        {error && (
+        {(voteError || gameError) && (
           <div className="mx-4 mt-4">
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -158,7 +287,19 @@ const VotingScreen: React.FC = () => {
               className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
             >
               <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
-              <p className="text-dark text-sm">{error}</p>
+              <div className="flex-1">
+                <p className="text-dark text-sm">
+                  {voteError || gameError}
+                </p>
+                {voteError && (
+                  <button
+                    onClick={() => setVoteError(null)}
+                    className="text-xs text-red/70 hover:text-red underline mt-1"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
             </motion.div>
           </div>
         )}
@@ -209,12 +350,41 @@ const VotingScreen: React.FC = () => {
                   </motion.div>
                 </div>
 
+                {/* Loading State */}
+                {(isLoading || gameLoading) && (
+                  <div className="text-center py-12">
+                    <Loader2 size={32} className="animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-medium-gray font-heading">
+                      {gameLoading ? 'Loading game data...' : 'Loading submissions...'}
+                    </p>
+                  </div>
+                )}
+
+                {/* No Submissions State */}
+                {!isLoading && !gameLoading && votableSubmissions.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="bg-off-white border-2 border-light-gray rounded-lg p-8">
+                      <AlertCircle size={48} className="text-medium-gray mx-auto mb-4" />
+                      <h3 className="font-heading font-bold text-lg text-dark mb-2">
+                        No Submissions to Vote On
+                      </h3>
+                      <p className="text-medium-gray">
+                        {submissions.length === 0
+                          ? 'No drawings have been submitted yet.'
+                          : 'All submissions are your own - you cannot vote for yourself!'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Submissions Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {votableSubmissions.map((submission, index) => {
-                    // Find participant info for this submission
-                    const participant = participants.find((p: any) => p.user_id === submission.user_id);
-                    
+                {!isLoading && !gameLoading && votableSubmissions.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {votableSubmissions.map((submission, index) => {
+                    // Use user data directly from submission (loaded via unified game state)
+                    const userInfo = (submission as any)?.users;
+
                     return (
                       <motion.div
                         key={submission.id}
@@ -231,20 +401,14 @@ const VotingScreen: React.FC = () => {
                         {/* Artist Info */}
                         <div className="flex items-center mb-3">
                           <img
-                            src={(participant as any)?.users?.avatar_url || `https://ui-avatars.com/api/?name=${(participant as any)?.users?.username || 'User'}&background=random`}
-                            alt={(participant as any)?.users?.username || 'User'}
+                            src={userInfo?.avatar_url || `https://ui-avatars.com/api/?name=${userInfo?.username || 'User'}&background=random`}
+                            alt={userInfo?.username || 'User'}
                             className="w-8 h-8 rounded-full border-2 border-dark mr-3"
                           />
                           <div className="flex-1">
                             <p className="font-heading font-semibold text-dark">
-                              {(participant as any)?.users?.username || 'Anonymous'}
+                              {userInfo?.username || 'Anonymous'}
                             </p>
-                            {participant?.is_ready && (
-                              <div className="flex items-center text-xs text-green">
-                                <Check size={12} className="mr-1" />
-                                Ready
-                              </div>
-                            )}
                           </div>
                           {selectedSubmission === submission.id && (
                             <div className="bg-primary text-white rounded-full p-1">
@@ -263,7 +427,7 @@ const VotingScreen: React.FC = () => {
                         >
                           <img
                             src={submission.drawing_url || 'https://via.placeholder.com/400x300?text=Loading+Drawing'}
-                            alt={`Drawing by ${(participant as any)?.users?.username || 'Anonymous'}`}
+                            alt={`Drawing by ${userInfo?.username || 'Anonymous'}`}
                             className="w-full h-48 object-cover rounded-lg border border-light-gray"
                           />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-lg flex items-center justify-center">
@@ -303,8 +467,9 @@ const VotingScreen: React.FC = () => {
                         )}
                       </motion.div>
                     );
-                  })}
-                </div>
+                    })}
+                  </div>
+                )}
 
                 {/* Bottom instruction */}
                 {selectedSubmission && !hasVoted && (
@@ -357,7 +522,7 @@ const VotingScreen: React.FC = () => {
                   
                   <div className="bg-secondary/10 p-3 rounded-lg border border-secondary/30">
                     <p className="text-sm text-dark">
-                      {votedPlayersCount}/{participants.length} players have voted
+                      {votedPlayersCount}/{totalEligibleVoters} players have voted
                     </p>
                   </div>
                 </div>
@@ -408,9 +573,9 @@ const VotingScreen: React.FC = () => {
                     
                     <div className="space-y-3">
                       {votableSubmissions.map((submission, index) => {
-                        // Find participant info for this submission
-                        const participant = participants.find((p: any) => p.user_id === submission.user_id);
-                        
+                        // Use user data directly from submission
+                        const userInfo = (submission as any)?.users;
+
                         return (
                           <motion.div
                             key={submission.id}
@@ -419,13 +584,13 @@ const VotingScreen: React.FC = () => {
                             transition={{ delay: index * 0.2 }}
                             className="flex items-center p-3 bg-off-white rounded-lg border border-light-gray"
                           >
-                            <img 
-                              src={participant?.avatar_url || `https://ui-avatars.com/api/?name=${participant?.username || 'User'}&background=random`} 
-                              alt={participant?.username || 'User'}
+                            <img
+                              src={userInfo?.avatar_url || `https://ui-avatars.com/api/?name=${userInfo?.username || 'User'}&background=random`}
+                              alt={userInfo?.username || 'User'}
                               className="w-10 h-10 rounded-full border-2 border-dark mr-3"
                             />
                             <div className="flex-1">
-                              <p className="font-heading font-semibold">{participant?.username || 'Anonymous'}</p>
+                              <p className="font-heading font-semibold">{userInfo?.username || 'Anonymous'}</p>
                               <div className="w-full bg-light-gray rounded-full h-2 mt-1">
                                 <motion.div 
                                   initial={{ width: 0 }}
@@ -502,7 +667,7 @@ const VotingScreen: React.FC = () => {
                 
                 <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 border border-dark">
                   <p className="font-heading font-semibold text-dark">
-                    By {participants.find((p: any) => p.user_id === submissions.find(s => s.id === showZoomedImage)?.user_id)?.users?.username || 'Anonymous'}
+                    By {submissions.find(s => s.id === showZoomedImage)?.users?.username || 'Anonymous'}
                   </p>
                 </div>
               </motion.div>

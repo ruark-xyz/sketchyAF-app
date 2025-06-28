@@ -123,11 +123,24 @@ export class PubNubGameService implements RealtimeGameService {
    */
   async disconnect(): Promise<void> {
     try {
+      console.log('PubNub: Disconnecting and cleaning up resources');
+
       if (this.pubnub) {
-        // Unsubscribe from all channels
-        const channels = Array.from(this.subscriptions.keys());
-        if (channels.length > 0) {
+        // Unsubscribe from individual channels first
+        const subscriptions = Array.from(this.subscriptions.values());
+        for (const subscription of subscriptions) {
+          try {
+            subscription.unsubscribe();
+          } catch (error) {
+            console.warn('PubNub: Error unsubscribing from individual channel:', error);
+          }
+        }
+
+        // Then unsubscribe from all channels as a fallback
+        try {
           this.pubnub.unsubscribeAll();
+        } catch (error) {
+          console.warn('PubNub: Error in unsubscribeAll:', error);
         }
 
         // Clear all handlers and subscriptions
@@ -145,7 +158,18 @@ export class PubNubGameService implements RealtimeGameService {
       this.userId = null;
       this.updateConnectionStatus('disconnected');
 
+      console.log('PubNub: Successfully disconnected');
+
     } catch (error) {
+      console.warn('PubNub: Error during disconnect:', error);
+      // Force cleanup even if there are errors
+      this.subscriptions.clear();
+      this.eventHandlers.clear();
+      this.presenceHandlers.clear();
+      this.isInitialized = false;
+      this.isInitializing = false;
+      this.userId = null;
+      this.pubnub = null;
     }
   }
 
@@ -160,10 +184,14 @@ export class PubNubGameService implements RealtimeGameService {
     try {
       const channelName = `game-${gameId}`;
 
-      // Check if already subscribed
-      if (this.subscriptions.has(gameId)) {
+      // Check if already subscribed and subscription is active
+      const existingSubscription = this.subscriptions.get(gameId);
+      if (existingSubscription) {
+        console.log(`PubNub: Already subscribed to game channel: ${gameId}`);
         return;
       }
+
+      console.log(`PubNub: Joining game channel: ${gameId}`);
 
       // Get authentication token for this channel
       await this.authenticateChannelAccess(this.userId!, channelName);
@@ -182,11 +210,17 @@ export class PubNubGameService implements RealtimeGameService {
         this.handlePresenceEvent(gameId, presenceEvent);
       };
 
-      // Subscribe to the channel
-      subscription.subscribe();
+      // Store subscription BEFORE subscribing to prevent race conditions
       this.subscriptions.set(gameId, subscription);
 
+      // Subscribe to the channel
+      subscription.subscribe();
+
+      console.log(`PubNub: Successfully subscribed to game channel: ${gameId}`);
+
     } catch (error) {
+      // Clean up subscription on error
+      this.subscriptions.delete(gameId);
       throw new Error(`Failed to join game channel: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -198,12 +232,21 @@ export class PubNubGameService implements RealtimeGameService {
     try {
       const subscription = this.subscriptions.get(gameId);
       if (subscription) {
+        console.log(`PubNub: Leaving game channel: ${gameId}`);
         subscription.unsubscribe();
         this.subscriptions.delete(gameId);
         this.eventHandlers.delete(gameId);
         this.presenceHandlers.delete(gameId);
+        console.log(`PubNub: Successfully left game channel: ${gameId}`);
+      } else {
+        console.log(`PubNub: No subscription found for game: ${gameId}`);
       }
     } catch (error) {
+      console.warn(`PubNub: Error leaving game channel ${gameId}:`, error);
+      // Still clean up local state even if unsubscribe fails
+      this.subscriptions.delete(gameId);
+      this.eventHandlers.delete(gameId);
+      this.presenceHandlers.delete(gameId);
     }
   }
 
@@ -267,11 +310,16 @@ export class PubNubGameService implements RealtimeGameService {
 
     try {
       const channelName = `user-${userId}`;
+      const subscriptionKey = `user-${userId}`;
 
       // Check if already subscribed
-      if (this.subscriptions.has(`user-${userId}`)) {
+      const existingSubscription = this.subscriptions.get(subscriptionKey);
+      if (existingSubscription) {
+        console.log(`PubNub: Already subscribed to user channel: ${userId}`);
         return;
       }
+
+      console.log(`PubNub: Subscribing to user channel: ${userId}`);
 
       const channel = this.pubnub.channel(channelName);
       const subscription = channel.subscription();
@@ -281,11 +329,17 @@ export class PubNubGameService implements RealtimeGameService {
         callback(messageEvent);
       };
 
+      // Store subscription BEFORE subscribing to prevent race conditions
+      this.subscriptions.set(subscriptionKey, subscription);
+
       // Subscribe to the channel
       subscription.subscribe();
-      this.subscriptions.set(`user-${userId}`, subscription);
+
+      console.log(`PubNub: Successfully subscribed to user channel: ${userId}`);
 
     } catch (error) {
+      // Clean up subscription on error
+      this.subscriptions.delete(`user-${userId}`);
       throw new Error(`Failed to subscribe to user channel: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
