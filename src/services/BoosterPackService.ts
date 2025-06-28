@@ -14,7 +14,42 @@ import { loadCollectionAssets } from '../utils/assetLoader';
 
 export class BoosterPackService {
   /**
-   * Get all available booster packs with ownership status
+   * Get all booster packs without requiring authentication (for public display)
+   */
+  static async getAllPacks(
+    options: { includeInactive?: boolean, category?: string } = {}
+  ): Promise<ServiceResponse<BoosterPackWithOwnership[]>> {
+    try {
+      // Get all packs without user context (for public display)
+      const { data, error } = await supabase.rpc('get_user_available_packs', {
+        user_uuid: null // Pass null to get all packs without ownership status
+      });
+
+      if (error) {
+        console.error('Error fetching all packs:', error);
+        return { success: false, error: 'Failed to fetch booster packs', code: 'DATABASE_ERROR' };
+      }
+
+      // Apply filters if needed
+      let filteredPacks = data || [];
+
+      if (!options.includeInactive) {
+        filteredPacks = filteredPacks.filter(pack => pack.is_active);
+      }
+
+      if (options.category) {
+        filteredPacks = filteredPacks.filter(pack => pack.category === options.category);
+      }
+
+      return { success: true, data: filteredPacks };
+    } catch (error) {
+      console.error('Error in getAllPacks:', error);
+      return { success: false, error: 'An unexpected error occurred', code: 'UNKNOWN_ERROR' };
+    }
+  }
+
+  /**
+   * Get all available booster packs with ownership status (requires authentication)
    */
   static async getAvailablePacks(
     options: { includeInactive?: boolean, category?: string } = {}
@@ -50,6 +85,37 @@ export class BoosterPackService {
     } catch (error) {
       console.error('Unexpected error fetching available packs:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
+    }
+  }
+
+  /**
+   * Get a specific booster pack by ID with ownership status
+   */
+  static async getPackById(packId: string): Promise<ServiceResponse<BoosterPackWithOwnership>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Use the database function to get pack with ownership status
+      const { data, error } = await supabase.rpc('get_user_available_packs', {
+        user_uuid: user?.id || null
+      });
+
+      if (error) {
+        console.error('Error fetching pack details:', error);
+        return { success: false, error: 'Failed to fetch pack details', code: 'DATABASE_ERROR' };
+      }
+
+      // Find the specific pack
+      const pack = data?.find((p: BoosterPackWithOwnership) => p.id === packId);
+
+      if (!pack) {
+        return { success: false, error: 'Booster pack not found', code: 'PACK_NOT_FOUND' };
+      }
+
+      return { success: true, data: pack };
+    } catch (error) {
+      console.error('Error in getPackById:', error);
+      return { success: false, error: 'An unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
 

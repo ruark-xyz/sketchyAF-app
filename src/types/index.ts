@@ -32,7 +32,9 @@ export interface PartnerInfo {
   website?: string;
 }
 
-export interface BoosterPack {
+// Legacy BoosterPack interface - kept for backward compatibility
+// New components should use BoosterPack from types/game.ts
+export interface LegacyBoosterPack {
   id: string;
   name: string;
   description: string;
@@ -44,6 +46,9 @@ export interface BoosterPack {
   isPartnerCurated?: boolean;
   partnerInfo?: PartnerInfo;
 }
+
+// Re-export the database BoosterPack type for consistency
+export type { BoosterPack, BoosterPackWithOwnership } from './game';
 
 export interface LeaderboardEntry {
   id: number;

@@ -1,28 +1,125 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Users, BarChart, Award, Star, Download, Globe, ExternalLink } from 'lucide-react';
+import { ChevronLeft, Users, BarChart, Award, Star, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
-import { boosterPacks } from '../data/mockData';
-import { BoosterPack } from '../types';
+import { BoosterPackWithOwnership } from '../types/game';
+import { BoosterPackService } from '../services/BoosterPackService';
+
+import { useAuth } from '../context/AuthContext';
 
 const BoosterPackDetail: React.FC = () => {
   const { packId } = useParams<{ packId: string }>();
-  const [pack, setPack] = useState<BoosterPack | null>(null);
+  const { user } = useAuth();
+  const [pack, setPack] = useState<BoosterPackWithOwnership | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [unlockSuccess, setUnlockSuccess] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [packAssets, setPackAssets] = useState<string[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+
   const openEmailModal = () => setIsEmailModalOpen(true);
   const closeEmailModal = () => setIsEmailModalOpen(false);
-  
+
+  // Handle pack purchase/unlock
+  const handleUnlockPack = async () => {
+    if (!pack || !user) {
+      setUnlockError('You must be logged in to unlock packs');
+      return;
+    }
+
+    if (pack.is_owned) {
+      setUnlockError('You already own this pack');
+      return;
+    }
+
+    if (pack.price_cents > 0 || pack.is_premium) {
+      setUnlockError('This pack requires payment or premium subscription');
+      return;
+    }
+
+    try {
+      setIsUnlocking(true);
+      setUnlockError(null);
+      setUnlockSuccess(false);
+
+      const response = await BoosterPackService.unlockFreePack(pack.id);
+
+      if (response.success) {
+        setUnlockSuccess(true);
+        // Update pack ownership status
+        setPack(prev => prev ? { ...prev, is_owned: true, unlocked_at: new Date().toISOString() } : null);
+        // Load pack assets now that it's unlocked
+        loadPackAssets(pack.id);
+      } else {
+        setUnlockError(response.error || 'Failed to unlock pack');
+      }
+    } catch (error) {
+      console.error('Error unlocking pack:', error);
+      setUnlockError('An unexpected error occurred');
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
+
   useEffect(() => {
-    // In a real app, this would be an API call
-    const foundPack = boosterPacks.find(p => p.id === packId);
-    setPack(foundPack || null);
-    setLoading(false);
-  }, [packId]);
+    const fetchPackDetails = async () => {
+      if (!packId) {
+        setError('No pack ID provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Get pack details with ownership status
+        const response = await BoosterPackService.getPackById(packId);
+
+        if (response.success && response.data) {
+          setPack(response.data);
+
+          // Load pack assets if user owns the pack or it's free
+          if (response.data.is_owned || response.data.price_cents === 0) {
+            loadPackAssets(response.data.id);
+          }
+        } else {
+          setError(response.error || 'Failed to load booster pack');
+        }
+      } catch (err) {
+        console.error('Error fetching pack details:', err);
+        setError('An unexpected error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPackDetails();
+  }, [packId, user]); // Re-fetch when user changes to update ownership status
+
+  // Load pack assets
+  const loadPackAssets = async (packId: string) => {
+    try {
+      setAssetsLoading(true);
+      const response = await BoosterPackService.getPackAssets(packId);
+
+      if (response.success && response.data) {
+        // Extract just the filenames for display
+        const assetNames = response.data.map(asset => asset.filename);
+        setPackAssets(assetNames);
+      }
+    } catch (error) {
+      console.error('Error loading pack assets:', error);
+    } finally {
+      setAssetsLoading(false);
+    }
+  };
   
   if (loading) {
     return (
@@ -31,13 +128,17 @@ const BoosterPackDetail: React.FC = () => {
       </div>
     );
   }
-  
-  if (!pack) {
+
+  if (error || !pack) {
     return (
       <div className="py-16 md:py-24 bg-cream min-h-screen">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-6">Pack Not Found</h1>
-          <p className="text-medium-gray text-lg mb-8">The booster pack you're looking for doesn't exist or has been removed.</p>
+          <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-6">
+            {error ? 'Error Loading Pack' : 'Pack Not Found'}
+          </h1>
+          <p className="text-medium-gray text-lg mb-8">
+            {error || 'The booster pack you\'re looking for doesn\'t exist or has been removed.'}
+          </p>
           <Button variant="primary" to="/premium">
             Back to Booster Packs
           </Button>
@@ -46,39 +147,41 @@ const BoosterPackDetail: React.FC = () => {
     );
   }
   
-  // Fake statistics for the pack (in a real app, these would come from the backend)
+  // Real statistics from the database
   const packStats = {
-    usageCount: Math.floor(Math.random() * 100000) + 50000,
-    userCount: Math.floor(Math.random() * 50000) + 10000,
-    avgRating: (Math.random() * 2 + 3).toFixed(1), // Random between 3.0 and 5.0
+    usageCount: pack.usage_count || 0,
+    downloadCount: pack.download_count || 0,
+    assetCount: pack.asset_count || 0,
+    userCount: Math.floor((pack.usage_count || 0) / 3), // Estimate unique users
+    avgRating: "4.8", // TODO: Implement rating system
     topArtists: [
       "SketchLord",
       "ArtisticTroll",
       "DrawMaster64",
       "PencilPusher"
-    ]
+    ] // TODO: Get real top artists from database
   };
 
   return (
     <>
-      <Seo 
-        title={`${pack.name} Booster Pack`}
-        description={pack.description}
+      <Seo
+        title={`${pack.title} Booster Pack`}
+        description={pack.description || `Explore the ${pack.title} booster pack`}
       />
-      
+
       <div className="py-16 md:py-24 bg-cream">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Back button */}
           <div className="mb-6">
-            <Link 
-              to="/premium" 
+            <Link
+              to="/premium"
               className="inline-flex items-center text-dark-gray hover:text-primary transition-colors"
             >
               <ChevronLeft size={20} className="mr-1" />
               <span>Back to All Packs</span>
             </Link>
           </div>
-          
+
           {/* Hero Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -88,15 +191,15 @@ const BoosterPackDetail: React.FC = () => {
           >
             <div className="md:flex">
               <div className="md:w-1/3">
-                <img 
-                  src={pack.image} 
-                  alt={pack.name} 
+                <img
+                  src={pack.cover_image_url || '/images/default-pack-cover.jpg'}
+                  alt={pack.title}
                   className="w-full h-64 md:h-full object-cover"
                 />
               </div>
               <div className="md:w-2/3 p-6 md:p-8">
-                <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-4">{pack.name}</h1>
-                
+                <h1 className="font-heading font-bold text-3xl md:text-4xl text-dark mb-4">{pack.title}</h1>
+
                 <p className="text-medium-gray text-lg mb-4">{pack.description}</p>
                 
                 {/* Placeholder note */}
@@ -105,121 +208,89 @@ const BoosterPackDetail: React.FC = () => {
                 </p>
                 
                 {/* Feature Badges */}
-                {pack.badges && pack.badges.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {pack.badges.map(badge => {
-                      let badgeColor;
-                      switch(badge.type) {
-                        case 'subscriber-perk':
-                          badgeColor = 'bg-turquoise text-dark';
-                          break;
-                        case 'new':
-                          badgeColor = 'bg-green text-dark';
-                          break;
-                        case 'promotion':
-                          badgeColor = 'bg-orange text-dark';
-                          break;
-                        case 'limited-time':
-                          badgeColor = 'bg-pink text-dark';
-                          break;
-                        case 'partner':
-                          badgeColor = 'bg-purple text-white';
-                          break;
-                        default:
-                          badgeColor = 'bg-accent text-dark';
-                      }
-                      
-                      return (
-                        <span 
-                          key={badge.text} 
-                          className={`${badgeColor} px-3 py-1 text-xs font-heading font-bold rounded-full border-2 border-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,0.8)] hand-drawn`}
-                        >
-                          {badge.text}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                
-                {/* CTA Button - Updated to use EmailSignupModal */}
-                <div>
-                  {pack.type === 'premium' ? (
-                    <Button 
-                      variant="primary" 
-                      onClick={openEmailModal}
-                    >
-                      Become Premium AF
-                    </Button>
-                  ) : pack.type === 'paid' ? (
-                    <Button 
-                      variant="primary" 
-                      onClick={openEmailModal}
-                    >
-                      Buy for {pack.price}
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="primary" 
-                      onClick={openEmailModal}
-                    >
-                      Add to My Collection
-                    </Button>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {pack.is_premium && (
+                    <span className="bg-turquoise text-dark px-3 py-1 text-xs font-heading font-bold rounded-full border-2 border-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,0.8)] hand-drawn">
+                      Premium
+                    </span>
                   )}
+                  {pack.price_cents === 0 && (
+                    <span className="bg-green text-dark px-3 py-1 text-xs font-heading font-bold rounded-full border-2 border-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,0.8)] hand-drawn">
+                      Free
+                    </span>
+                  )}
+                  {pack.is_owned && (
+                    <span className="bg-success text-white px-3 py-1 text-xs font-heading font-bold rounded-full border-2 border-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,0.8)] hand-drawn">
+                      Owned
+                    </span>
+                  )}
+                  {pack.category && (
+                    <span className="bg-accent text-dark px-3 py-1 text-xs font-heading font-bold rounded-full border-2 border-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,0.8)] hand-drawn">
+                      {pack.category}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Purchase/Unlock Status and Actions */}
+                <div className="space-y-4">
+                  {/* Success/Error Messages */}
+                  {unlockSuccess && (
+                    <div className="bg-success/10 border border-success text-success p-3 rounded-lg flex items-center">
+                      <CheckCircle size={20} className="mr-2" />
+                      <span>Pack successfully added to your collection!</span>
+                    </div>
+                  )}
+
+                  {unlockError && (
+                    <div className="bg-red/10 border border-red text-red p-3 rounded-lg flex items-center">
+                      <AlertCircle size={20} className="mr-2" />
+                      <span>{unlockError}</span>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-2xl font-heading font-bold text-dark">
+                        {pack.price_cents === 0 ? 'Free' : pack.is_premium ? 'Premium' : `$${(pack.price_cents / 100).toFixed(2)}`}
+                      </div>
+                      {pack.is_owned && (
+                        <div className="text-sm text-success font-medium">✓ Owned</div>
+                      )}
+                    </div>
+
+                    {pack.is_owned ? (
+                      <Button variant="secondary" disabled>
+                        Already in Collection
+                      </Button>
+                    ) : !user ? (
+                      <Button variant="primary" to="/uiux/login">
+                        Login to Unlock
+                      </Button>
+                    ) : pack.is_premium ? (
+                      <Button variant="primary" onClick={openEmailModal}>
+                        Become Premium AF
+                      </Button>
+                    ) : pack.price_cents > 0 ? (
+                      <Button variant="primary" onClick={openEmailModal}>
+                        Buy for ${(pack.price_cents / 100).toFixed(2)}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        onClick={handleUnlockPack}
+                        disabled={isUnlocking}
+                      >
+                        {isUnlocking ? 'Adding...' : 'Add to Collection'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </motion.div>
           
-          {/* Partner Section (only shown if partner curated) */}
-          {pack.isPartnerCurated && pack.partnerInfo && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.05 }}
-              className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-dark hand-drawn mb-12"
-            >
-              <div className="p-6 md:p-8">
-                <div className="flex items-center mb-6">
-                  <Award size={24} className="mr-3 text-purple" />
-                  <h2 className="font-heading font-bold text-2xl text-dark">Partner Curated Pack</h2>
-                </div>
-                
-                <div className="flex flex-col md:flex-row gap-6 items-center">
-                  <div className="md:w-1/4 flex justify-center">
-                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-purple">
-                      <img 
-                        src={pack.partnerInfo.logo} 
-                        alt={pack.partnerInfo.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="md:w-3/4">
-                    <h3 className="font-heading font-bold text-xl mb-2">
-                      Curated by {pack.partnerInfo.name}
-                    </h3>
-                    <p className="text-medium-gray mb-4">
-                      {pack.partnerInfo.description}
-                    </p>
-                    
-                    {pack.partnerInfo.website && (
-                      <a 
-                        href={pack.partnerInfo.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-purple hover:underline"
-                      >
-                        <Globe size={16} className="mr-1" />
-                        Visit {pack.partnerInfo.name}
-                        <ExternalLink size={14} className="ml-1" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
+          {/* TODO: Partner Section - Add partner support to database schema */}
           
           {/* Pack Contents */}
           <motion.div
@@ -231,19 +302,38 @@ const BoosterPackDetail: React.FC = () => {
             <div className="p-6 md:p-8">
               <h2 className="font-heading font-bold text-2xl mb-6 text-dark">Pack Contents</h2>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {pack.items.map((item, index) => (
-                  <motion.div 
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-off-white rounded-md p-4 text-center shadow-sm border border-light-gray"
-                  >
-                    <p className="font-medium">{item}</p>
-                  </motion.div>
-                ))}
-              </div>
+              {assetsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-medium-gray">Loading pack contents...</p>
+                </div>
+              ) : packAssets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {packAssets.map((asset, index) => (
+                    <motion.div
+                      key={asset}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-off-white rounded-md p-4 text-center shadow-sm border border-light-gray"
+                    >
+                      <p className="font-medium text-sm truncate" title={asset}>
+                        {asset.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, '')}
+                      </p>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : pack.is_owned || pack.price_cents === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-medium-gray">No assets found in this pack.</p>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-medium-gray">
+                    {pack.asset_count > 0 ? `${pack.asset_count} assets` : 'Assets'} available after unlocking this pack.
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
           
