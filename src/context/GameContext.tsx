@@ -274,7 +274,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const gameResult = await GameService.getGame(state.currentGame.id);
             if (gameResult.success && gameResult.data) {
               dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
-              dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
+
+              // Transform participants to include user details
+              const participantsWithUser = (gameResult.data.participants || []).map(p => ({
+                ...p,
+                username: p.username || 'Unknown',
+                avatar_url: p.avatar_url
+              }));
+              dispatch({ type: 'SET_PARTICIPANTS', payload: participantsWithUser });
             }
           } catch (error) {
             console.error('Error refreshing game state:', error);
@@ -307,7 +314,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
         dispatch({ type: 'SET_CURRENT_GAME', payload: gameResult.data });
-        dispatch({ type: 'SET_PARTICIPANTS', payload: gameResult.data.participants || [] });
+
+        // Transform participants to include user details
+        const participantsWithUser = (gameResult.data.participants || []).map(p => ({
+          ...p,
+          username: p.username || 'Unknown',
+          avatar_url: p.avatar_url
+        }));
+        dispatch({ type: 'SET_PARTICIPANTS', payload: participantsWithUser });
+
+        // Set current user's selected booster pack and ready status from participants data
+        if (currentUser && gameResult.data.participants) {
+          const currentUserParticipant = gameResult.data.participants.find(p => p.user_id === currentUser.id);
+          if (currentUserParticipant) {
+            dispatch({ type: 'SET_SELECTED_BOOSTER_PACK', payload: currentUserParticipant.selected_booster_pack || null });
+            dispatch({ type: 'SET_PLAYER_READY', payload: currentUserParticipant.is_ready });
+          }
+        }
 
         // Update game phase based on game status - THIS WAS MISSING!
         const gamePhaseMap: Record<GameStatus, GamePhase> = {
@@ -1078,12 +1101,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // For now, we'll just update local state and broadcast the change
-      // The booster pack selection will be handled when joining the game
+      // Update local state immediately for responsive UI
       dispatch({ type: 'SET_SELECTED_BOOSTER_PACK', payload: packId });
 
-      // If already in game, broadcast the change
+      // Persist selection to database if already in game
       if (state.isInGame) {
+        const result = await GameService.updateSelectedBoosterPack(state.currentGame.id, packId);
+        if (!result.success) {
+          // Revert local state on failure
+          dispatch({ type: 'SET_SELECTED_BOOSTER_PACK', payload: state.selectedBoosterPack });
+          throw new Error(result.error || 'Failed to update booster pack selection');
+        }
+
+        // Broadcast the change via real-time
         await broadcastPlayerReady(state.isReady, packId || undefined);
       }
 
@@ -1092,7 +1122,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       throw error;
     }
-  }, [currentUser, state.currentGame, state.isReady, state.isInGame, broadcastPlayerReady]);
+  }, [currentUser, state.currentGame, state.isReady, state.isInGame, state.selectedBoosterPack, broadcastPlayerReady]);
 
   const submitDrawing = useCallback(async (drawingData: any, drawingUrl: string): Promise<void> => {
     if (!currentUser || !state.currentGame) {

@@ -1,14 +1,20 @@
 // Game Context Types
 // TypeScript definitions for the GameContext state management system
 
-import { 
-  Game, 
-  GameParticipant, 
-  Submission, 
-  Vote, 
+import {
+  Game,
+  GameParticipant,
+  Submission,
+  Vote,
   GameResults,
-  GameStatus 
+  GameStatus
 } from './game';
+
+// Extended participant type with user details
+export interface GameParticipantWithUser extends GameParticipant {
+  username: string;
+  avatar_url?: string;
+}
 import { ConnectionStatus } from './realtime';
 
 // Game Phase Enum (extending GameStatus for context-specific phases)
@@ -46,7 +52,7 @@ export interface GameState {
   hasVoted: boolean;
   
   // Game Data
-  participants: GameParticipant[];
+  participants: GameParticipantWithUser[];
   submissions: Submission[];
   votes: Vote[];
   results: GameResults | null;
@@ -178,7 +184,7 @@ export type GameContextAction =
   | { type: 'SET_SELECTED_BOOSTER_PACK'; payload: string | null }
   | { type: 'SET_HAS_SUBMITTED'; payload: boolean }
   | { type: 'SET_HAS_VOTED'; payload: boolean }
-  | { type: 'SET_PARTICIPANTS'; payload: GameParticipant[] }
+  | { type: 'SET_PARTICIPANTS'; payload: GameParticipantWithUser[] }
   | { type: 'SET_SUBMISSIONS'; payload: Submission[] }
   | { type: 'SET_VOTES'; payload: Vote[] }
   | { type: 'SET_RESULTS'; payload: GameResults | null }

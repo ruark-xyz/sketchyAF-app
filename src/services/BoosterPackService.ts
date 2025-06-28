@@ -37,11 +37,11 @@ export class BoosterPackService {
 
       // Apply filters if needed
       let filteredPacks = data || [];
-      
+
       if (!options.includeInactive) {
         filteredPacks = filteredPacks.filter(pack => pack.is_active);
       }
-      
+
       if (options.category) {
         filteredPacks = filteredPacks.filter(pack => pack.category === options.category);
       }

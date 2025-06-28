@@ -8,16 +8,8 @@ import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSimpleTimer } from '../../hooks/useSimpleTimer';
-import { loadAllCollections } from '../../utils/assetLoader';
-import { BoosterPack } from '../../types';
-
-interface BoosterPackOption {
-  id: string;
-  name: string;
-  icon: string;
-  available: boolean;
-  isPremium?: boolean;
-}
+import { BoosterPackService } from '../../services/BoosterPackService';
+import { BoosterPackWithOwnership } from '../../types/game';
 
 const PreRoundBriefingScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +30,7 @@ const PreRoundBriefingScreen: React.FC = () => {
     error
   } = useGame();
   
-  const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackOption[]>([]);
+  const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackWithOwnership[]>([]);
   const [gameStarting, setGameStarting] = useState(false);
   
   // Simple timer display
@@ -51,29 +43,51 @@ const PreRoundBriefingScreen: React.FC = () => {
     gameId: currentGame?.id || ''
   });
 
-  // Load available booster packs
+  // Safe timer values
+  const safeTimeRemaining = timeRemaining ?? 0;
+  const isTimerCritical = safeTimeRemaining <= 5;
+
+  // Load available booster packs from database
   useEffect(() => {
     const loadBoosterPacks = async () => {
+      if (!currentUser) {
+        console.log('PreRoundBriefingScreen: User not authenticated, skipping booster pack loading');
+        return;
+      }
+
       try {
-        const collections = await loadAllCollections();
-        
-        // Convert collections to booster pack options
-        const packOptions: BoosterPackOption[] = collections.map(collection => ({
-          id: collection.id,
-          name: collection.displayName,
-          icon: getIconForCollection(collection.name),
-          available: true,
-          isPremium: collection.name.includes('premium')
-        }));
-        
-        setAvailableBoosterPacks(packOptions);
+        console.log('PreRoundBriefingScreen: Loading booster packs for user:', currentUser.id);
+        const result = await BoosterPackService.getAvailablePacks();
+
+        console.log('PreRoundBriefingScreen: Booster packs result:', {
+          success: result.success,
+          dataLength: result.data?.length,
+          error: result.error,
+          data: result.data
+        });
+
+        if (result.success && result.data) {
+          setAvailableBoosterPacks(result.data);
+          console.log('PreRoundBriefingScreen: Set available booster packs:', result.data.length);
+        } else {
+          console.error('Failed to load booster packs:', result.error);
+        }
       } catch (err) {
         console.error('Failed to load booster packs:', err);
       }
     };
-    
+
     loadBoosterPacks();
-  }, []);
+  }, [currentUser]);
+
+  // Sync GameContext when currentGame changes
+  useEffect(() => {
+    if (currentGame?.id && actions?.refreshGameState) {
+      console.log('PreRoundBriefingScreen: Syncing GameContext with game:', currentGame.id);
+      actions.refreshGameState(currentGame.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentGame?.id]); // Intentionally exclude actions to prevent infinite loop
 
   // Start timer when component mounts - but only if all players are present
   // Timer and phase transitions are now handled server-side automatically
@@ -85,9 +99,17 @@ const PreRoundBriefingScreen: React.FC = () => {
         id: currentGame.id,
         status: currentGame.status
       } : null,
-      gamePhase: currentGame?.status || 'unknown'
+      gamePhase: currentGame?.status || 'unknown',
+      currentUser: currentUser ? {
+        id: currentUser.id,
+        email: currentUser.email
+      } : null,
+      participants: participants.length,
+      availableBoosterPacks: availableBoosterPacks.length,
+      isLoading,
+      error
     });
-  }, [currentGame]);
+  }, [currentGame, currentUser, participants, availableBoosterPacks, isLoading, error]);
 
   const handleReadyUp = async () => {
     try {
@@ -116,12 +138,14 @@ const PreRoundBriefingScreen: React.FC = () => {
     console.log('Manual start game clicked - server will handle transition automatically');
   };
 
-  // Get icon for collection
-  const getIconForCollection = (name: string): string => {
+  // Get icon for booster pack based on category or asset directory name
+  const getIconForBoosterPack = (pack: BoosterPackWithOwnership): string => {
+    const name = pack.category || pack.asset_directory_name || '';
     switch (name.toLowerCase()) {
-      case 'shapes': return '🔷';
-      case 'troll': return '😈';
-      case 'memes': return '🤣';
+      case 'shapes':
+      case 'basics': return '🔷';
+      case 'troll':
+      case 'memes': return '😈';
       case 'premium': return '⭐';
       case 'emoji': return '😎';
       default: return '🎨';
@@ -143,14 +167,14 @@ const PreRoundBriefingScreen: React.FC = () => {
         {/* Header with countdown */}
         <div className="p-4 text-center">
           <motion.div
-            key={timeRemaining}
-            initial={{ scale: timeRemaining <= 5 ? 1.1 : 1 }}
+            key={safeTimeRemaining}
+            initial={{ scale: isTimerCritical ? 1.1 : 1 }}
             animate={{ scale: 1 }}
             className={`inline-flex items-center bg-white rounded-full px-4 py-2 border-2 border-dark hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)]`}
           >
             <Clock size={20} className="mr-2" />
             <span className="font-heading font-bold text-xl">
-              {timeRemaining <= 5 ? '🔥 ' : ''}{formattedTime}
+              {isTimerCritical ? '🔥 ' : ''}{formattedTime}
             </span>
           </motion.div>
         </div>
@@ -282,20 +306,30 @@ const PreRoundBriefingScreen: React.FC = () => {
                           </p>
                         </div>
                         
-                        {/* Ready status */}
-                        <div className="flex items-center">
-                          {participant.is_ready ? (
-                            <>
-                              <CheckCircle size={12} className="text-green mr-1" />
-                              <span className="text-xs text-green font-heading font-semibold">Ready</span>
-                            </>
-                          ) : (
-                            <>
-                              <Clock size={12} className="text-orange mr-1" />
-                              <span className="text-xs text-orange font-heading font-semibold">
-                                {isCurrentUser ? 'Ready up!' : 'Waiting...'}
-                              </span>
-                            </>
+                        {/* Ready status and booster pack */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            {participant.is_ready ? (
+                              <>
+                                <CheckCircle size={12} className="text-green mr-1" />
+                                <span className="text-xs text-green font-heading font-semibold">Ready</span>
+                              </>
+                            ) : (
+                              <>
+                                <Clock size={12} className="text-orange mr-1" />
+                                <span className="text-xs text-orange font-heading font-semibold">
+                                  {isCurrentUser ? 'Ready up!' : 'Waiting...'}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Show selected booster pack if any */}
+                          {participant.selected_booster_pack && (
+                            <div className="flex items-center">
+                              <span className="text-xs text-purple mr-1">🎨</span>
+                              <span className="text-xs text-purple font-heading font-semibold">Pack</span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -322,40 +356,60 @@ const PreRoundBriefingScreen: React.FC = () => {
               </p>
 
               <div className="grid grid-cols-2 gap-3">
-                {availableBoosterPacks.map(pack => (
-                  <motion.button
-                    key={pack.id}
-                    whileHover={{ scale: pack.available ? 1.05 : 1 }}
-                    whileTap={{ scale: pack.available ? 0.95 : 1 }}
-                    onClick={() => pack.available && handleBoosterPackSelect(pack.id)}
-                    disabled={!pack.available || isLoading}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      selectedBoosterPack === pack.id
-                        ? 'bg-purple/20 border-purple'
-                        : pack.available
-                        ? 'bg-off-white border-light-gray hover:border-purple'
-                        : 'bg-light-gray/30 border-light-gray opacity-50 cursor-not-allowed'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-2">{pack.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-heading font-semibold text-sm truncate">
-                          {pack.name}
-                        </p>
-                        {pack.isPremium && (
-                          <div className="flex items-center mt-1">
-                            <Star size={10} className="text-primary mr-1" />
-                            <span className="text-xs text-primary">Premium</span>
+                {availableBoosterPacks.length === 0 && (
+                  <div className="col-span-2 text-center py-4">
+                    <p className="text-medium-gray text-sm">
+                      {currentUser ? 'Loading booster packs...' : 'Please log in to see booster packs'}
+                    </p>
+                  </div>
+                )}
+                {availableBoosterPacks.map(pack => {
+                  const isAvailable = pack.is_owned || !pack.is_premium; // Free packs are always available, premium packs need to be owned
+                  const isSelected = selectedBoosterPack === pack.id;
+
+                  return (
+                    <motion.button
+                      key={pack.id}
+                      whileHover={{ scale: isAvailable ? 1.05 : 1 }}
+                      whileTap={{ scale: isAvailable ? 0.95 : 1 }}
+                      onClick={() => isAvailable && handleBoosterPackSelect(pack.id)}
+                      disabled={!isAvailable || isLoading}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        isSelected
+                          ? 'bg-purple/20 border-purple'
+                          : isAvailable
+                          ? 'bg-off-white border-light-gray hover:border-purple'
+                          : 'bg-light-gray/30 border-light-gray opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <span className="text-2xl mr-2">{getIconForBoosterPack(pack)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-heading font-semibold text-sm truncate">
+                            {pack.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {pack.is_premium && (
+                              <div className="flex items-center">
+                                <Star size={10} className="text-primary mr-1" />
+                                <span className="text-xs text-primary">Premium</span>
+                              </div>
+                            )}
+                            {!isAvailable && (
+                              <span className="text-xs text-medium-gray">Locked</span>
+                            )}
+                            {pack.is_owned && pack.is_premium && (
+                              <span className="text-xs text-green">Owned</span>
+                            )}
                           </div>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle size={16} className="text-purple ml-2" />
                         )}
                       </div>
-                      {selectedBoosterPack === pack.id && (
-                        <CheckCircle size={16} className="text-purple ml-2" />
-                      )}
-                    </div>
-                  </motion.button>
-                ))}
+                    </motion.button>
+                  );
+                })}
               </div>
             </motion.div>
 
@@ -407,7 +461,7 @@ const PreRoundBriefingScreen: React.FC = () => {
             </motion.div>
 
             {/* Auto-start indicator */}
-            {timeRemaining <= 10 && !allPlayersReady && (
+            {safeTimeRemaining <= 10 && !allPlayersReady && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

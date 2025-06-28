@@ -232,6 +232,42 @@ export class GameService {
   }
 
   /**
+   * Update player's selected booster pack
+   */
+  static async updateSelectedBoosterPack(gameId: string, boosterPackId: string | null): Promise<ServiceResponse<void>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
+      }
+
+      // Validate booster pack if provided
+      if (boosterPackId) {
+        const packValidation = await this.validateBoosterPackAccess(user.id, boosterPackId);
+        if (!packValidation.success) {
+          return packValidation;
+        }
+      }
+
+      const { error } = await supabase
+        .from('game_participants')
+        .update({ selected_booster_pack: boosterPackId })
+        .eq('game_id', gameId)
+        .eq('user_id', user.id)
+        .is('left_at', null);
+
+      if (error) {
+        return { success: false, error: 'Failed to update booster pack selection', code: 'DATABASE_ERROR' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating booster pack selection:', error);
+      return { success: false, error: 'Failed to update booster pack selection', code: 'UNKNOWN_ERROR' };
+    }
+  }
+
+  /**
    * Transition game status
    */
   static async transitionGameStatus(gameId: string, newStatus: GameStatus, previousStatus?: GameStatus): Promise<ServiceResponse<void>> {
