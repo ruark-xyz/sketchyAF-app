@@ -652,6 +652,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
+    // Get selected booster pack data if available
+    let selectedBoosterPackData: BoosterPack | undefined;
+    if (state.selectedBoosterPack) {
+      try {
+        const { BoosterPackService } = await import('../services/BoosterPackService');
+        const result = await BoosterPackService.getPackById(state.selectedBoosterPack);
+        if (result.success && result.data) {
+          selectedBoosterPackData = result.data;
+        }
+      } catch (error) {
+        console.warn('Failed to fetch selected booster pack data:', error);
+      }
+    }
+
     // Create drawing context
     const newDrawingContext: GameDrawingContext = {
       gameId,
@@ -660,6 +674,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isDrawingPhase: true, // Always true when initializing drawing session
       canSubmit: true,
       hasSubmitted: false,
+      selectedBoosterPack: selectedBoosterPackData,
       availableAssets: [], // Will be populated by booster pack integration
       submitDrawing: async (drawingData: any) => {
         await submitDrawingWithExport(drawingData);
@@ -674,7 +689,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     console.log('GameContext: Setting drawing context:', newDrawingContext);
     setDrawingContext(newDrawingContext);
-  }, [state.currentGame, currentUser]);
+  }, [state.currentGame, state.selectedBoosterPack, currentUser]);
 
   // Submit drawing with export (from HEAD)
   const submitDrawingWithExport = useCallback(async (drawingData: any, imageBlob?: Blob): Promise<ServiceResponse<Submission>> => {

@@ -22,6 +22,7 @@ import Seo from '../../components/utils/Seo';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useSimpleTimer } from '../../hooks/useSimpleTimer';
 import { useAuth } from '../../context/AuthContext';
+import { useGame } from '../../context/GameContext';
 
 // Mock data for demo purposes
 const BOOSTER_STENCILS = [
@@ -63,6 +64,7 @@ const DrawingCanvasScreen: React.FC = () => {
     participants,
     submissions,
     hasSubmitted,
+    selectedBoosterPack,
     actions,
     drawingContext
   } = useGame();
@@ -429,19 +431,21 @@ const DrawingCanvasScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Booster Packs Toggle */}
-            <div className="p-2">
-              <button
-                onClick={() => setShowBoosterPacks(!showBoosterPacks)}
-                className={`w-12 h-12 rounded-lg border-2 border-dark flex items-center justify-center transition-all ${
-                  showBoosterPacks 
-                    ? 'bg-purple text-white' 
-                    : 'bg-off-white hover:bg-purple/10'
-                }`}
-              >
-                <Package size={20} />
-              </button>
-            </div>
+            {/* Booster Packs Toggle - Only show if a booster pack is selected */}
+            {selectedBoosterPack && (
+              <div className="p-2">
+                <button
+                  onClick={() => setShowBoosterPacks(!showBoosterPacks)}
+                  className={`w-12 h-12 rounded-lg border-2 border-dark flex items-center justify-center transition-all ${
+                    showBoosterPacks
+                      ? 'bg-purple text-white'
+                      : 'bg-off-white hover:bg-purple/10'
+                  }`}
+                >
+                  <Package size={20} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
