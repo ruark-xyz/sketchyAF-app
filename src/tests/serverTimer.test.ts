@@ -68,13 +68,6 @@ describe('Server Timer Synchronization', () => {
   });
 
   describe('Component Integration', () => {
-    it('should import useServerTimer hook without errors', async () => {
-      // Test that our hook can be imported
-      const { useServerTimer } = await import('../hooks/useServerTimer');
-      expect(useServerTimer).toBeDefined();
-      expect(typeof useServerTimer).toBe('function');
-    });
-
     it('should import GameFlowController without errors', async () => {
       // Test that our controller can be imported
       const { GameFlowController } = await import('../services/GameFlowController');

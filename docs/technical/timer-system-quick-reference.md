@@ -1,5 +1,7 @@
 # Timer System Quick Reference
 
+> **⚠️ Note**: As of the latest optimization, complex timer hooks (`useGameTimer`, `useDrawingTimer`, `useServerTimer`) have been removed in favor of the simplified `useSimpleTimer` hook with PubNub integration for better performance.
+
 ## 🚀 Quick Start
 
 ### Local Development Setup
@@ -56,35 +58,43 @@ curl -X POST /functions/v1/get-game-timer \
 
 ## 🔧 Client Integration
 
-### Using useServerTimer Hook
+### Using useSimpleTimer Hook (Optimized)
 
 ```typescript
-import { useServerTimer } from '../hooks/useServerTimer';
+import { useSimpleTimer } from '../hooks/useSimpleTimer';
 
 const MyComponent = ({ gameId }) => {
   const {
     timeRemaining,
-    isActive,
-    isExpired,
-    syncError,
-    forceSync
-  } = useServerTimer({
+    phaseDuration,
+    phase,
+    formattedTime,
+    isLoading,
+    error,
+    refresh
+  } = useSimpleTimer({
     gameId,
-    syncInterval: 10,
-    onTimerExpired: () => console.log('Time up!'),
-    onSyncError: (error) => console.error('Sync failed:', error)
+    refreshInterval: 15 // Optional: polling interval in seconds (default: 15)
   });
 
   return (
     <div>
-      <div>Time: {timeRemaining}s</div>
-      <div>Status: {isActive ? 'Active' : 'Inactive'}</div>
-      {syncError && <div>Sync Error</div>}
-      <button onClick={forceSync}>Force Sync</button>
+      <div>Time: {formattedTime}</div>
+      <div>Phase: {phase}</div>
+      <div>Duration: {phaseDuration}s</div>
+      {isLoading && <div>Loading...</div>}
+      {error && <div>Error: {error}</div>}
+      <button onClick={refresh}>Refresh</button>
     </div>
   );
 };
 ```
+
+**Features:**
+- ✅ **Optimized Performance**: 15-second polling (reduced from 5s)
+- ✅ **Real-time Updates**: PubNub events trigger immediate refreshes
+- ✅ **Smart Throttling**: Prevents excessive API calls
+- ✅ **Event-Driven**: Responds instantly to phase changes
 
 ### GameTimer Component
 
