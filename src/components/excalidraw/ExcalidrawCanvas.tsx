@@ -40,7 +40,7 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [autoSubmitRetryCount, setAutoSubmitRetryCount] = useState(0);
-  const [showAutoSubmitWarning, setShowAutoSubmitWarning] = useState(false);
+
   const [isFallbackSubmission, setIsFallbackSubmission] = useState(false);
 
   // Handle auto-submit when timer expires
@@ -235,14 +235,7 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
   const isWarning = timeRemaining <= 30 && timeRemaining > 10;
   const isUrgent = timeRemaining <= 10;
 
-  // Handle auto-submit warning
-  useEffect(() => {
-    if (timeRemaining <= 10 && timeRemaining > 0 && !gameContext?.hasSubmitted && !showAutoSubmitWarning) {
-      setShowAutoSubmitWarning(true);
-      // Hide warning after 3 seconds
-      setTimeout(() => setShowAutoSubmitWarning(false), 3000);
-    }
-  }, [timeRemaining, gameContext?.hasSubmitted, showAutoSubmitWarning]);
+
 
 
 
@@ -380,20 +373,7 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
 
 
 
-      {/* Auto-submit Warning */}
-      {showAutoSubmitWarning && gameContext && !gameContext.hasSubmitted && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 max-w-md">
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 shadow-lg">
-            <div className="flex items-center space-x-3">
-              <AlertCircle size={20} className="text-orange-500" />
-              <div>
-                <h4 className="text-sm font-medium text-orange-800">Auto-submission Warning</h4>
-                <p className="text-sm text-orange-700">Your drawing will be automatically submitted when the timer expires!</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Bottom Notification Area */}
       {gameContext && (submissionError || showSuccessMessage) && (
