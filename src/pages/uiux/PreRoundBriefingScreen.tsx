@@ -32,6 +32,8 @@ const PreRoundBriefingScreen: React.FC = () => {
   
   const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackWithOwnership[]>([]);
   const [gameStarting, setGameStarting] = useState(false);
+  const [packsLoading, setPacksLoading] = useState(false);
+  const [packsError, setPacksError] = useState<string | null>(null);
   
   // Simple timer display
   const {
@@ -52,28 +54,33 @@ const PreRoundBriefingScreen: React.FC = () => {
     const loadBoosterPacks = async () => {
       if (!currentUser) {
         console.log('PreRoundBriefingScreen: User not authenticated, skipping booster pack loading');
+        setAvailableBoosterPacks([]);
+        setPacksError(null);
         return;
       }
 
+      setPacksLoading(true);
+      setPacksError(null);
+
       try {
-        console.log('PreRoundBriefingScreen: Loading booster packs for user:', currentUser.id);
         const result = await BoosterPackService.getAvailablePacks();
 
-        console.log('PreRoundBriefingScreen: Booster packs result:', {
-          success: result.success,
-          dataLength: result.data?.length,
-          error: result.error,
-          data: result.data
-        });
-
         if (result.success && result.data) {
-          setAvailableBoosterPacks(result.data);
-          console.log('PreRoundBriefingScreen: Set available booster packs:', result.data.length);
+          // Filter to only show packs the user owns
+          // ALL packs (both free and premium) must be explicitly added to user's account
+          const accessiblePacks = result.data.filter(pack => {
+            // User has access only if they own the pack (it's in their user_booster_packs)
+            return pack.is_owned;
+          });
+
+          setAvailableBoosterPacks(accessiblePacks);
         } else {
-          console.error('Failed to load booster packs:', result.error);
+          setPacksError(result.error || 'Failed to load booster packs');
         }
-      } catch (err) {
-        console.error('Failed to load booster packs:', err);
+      } catch {
+        setPacksError('An unexpected error occurred while loading booster packs');
+      } finally {
+        setPacksLoading(false);
       }
     };
 
@@ -83,7 +90,6 @@ const PreRoundBriefingScreen: React.FC = () => {
   // Sync GameContext when currentGame changes
   useEffect(() => {
     if (currentGame?.id && actions?.refreshGameState) {
-      console.log('PreRoundBriefingScreen: Syncing GameContext with game:', currentGame.id);
       actions.refreshGameState(currentGame.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,24 +98,7 @@ const PreRoundBriefingScreen: React.FC = () => {
   // Start timer when component mounts - but only if all players are present
   // Timer and phase transitions are now handled server-side automatically
 
-  // Log component mount for debugging
-  useEffect(() => {
-    console.log('PreRoundBriefingScreen: Component mounted', {
-      currentGame: currentGame ? {
-        id: currentGame.id,
-        status: currentGame.status
-      } : null,
-      gamePhase: currentGame?.status || 'unknown',
-      currentUser: currentUser ? {
-        id: currentUser.id,
-        email: currentUser.email
-      } : null,
-      participants: participants.length,
-      availableBoosterPacks: availableBoosterPacks.length,
-      isLoading,
-      error
-    });
-  }, [currentGame, currentUser, participants, availableBoosterPacks, isLoading, error]);
+
 
   const handleReadyUp = async () => {
     try {
@@ -135,7 +124,6 @@ const PreRoundBriefingScreen: React.FC = () => {
   // Manual game start is no longer needed - server handles transitions automatically
   const handleStartGame = async () => {
     // Phase transitions are now handled server-side automatically
-    console.log('Manual start game clicked - server will handle transition automatically');
   };
 
   // Get icon for booster pack based on category or asset directory name
@@ -355,62 +343,115 @@ const PreRoundBriefingScreen: React.FC = () => {
                 Select a booster pack to spice up your drawing (optional)
               </p>
 
-              <div className="grid grid-cols-2 gap-3">
-                {availableBoosterPacks.length === 0 && (
-                  <div className="col-span-2 text-center py-4">
-                    <p className="text-medium-gray text-sm">
-                      {currentUser ? 'Loading booster packs...' : 'Please log in to see booster packs'}
-                    </p>
-                  </div>
-                )}
-                {availableBoosterPacks.map(pack => {
-                  const isAvailable = pack.is_owned || !pack.is_premium; // Free packs are always available, premium packs need to be owned
-                  const isSelected = selectedBoosterPack === pack.id;
+              {/* Loading state */}
+              {packsLoading && (
+                <div className="text-center py-6">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-8 h-8 border-2 border-purple border-t-transparent rounded-full mx-auto mb-2"
+                  />
+                  <p className="text-medium-gray text-sm">Loading your booster packs...</p>
+                </div>
+              )}
 
-                  return (
-                    <motion.button
-                      key={pack.id}
-                      whileHover={{ scale: isAvailable ? 1.05 : 1 }}
-                      whileTap={{ scale: isAvailable ? 0.95 : 1 }}
-                      onClick={() => isAvailable && handleBoosterPackSelect(pack.id)}
-                      disabled={!isAvailable || isLoading}
-                      className={`p-3 rounded-lg border-2 text-left transition-all ${
-                        isSelected
-                          ? 'bg-purple/20 border-purple'
-                          : isAvailable
-                          ? 'bg-off-white border-light-gray hover:border-purple'
-                          : 'bg-light-gray/30 border-light-gray opacity-50 cursor-not-allowed'
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-2">{getIconForBoosterPack(pack)}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-heading font-semibold text-sm truncate">
-                            {pack.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {pack.is_premium && (
-                              <div className="flex items-center">
-                                <Star size={10} className="text-primary mr-1" />
-                                <span className="text-xs text-primary">Premium</span>
-                              </div>
-                            )}
-                            {!isAvailable && (
-                              <span className="text-xs text-medium-gray">Locked</span>
-                            )}
-                            {pack.is_owned && pack.is_premium && (
-                              <span className="text-xs text-green">Owned</span>
-                            )}
+              {/* Error state */}
+              {packsError && !packsLoading && (
+                <div className="text-center py-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red/10 border border-red rounded-lg p-3 flex items-center justify-center"
+                  >
+                    <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+                    <p className="text-dark text-sm">{packsError}</p>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!packsLoading && !packsError && availableBoosterPacks.length === 0 && currentUser && (
+                <div className="text-center py-6">
+                  <div className="text-4xl mb-2">🛍️</div>
+                  <p className="text-medium-gray text-sm mb-2">No booster packs in your collection</p>
+                  <p className="text-medium-gray text-xs mb-3">
+                    Visit the store to add booster packs to your account. Both free and premium packs need to be added before you can use them in games.
+                  </p>
+                  <button
+                    onClick={() => window.open('/premium', '_blank')}
+                    className="text-primary text-xs underline hover:text-primary/80"
+                  >
+                    Browse Booster Packs →
+                  </button>
+                </div>
+              )}
+
+              {/* Not authenticated state */}
+              {!currentUser && (
+                <div className="text-center py-6">
+                  <div className="text-4xl mb-2">🔒</div>
+                  <p className="text-medium-gray text-sm">
+                    Please log in to see your booster packs
+                  </p>
+                </div>
+              )}
+
+              {/* Booster packs grid */}
+              {!packsLoading && !packsError && availableBoosterPacks.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {availableBoosterPacks.map(pack => {
+                    // Since we've already filtered for accessible packs, all should be available
+                    const isSelected = selectedBoosterPack === pack.id;
+
+                    return (
+                      <motion.button
+                        key={pack.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleBoosterPackSelect(pack.id)}
+                        disabled={isLoading}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          isSelected
+                            ? 'bg-purple/20 border-purple shadow-[2px_2px_0px_0px_rgba(147,51,234,0.3)]'
+                            : 'bg-off-white border-light-gray hover:border-purple hover:shadow-[2px_2px_0px_0px_rgba(147,51,234,0.2)]'
+                        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className="flex items-center">
+                          <span className="text-2xl mr-2">{getIconForBoosterPack(pack)}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-heading font-semibold text-sm truncate">
+                              {pack.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {pack.is_premium && (
+                                <div className="flex items-center">
+                                  <Star size={10} className="text-primary mr-1" />
+                                  <span className="text-xs text-primary">Premium</span>
+                                </div>
+                              )}
+                              {pack.is_owned && pack.is_premium && (
+                                <span className="text-xs text-green">Owned</span>
+                              )}
+                              {!pack.is_premium && (
+                                <span className="text-xs text-blue">Free</span>
+                              )}
+                            </div>
                           </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            >
+                              <CheckCircle size={16} className="text-purple ml-2" />
+                            </motion.div>
+                          )}
                         </div>
-                        {isSelected && (
-                          <CheckCircle size={16} className="text-purple ml-2" />
-                        )}
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
 
             {/* Ready Up Button */}
