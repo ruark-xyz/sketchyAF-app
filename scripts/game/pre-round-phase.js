@@ -56,8 +56,8 @@ const supabase = createClient(
 const TEST_CONFIG = {
   gamePrompt: 'Draw a magical creature having breakfast in a cozy kitchen',
   maxPlayers: 4,
-  roundDuration: 180, // 3 minutes
-  votingDuration: 60,  // 1 minute
+  roundDuration: 30,   // 30 seconds for faster testing
+  votingDuration: 20,  // 20 seconds for faster testing
   briefingDuration: 60, // 60 seconds for testing (longer than default 20s)
 };
 
