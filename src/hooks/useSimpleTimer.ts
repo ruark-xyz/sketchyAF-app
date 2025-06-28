@@ -181,17 +181,23 @@ export function useSimpleTimer({ gameId, refreshInterval = 15 }: UseSimpleTimerO
   // Format time for display
   const formatTime = (seconds: number | null): string => {
     if (seconds === null || seconds < 0) return '--:--';
-    
+
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Determine if timer is expired and should show redirect message
+  const isExpired = state.timeRemaining !== null && state.timeRemaining <= 0;
+  const redirectMessage = "You will be redirected shortly...";
 
   return {
     timeRemaining: state.timeRemaining,
     phaseDuration: state.phaseDuration,
     phase: state.phase,
     formattedTime: formatTime(state.timeRemaining),
+    isExpired,
+    redirectMessage,
     isLoading: state.isLoading,
     error: state.error,
     refresh: fetchTimerState

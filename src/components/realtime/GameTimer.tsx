@@ -24,6 +24,8 @@ const GameTimer: React.FC<GameTimerProps> = ({
     phaseDuration,
     phase,
     formattedTime,
+    isExpired,
+    redirectMessage,
     isLoading,
     error
   } = useSimpleTimer({ gameId });
@@ -158,7 +160,7 @@ const GameTimer: React.FC<GameTimerProps> = ({
       
       <div className="text-center z-10">
         <div className={`${sizeClasses.text} font-mono font-bold ${getTimerColor()}`}>
-          {formattedTime}
+          {isExpired ? redirectMessage : formattedTime}
         </div>
         <div className="text-xs text-gray-500">
           {phase || 'Timer'}

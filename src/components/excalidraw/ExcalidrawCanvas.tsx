@@ -279,8 +279,8 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
               </h2>
             </div>
 
-            {/* Timer - show if we have time remaining */}
-            {timeRemaining > 0 && (
+            {/* Timer - show time remaining or redirect message */}
+            {timeRemaining > 0 ? (
               <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
                 isUrgent
                   ? 'bg-red-100 text-red-700'
@@ -290,7 +290,11 @@ const ExcalidrawCanvas: React.FC<ExcalidrawCanvasProps> = ({ gameContext }) => {
               }`}>
                 <Clock size={16} />
                 <span className="font-mono font-semibold">{formattedTime}</span>
-                {isExpired && <AlertCircle size={16} className="text-red-500" />}
+              </div>
+            ) : timeRemaining === 0 && (
+              <div className="flex items-center space-x-2 px-3 py-1 rounded-lg bg-yellow-100 text-yellow-800">
+                <AlertCircle size={16} />
+                <span className="font-medium text-sm">You will be redirected shortly...</span>
               </div>
             )}
 

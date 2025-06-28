@@ -108,6 +108,8 @@ const VotingScreen: React.FC = () => {
   const {
     timeRemaining,
     formattedTime,
+    isExpired,
+    redirectMessage,
     isLoading: timerLoading,
     error: timerError
   } = useSimpleTimer({
@@ -257,7 +259,7 @@ const VotingScreen: React.FC = () => {
             >
               <Clock size={18} className="mr-2" />
               <span className="font-heading font-bold text-lg">
-                {formattedTime}
+                {isExpired ? redirectMessage : formattedTime}
               </span>
             </motion.div>
 

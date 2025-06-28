@@ -50,7 +50,9 @@ const PreRoundBriefingScreen: React.FC = () => {
   // Simple timer display
   const {
     timeRemaining,
-    formattedTime
+    formattedTime,
+    isExpired,
+    redirectMessage
   } = useSimpleTimer({
     gameId: currentGame?.id || ''
   });
@@ -172,7 +174,7 @@ const PreRoundBriefingScreen: React.FC = () => {
           >
             <Clock size={20} className="mr-2" />
             <span className="font-heading font-bold text-xl">
-              {isTimerCritical ? '🔥 ' : ''}{formattedTime}
+              {isExpired ? redirectMessage : (isTimerCritical ? '🔥 ' : '') + formattedTime}
             </span>
           </motion.div>
         </div>
