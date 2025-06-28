@@ -430,13 +430,141 @@ export class BoosterPackService {
   }
 
   /**
+   * Get pack statistics including global usage metrics
+   */
+  static async getPackStatistics(packId: string): Promise<ServiceResponse<{
+    usage_count: number;
+    download_count: number;
+    unique_users: number;
+    total_assets_used: number;
+    avg_rating: number | null;
+  }>> {
+    try {
+      // Get basic pack statistics
+      const { data: pack, error: packError } = await supabase
+        .from('booster_packs')
+        .select('usage_count, download_count')
+        .eq('id', packId)
+        .single();
+
+      if (packError || !pack) {
+        return { success: false, error: 'Booster pack not found', code: 'PACK_NOT_FOUND' };
+      }
+
+      // Get unique users count from asset usage tracking
+      const { data: uniqueUsersData, error: usersError } = await supabase
+        .from('asset_usage_tracking')
+        .select('user_id')
+        .eq('booster_pack_id', packId);
+
+      if (usersError) {
+        console.error('Error fetching unique users:', usersError);
+        return { success: false, error: 'Failed to fetch user statistics', code: 'DATABASE_ERROR' };
+      }
+
+      const uniqueUsers = new Set(uniqueUsersData?.map(u => u.user_id) || []).size;
+
+      // Get total assets used count
+      const { count: totalAssetsUsed, error: assetsError } = await supabase
+        .from('asset_usage_tracking')
+        .select('*', { count: 'exact', head: true })
+        .eq('booster_pack_id', packId);
+
+      if (assetsError) {
+        console.error('Error fetching asset usage count:', assetsError);
+        return { success: false, error: 'Failed to fetch asset statistics', code: 'DATABASE_ERROR' };
+      }
+
+      return {
+        success: true,
+        data: {
+          usage_count: pack.usage_count || 0,
+          download_count: pack.download_count || 0,
+          unique_users: uniqueUsers,
+          total_assets_used: totalAssetsUsed || 0,
+          avg_rating: null // TODO: Implement rating system
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching pack statistics:', error);
+      return { success: false, error: 'Failed to fetch pack statistics', code: 'DATABASE_ERROR' };
+    }
+  }
+
+  /**
+   * Get top users/artists using a specific pack
+   */
+  static async getPackTopUsers(packId: string, limit: number = 10): Promise<ServiceResponse<Array<{
+    user_id: string;
+    username: string;
+    avatar_url: string | null;
+    usage_count: number;
+    last_used: string;
+  }>>> {
+    try {
+      // Get users with their usage counts for this pack
+      const { data: usageData, error: usageError } = await supabase
+        .from('asset_usage_tracking')
+        .select(`
+          user_id,
+          used_at,
+          users!inner(username, avatar_url)
+        `)
+        .eq('booster_pack_id', packId)
+        .order('used_at', { ascending: false });
+
+      if (usageError) {
+        console.error('Error fetching pack users:', usageError);
+        return { success: false, error: 'Failed to fetch pack users', code: 'DATABASE_ERROR' };
+      }
+
+      // Process usage data to get counts per user
+      const userUsageCounts: Record<string, {
+        user_id: string;
+        username: string;
+        avatar_url: string | null;
+        usage_count: number;
+        last_used: string;
+      }> = {};
+
+      usageData?.forEach(usage => {
+        const userId = usage.user_id;
+        if (!userUsageCounts[userId]) {
+          userUsageCounts[userId] = {
+            user_id: userId,
+            username: usage.users.username,
+            avatar_url: usage.users.avatar_url,
+            usage_count: 0,
+            last_used: usage.used_at
+          };
+        }
+        userUsageCounts[userId].usage_count++;
+        // Keep the most recent usage date
+        if (usage.used_at > userUsageCounts[userId].last_used) {
+          userUsageCounts[userId].last_used = usage.used_at;
+        }
+      });
+
+      // Sort by usage count and limit results
+      const topUsers = Object.values(userUsageCounts)
+        .sort((a, b) => b.usage_count - a.usage_count)
+        .slice(0, limit);
+
+      return { success: true, data: topUsers };
+    } catch (error) {
+      console.error('Error fetching pack top users:', error);
+      return { success: false, error: 'Failed to fetch pack users', code: 'DATABASE_ERROR' };
+    }
+  }
+
+  /**
    * Load assets from a directory using assetLoader
    */
   private static async loadAssetsFromDirectory(directoryName: string): Promise<AssetInfo[]> {
     try {
       // Use the assetLoader utility to load assets from the directory
       const assets = await loadCollectionAssets(directoryName);
-      
+
       // Transform to AssetInfo format
       return assets.map(asset => ({
         filename: asset.fileName,
