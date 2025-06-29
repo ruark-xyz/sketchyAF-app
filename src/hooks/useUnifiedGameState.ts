@@ -83,6 +83,12 @@ export function useUnifiedGameState({
             submitted_at,
             vote_count,
             users(username, avatar_url)
+          ),
+          votes(
+            id,
+            submission_id,
+            voter_id,
+            voted_at
           )
         `)
         .eq('id', id)
@@ -176,7 +182,7 @@ export function useUnifiedGameState({
               return `/uiux/results${baseParams}`;
             case 'completed':
             case 'cancelled':
-              return `/uiux/lobby${baseParams}`;
+              return `/uiux/post-game${baseParams}`;
             default:
               return `/uiux/lobby${baseParams}`;
           }
@@ -286,7 +292,7 @@ export function useUnifiedGameState({
     // Determine target route based on new status
     const getRouteForStatus = (status: GameStatus): string => {
       const baseParams = effectiveGameId ? `?gameId=${effectiveGameId}` : '';
-      
+
       switch (status) {
         case 'waiting':
         case 'briefing':
@@ -299,7 +305,7 @@ export function useUnifiedGameState({
           return `/uiux/results${baseParams}`;
         case 'completed':
         case 'cancelled':
-          return `/uiux/lobby${baseParams}`;
+          return `/uiux/post-game${baseParams}`;
         default:
           return `/uiux/lobby${baseParams}`;
       }

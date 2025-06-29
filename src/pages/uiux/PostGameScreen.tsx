@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   TrendingUp, 
@@ -27,8 +27,8 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
 import { useGame } from '../../context/GameContext';
+import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useAuth } from '../../context/AuthContext';
-import { GamePhase } from '../../types/gameContext';
 
 // Achievement data (would come from backend in production)
 const ACHIEVEMENT_PROGRESS = [
@@ -94,19 +94,22 @@ const FEATURED_BOOSTER_PACKS = [
 const PostGameScreen: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { 
-    currentGame, 
-    gamePhase, 
-    submissions, 
-    participants, 
-    votes,
-    actions,
-    error,
-    isLoading
-  } = useGame();
-  
+
+  // Use unified game state for consistency with SimpleGameRoute
+  const {
+    game: currentGame,
+    isLoading,
+    error
+  } = useUnifiedGameState({ autoNavigate: false }); // Disable auto-navigation since we're already on the correct page
+
+  // Extract data from unified game state (memoized to prevent re-render loops)
+  const submissions = useMemo(() => (currentGame as any)?.submissions || [], [currentGame]);
+  const votes = useMemo(() => (currentGame as any)?.votes || [], [currentGame]);
+
+  // Get actions from GameContext for resetGameState
+  const { actions } = useGame();
+
   const [showFullStats, setShowFullStats] = useState(false);
-  const [selectedBoosterPack, setSelectedBoosterPack] = useState<string | null>(null);
   const [shareSuccess, setShareSuccess] = useState(false);
   const [userSubmission, setUserSubmission] = useState<any>(null);
   const [userStats, setUserStats] = useState({
@@ -125,21 +128,18 @@ const PostGameScreen: React.FC = () => {
   useEffect(() => {
     if (submissions.length > 0 && currentUser) {
       // Find user's submission
-      const submission = submissions.find(s => s.user_id === currentUser.id);
+      const submission = submissions.find((s: any) => s.user_id === currentUser.id);
       if (submission) {
         setUserSubmission(submission);
-        
-        // Calculate vote count
-        const voteCount = votes.filter(v => v.submission_id === submission.id).length;
-        
+
         // Calculate placement
-        const sortedSubmissions = [...submissions].sort((a, b) => {
-          const aVotes = votes.filter(v => v.submission_id === a.id).length;
-          const bVotes = votes.filter(v => v.submission_id === b.id).length;
+        const sortedSubmissions = [...submissions].sort((a: any, b: any) => {
+          const aVotes = votes.filter((v: any) => v.submission_id === a.id).length;
+          const bVotes = votes.filter((v: any) => v.submission_id === b.id).length;
           return bVotes - aVotes;
         });
-        
-        const placement = sortedSubmissions.findIndex(s => s.id === submission.id) + 1;
+
+        const placement = sortedSubmissions.findIndex((s: any) => s.id === submission.id) + 1;
         
         // Update user stats
         setUserStats(prev => ({
@@ -199,13 +199,8 @@ const PostGameScreen: React.FC = () => {
   };
 
   const handleBoosterPackClick = (packId: string) => {
-    setSelectedBoosterPack(packId);
     // In a real app, this would navigate to purchase flow
-  };
-
-  const handleInviteFriend = (friend: any) => {
-    // In a real app, this would send invitation
-    console.log('Invite friend:', friend.username);
+    console.log('Selected booster pack:', packId);
   };
 
   // Calculate level progress
@@ -354,12 +349,80 @@ const PostGameScreen: React.FC = () => {
               </div>
             </motion.div>
 
+            {/* Final Rankings */}
+            {submissions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+              >
+                <div className="flex items-center mb-4">
+                  <Trophy size={24} className="text-accent mr-2" />
+                  <h2 className="font-heading font-bold text-xl text-dark">Final Rankings</h2>
+                </div>
+
+                <div className="space-y-3">
+                  {submissions
+                    .sort((a: any, b: any) => {
+                      const aVotes = votes.filter((v: any) => v.submission_id === a.id).length;
+                      const bVotes = votes.filter((v: any) => v.submission_id === b.id).length;
+                      return bVotes - aVotes;
+                    })
+                    .map((submission: any, index: number) => {
+                      const voteCount = votes.filter((v: any) => v.submission_id === submission.id).length;
+                      const isCurrentUser = submission.user_id === currentUser?.id;
+                      const placement = index + 1;
+
+                      return (
+                        <motion.div
+                          key={submission.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 + index * 0.1 }}
+                          className={`flex items-center p-4 rounded-lg border-2 ${
+                            isCurrentUser
+                              ? 'border-primary bg-primary/10'
+                              : 'border-light-gray bg-off-white'
+                          }`}
+                        >
+                          <div className="flex items-center mr-4">
+                            {placement === 1 && <Crown size={24} className="text-yellow-500" />}
+                            {placement === 2 && <Medal size={24} className="text-gray-400" />}
+                            {placement === 3 && <Medal size={24} className="text-orange-600" />}
+                            {placement > 3 && (
+                              <div className="w-6 h-6 rounded-full bg-light-gray flex items-center justify-center">
+                                <span className="text-xs font-bold text-medium-gray">{placement}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1">
+                            <div className="flex items-center">
+                              <span className={`font-heading font-bold ${isCurrentUser ? 'text-primary' : 'text-dark'}`}>
+                                {submission.users?.username || 'Unknown Player'}
+                                {isCurrentUser && ' (You)'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center">
+                            <Heart size={16} className="text-red mr-1 fill-red" />
+                            <span className="font-heading font-bold text-dark">{voteCount}</span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                </div>
+              </motion.div>
+            )}
+
             {/* Recent Drawing Showcase */}
             {userSubmission && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
                 className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
               >
                 <div className="flex items-center mb-4">
@@ -378,7 +441,7 @@ const PostGameScreen: React.FC = () => {
                       <div className="absolute bottom-2 right-2 bg-white rounded-full px-3 py-1 border border-dark text-sm flex items-center">
                         <Heart size={14} className="text-red mr-1 fill-red" />
                         <span className="font-heading font-semibold">
-                          {votes.filter(v => v.submission_id === userSubmission.id).length}
+                          {votes.filter((v: any) => v.submission_id === userSubmission.id).length}
                         </span>
                       </div>
                     </div>
@@ -442,12 +505,12 @@ const PostGameScreen: React.FC = () => {
 
             {/* Quick Actions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
+
               {/* Play Again */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
               >
                 <Button 
                   variant="primary" 

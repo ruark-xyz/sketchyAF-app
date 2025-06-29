@@ -111,7 +111,7 @@ export const SimpleGameRoute: React.FC<SimpleGameRouteProps> = ({
           return `/uiux/results${params}`;
         case 'completed':
         case 'cancelled':
-          return `/uiux/lobby${params}`;
+          return `/uiux/post-game${params}`;
         default:
           return fallbackPath;
       }
