@@ -6,7 +6,7 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES (
   'drawings',
   'drawings',
-  false,
+  true, -- Set to public for direct URL access
   10485760, -- 10MB limit
   ARRAY['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 )

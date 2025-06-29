@@ -272,13 +272,8 @@ const MOCK_DRAWINGS = [
   }
 ];
 
-// Placeholder image URLs for submissions
-const PLACEHOLDER_IMAGES = [
-  'https://placehold.co/600x400/ff6b6b/ffffff?text=Robot+Drawing+1',
-  'https://placehold.co/600x400/4ecdc4/ffffff?text=Robot+Drawing+2',
-  'https://placehold.co/600x400/9b59b6/ffffff?text=Robot+Drawing+3',
-  'https://placehold.co/600x400/f1c40f/000000?text=Robot+Drawing+4'
-];
+// Note: Drawing URLs are now generated using proper Supabase Storage URLs
+// following the same pattern as production: gameId/userId/timestamp.png
 
 /**
  * Clean up existing test data
@@ -399,7 +394,44 @@ async function addParticipants(gameId, users) {
 }
 
 /**
- * Create mock submissions for each participant
+ * Generate Supabase Storage URLs for test submissions
+ * Uses the same URL generation pattern as production code in DrawingExportService.ts
+ *
+ * Note: For testing, we use public URLs since the bucket is now public.
+ * In production with private buckets, you would use signed URLs instead:
+ * const { data: signedUrl } = await supabase.storage.from('drawings').createSignedUrl(fileName, 3600);
+ */
+function generateStorageUrls(gameId, userId, index) {
+  const timestamp = Date.now() + index; // Add index to ensure unique timestamps
+  const fileName = `${gameId}/${userId}/${timestamp}.png`;
+  const thumbnailFileName = `${gameId}/${userId}/${timestamp}_thumb.png`;
+
+  // Generate URLs using the same method as production (DrawingExportService.uploadToStorage)
+  const { data: urlData } = supabase.storage
+    .from('drawings')
+    .getPublicUrl(fileName);
+
+  const { data: thumbUrlData } = supabase.storage
+    .from('drawings')
+    .getPublicUrl(thumbnailFileName);
+
+  return {
+    drawingUrl: urlData.publicUrl,
+    thumbnailUrl: thumbUrlData.publicUrl,
+    fileName,
+    thumbnailFileName
+  };
+}
+
+/**
+ * Create mock submissions for each participant using proper Supabase Storage URLs
+ *
+ * Note: This approach generates proper Supabase Storage URLs without actually uploading files.
+ * The URLs follow the exact same pattern as production code:
+ * - Main image: http://127.0.0.1:54321/storage/v1/object/public/drawings/gameId/userId/timestamp.png
+ * - Thumbnail: http://127.0.0.1:54321/storage/v1/object/public/drawings/gameId/userId/timestamp_thumb.png
+ *
+ * This ensures the test environment accurately simulates the real submission flow.
  */
 async function createSubmissions(gameId, users) {
   console.log('🎨 Creating mock submissions...');
@@ -409,7 +441,9 @@ async function createSubmissions(gameId, users) {
   for (let i = 0; i < users.length; i++) {
     const user = users[i];
     const drawingData = MOCK_DRAWINGS[i % MOCK_DRAWINGS.length];
-    const imageUrl = PLACEHOLDER_IMAGES[i % PLACEHOLDER_IMAGES.length];
+
+    // Generate proper Supabase Storage URLs following the production pattern
+    const { drawingUrl, thumbnailUrl } = generateStorageUrls(gameId, user.id, i);
 
     const { data: submission, error } = await supabase
       .from('submissions')
@@ -417,8 +451,8 @@ async function createSubmissions(gameId, users) {
         game_id: gameId,
         user_id: user.id,
         drawing_data: drawingData,
-        drawing_url: imageUrl,
-        drawing_thumbnail_url: imageUrl,
+        drawing_url: drawingUrl,
+        drawing_thumbnail_url: thumbnailUrl,
         canvas_width: 400,
         canvas_height: 300,
         element_count: drawingData.elements.length,
@@ -433,6 +467,7 @@ async function createSubmissions(gameId, users) {
     }
 
     console.log(`   ✅ Created submission for: ${user.username}`);
+    console.log(`      Drawing URL: ${drawingUrl}`);
     submissions.push(submission);
   }
 
