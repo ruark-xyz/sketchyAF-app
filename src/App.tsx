@@ -20,14 +20,13 @@ import RoadmapDetail from './pages/RoadmapDetail';
 import LobbyScreen from './pages/uiux/LobbyScreen';
 import PreRoundBriefingScreen from './pages/uiux/PreRoundBriefingScreen';
 import VotingScreen from './pages/uiux/VotingScreen';
-import ResultsScreen from './pages/uiux/ResultsScreen';
 import PostGameScreen from './pages/uiux/PostGameScreen';
 import AuthCallback from './pages/auth/AuthCallback';
 import ResetPassword from './pages/auth/ResetPassword';
 import { AuthProvider } from './context/AuthContext';
 import { GameProvider, useGame } from './context/GameContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import { BriefingRoute, DrawingRoute, VotingRoute, ResultsRoute, SimpleGameRoute } from './components/routing/SimpleGameRoute';
+import { BriefingRoute, DrawingRoute, VotingRoute, SimpleGameRoute } from './components/routing/SimpleGameRoute';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
 
@@ -121,15 +120,7 @@ function App() {
                   </VotingRoute>
                 </ProtectedRoute>
               } />
-              
-              <Route path="/uiux/results" element={
-                <ProtectedRoute>
-                  <ResultsRoute>
-                    <ResultsScreen />
-                  </ResultsRoute>
-                </ProtectedRoute>
-              } />
-              
+
               <Route path="/uiux/post-game" element={
                 <ProtectedRoute>
                   <SimpleGameRoute allowedStatuses={['completed', 'cancelled']} fallbackPath="/uiux/lobby">

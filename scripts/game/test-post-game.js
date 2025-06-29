@@ -99,54 +99,18 @@ async function addTestVotes(gameId, submissions) {
 }
 
 /**
- * Transition game to results phase
+ * Transition game directly to completed phase (skipping results)
  */
-async function transitionToResults(gameId) {
-  console.log('📊 Transitioning game to results phase...');
+async function transitionToCompleted(gameId) {
+  console.log('🏁 Transitioning game directly to completed phase...');
 
   const now = new Date();
-  const resultsExpiresAt = new Date(now.getTime() + 15000); // 15 seconds for results
-
-  const { error } = await supabase
-    .from('games')
-    .update({
-      status: 'results',
-      results_started_at: now,
-      current_phase_duration: 15,
-      phase_expires_at: resultsExpiresAt
-    })
-    .eq('id', gameId);
-
-  if (error) {
-    throw new Error(`Failed to transition to results: ${error.message}`);
-  }
-
-  console.log('   ✅ Game transitioned to results phase');
-  console.log(`   ⏰ Results will expire at: ${resultsExpiresAt.toISOString()}`);
-  
-  return resultsExpiresAt;
-}
-
-/**
- * Wait for results phase to complete, then transition to completed
- */
-async function waitAndTransitionToCompleted(gameId, resultsExpiresAt) {
-  console.log('⏳ Waiting for results phase to complete...');
-  
-  const waitTime = resultsExpiresAt.getTime() - Date.now() + 1000; // Add 1 second buffer
-  
-  if (waitTime > 0) {
-    console.log(`   ⏰ Waiting ${Math.ceil(waitTime / 1000)} seconds...`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-  }
-
-  console.log('🏁 Transitioning game to completed status...');
 
   const { error } = await supabase
     .from('games')
     .update({
       status: 'completed',
-      completed_at: new Date()
+      completed_at: now
     })
     .eq('id', gameId);
 
@@ -154,8 +118,11 @@ async function waitAndTransitionToCompleted(gameId, resultsExpiresAt) {
     throw new Error(`Failed to transition to completed: ${error.message}`);
   }
 
-  console.log('   ✅ Game transitioned to completed status');
+  console.log('   ✅ Game transitioned to completed phase');
+
+  return now;
 }
+
 
 /**
  * Display final results and navigation instructions
@@ -256,20 +223,9 @@ async function main() {
       console.log('');
     }
 
-    // Transition to results if not already there
-    let resultsExpiresAt;
-    if (game.status === 'voting') {
-      resultsExpiresAt = await transitionToResults(gameId);
-      console.log('');
-    } else if (game.status === 'results') {
-      resultsExpiresAt = new Date(game.phase_expires_at);
-      console.log('📊 Game is already in results phase');
-      console.log('');
-    }
-
-    // Wait and transition to completed if not already there
+    // Transition directly to completed if not already there
     if (game.status !== 'completed') {
-      await waitAndTransitionToCompleted(gameId, resultsExpiresAt);
+      await transitionToCompleted(gameId);
       console.log('');
     } else {
       console.log('🏁 Game is already completed');

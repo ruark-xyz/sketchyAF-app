@@ -157,10 +157,9 @@ export class GameFlowController {
   private static getNextPhase(currentStatus: GameStatus): GameStatus | null {
     const phaseFlow: Record<GameStatus, GameStatus | null> = {
       'waiting': 'briefing',
-      'briefing': 'drawing', 
+      'briefing': 'drawing',
       'drawing': 'voting',
-      'voting': 'results',
-      'results': 'completed',
+      'voting': 'completed',
       'completed': null,
       'cancelled': null
     };

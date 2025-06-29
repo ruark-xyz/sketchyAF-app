@@ -573,20 +573,6 @@ const VotingScreen: React.FC = () => {
                         );
                       })}
                     </div>
-
-                    <div className="mt-6 text-center">
-                      <Button 
-                        variant="primary" 
-                        size="lg" 
-                        onClick={() => {
-                          // Navigation is handled automatically by server-side transitions
-                          // This button is just for display, the server will transition automatically
-                        }}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Loading...' : 'View Results'}
-                      </Button>
-                    </div>
                   </motion.div>
                 )}
               </motion.div>

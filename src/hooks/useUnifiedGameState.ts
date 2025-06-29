@@ -301,8 +301,6 @@ export function useUnifiedGameState({
           return `/uiux/draw${baseParams}`;
         case 'voting':
           return `/uiux/voting${baseParams}`;
-        case 'results':
-          return `/uiux/results${baseParams}`;
         case 'completed':
         case 'cancelled':
           return `/uiux/post-game${baseParams}`;

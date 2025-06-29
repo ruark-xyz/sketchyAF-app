@@ -574,7 +574,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               'briefing': GamePhase.BRIEFING,
               'drawing': GamePhase.DRAWING,
               'voting': GamePhase.VOTING,
-              'results': GamePhase.RESULTS,
+              'results': GamePhase.COMPLETED, // Map results to completed since we removed results phase
               'completed': GamePhase.COMPLETED,
               'cancelled': GamePhase.COMPLETED
             };

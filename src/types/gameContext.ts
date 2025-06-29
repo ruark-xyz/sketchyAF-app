@@ -118,13 +118,8 @@ export const PHASE_TRANSITIONS: PhaseTransition[] = [
   },
   {
     from: GamePhase.VOTING,
-    to: GamePhase.RESULTS,
-    condition: (state) => state.votes.length === state.participants.length || (state.currentTimer || 0) <= 0
-  },
-  {
-    from: GamePhase.RESULTS,
     to: GamePhase.COMPLETED,
-    condition: (state) => (state.currentTimer || 0) <= 0
+    condition: (state) => state.votes.length === state.participants.length || (state.currentTimer || 0) <= 0
   }
 ];
 

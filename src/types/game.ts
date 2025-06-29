@@ -263,7 +263,7 @@ export const GAME_STATUS_FLOW: Record<GameStatus, GameStatus[]> = {
   waiting: ['briefing', 'cancelled'],
   briefing: ['drawing', 'cancelled'],
   drawing: ['voting', 'cancelled'],
-  voting: ['results', 'cancelled'],
+  voting: ['completed', 'cancelled'],
   results: ['completed'],
   completed: [],
   cancelled: [],

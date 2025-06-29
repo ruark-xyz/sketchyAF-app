@@ -181,8 +181,7 @@ serve(async (req) => {
             const nextPhaseMap: Record<string, string> = {
               'briefing': 'drawing',
               'drawing': 'voting',
-              'voting': 'results',
-              'results': 'completed'
+              'voting': 'completed'
             };
 
             const nextStatus = nextPhaseMap[game.current_status];

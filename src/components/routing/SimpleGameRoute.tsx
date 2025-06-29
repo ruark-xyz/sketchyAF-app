@@ -107,8 +107,6 @@ export const SimpleGameRoute: React.FC<SimpleGameRouteProps> = ({
           return `/uiux/draw${params}`;
         case 'voting':
           return `/uiux/voting${params}`;
-        case 'results':
-          return `/uiux/results${params}`;
         case 'completed':
         case 'cancelled':
           return `/uiux/post-game${params}`;
@@ -143,8 +141,4 @@ export const VotingRoute: React.FC<{ children: React.ReactNode }> = ({ children 
   </SimpleGameRoute>
 );
 
-export const ResultsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <SimpleGameRoute allowedStatuses={['results']}>
-    {children}
-  </SimpleGameRoute>
-);
+

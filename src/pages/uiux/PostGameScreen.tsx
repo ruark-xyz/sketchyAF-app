@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
   Share2,
@@ -23,6 +23,16 @@ import { useAuth } from '../../context/AuthContext';
 
 // Note: Achievement and booster pack data will be implemented when backend APIs are ready
 
+// Confetti animation pieces
+const CONFETTI_PIECES = Array.from({ length: 50 }, (_, i) => ({
+  id: i,
+  emoji: ['🎉', '🎊', '✨', '🌟', '🎈'][Math.floor(Math.random() * 5)],
+  delay: Math.random() * 3,
+  duration: Math.random() * 2 + 3,
+  x: Math.random() * 100,
+  rotation: Math.random() * 360
+}));
+
 const PostGameScreen: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -42,6 +52,7 @@ const PostGameScreen: React.FC = () => {
   const { actions } = useGame();
 
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [userSubmission, setUserSubmission] = useState<any>(null);
   const [gameResults, setGameResults] = useState<{
     placement: number;
@@ -83,6 +94,19 @@ const PostGameScreen: React.FC = () => {
       }
     }
   }, [submissions, votes, currentUser]);
+
+  // Show confetti for winners
+  useEffect(() => {
+    if (gameResults?.isWinner) {
+      setShowConfetti(true);
+      // Hide confetti after animation
+      const confettiTimer = setTimeout(() => {
+        setShowConfetti(false);
+      }, 8000);
+
+      return () => clearTimeout(confettiTimer);
+    }
+  }, [gameResults]);
 
   // Navigation is now handled by useUnifiedGameState in SimpleGameRoute
 
@@ -145,7 +169,40 @@ const PostGameScreen: React.FC = () => {
         description="Your sketchy adventure continues! Check your progress and jump into another round."
       />
       
-      <div className="min-h-screen bg-gradient-to-br from-cream via-green/20 to-secondary/20">
+      <div className="min-h-screen bg-gradient-to-br from-cream via-green/20 to-secondary/20 relative overflow-hidden">
+
+        {/* Confetti Animation */}
+        <AnimatePresence>
+          {showConfetti && (
+            <div className="fixed inset-0 pointer-events-none z-30">
+              {CONFETTI_PIECES.map(piece => (
+                <motion.div
+                  key={piece.id}
+                  initial={{
+                    y: -100,
+                    x: `${piece.x}vw`,
+                    rotate: 0,
+                    opacity: 1
+                  }}
+                  animate={{
+                    y: '110vh',
+                    rotate: piece.rotation,
+                    opacity: [1, 1, 0]
+                  }}
+                  transition={{
+                    delay: piece.delay,
+                    duration: piece.duration,
+                    ease: 'easeIn'
+                  }}
+                  className="absolute text-2xl"
+                >
+                  {piece.emoji}
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <div className="bg-white border-b-2 border-dark p-4 relative z-20">
           <div className="max-w-6xl mx-auto text-center">
