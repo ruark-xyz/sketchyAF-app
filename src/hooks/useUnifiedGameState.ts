@@ -8,7 +8,7 @@ import { useRealtimeGame } from './useRealtimeGame';
 import { Game, GameStatus } from '../types/game';
 import { PubNubGameService } from '../services/PubNubService';
 import { useAuth } from '../context/AuthContext';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import SupabaseRealtimeManager from '../services/SupabaseRealtimeManager';
 
 interface GameState {
   game: Game | null;
@@ -39,8 +39,9 @@ export function useUnifiedGameState({
   const eventListenerRegistered = useRef<string | null>(null); // Track which game has listener registered
   const hookInitialized = useRef<string | null>(null); // Track which game has been fully initialized
 
-  // Supabase Realtime channel for game status updates
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  // Supabase Realtime manager for game status updates
+  const realtimeManager = SupabaseRealtimeManager.getInstance();
+  const subscriberIdRef = useRef<string | null>(null);
 
   const [state, setState] = useState<GameState>({
     game: null,
@@ -386,49 +387,43 @@ export function useUnifiedGameState({
     }
   }, [state.game, handleStatusChange]);
 
-  // Supabase Realtime subscription for game status changes
+  // Supabase Realtime subscription for game status changes using singleton manager
   useEffect(() => {
-    if (!effectiveGameId || !autoNavigate) return;
-
-
-    // Clean up existing subscription
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-      realtimeChannelRef.current = null;
+    if (!effectiveGameId || !autoNavigate) {
+      // Clean up existing subscription if gameId is removed
+      if (subscriberIdRef.current) {
+        const [gameId] = subscriberIdRef.current.split(':');
+        realtimeManager.unsubscribeFromGameUpdates(
+          gameId.replace('game-status-', ''),
+          subscriberIdRef.current.split(':')[1],
+          handleGameUpdate
+        );
+        subscriberIdRef.current = null;
+      }
+      return;
     }
 
-    // Create a new channel for this game
-    const channel = supabase
-      .channel(`game-status-${effectiveGameId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'games',
-          filter: `id=eq.${effectiveGameId}`
-        },
-        (payload) => {
-          if (payload.new && payload.old) {
-            const newGame = payload.new;
-            const oldGame = payload.old;
+    // Generate unique subscriber ID for this hook instance
+    const subscriberId = `unified-game-state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-            // Only trigger navigation if status actually changed
-            if (newGame.status !== oldGame.status) {
-              handleGameUpdate(newGame);
-            }
-          }
-        }
-      )
-      .subscribe((status) => {
-      });
+    // Subscribe using the singleton manager
+    const subscriptionId = realtimeManager.subscribeToGameUpdates(
+      effectiveGameId,
+      subscriberId,
+      handleGameUpdate
+    );
 
-    realtimeChannelRef.current = channel;
+    subscriberIdRef.current = subscriptionId;
 
     return () => {
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-        realtimeChannelRef.current = null;
+      // Clean up subscription on unmount or dependency change
+      if (subscriberIdRef.current) {
+        realtimeManager.unsubscribeFromGameUpdates(
+          effectiveGameId,
+          subscriberId,
+          handleGameUpdate
+        );
+        subscriberIdRef.current = null;
       }
     };
   }, [effectiveGameId, autoNavigate, handleGameUpdate]);
@@ -438,13 +433,21 @@ export function useUnifiedGameState({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Clean up PubNub subscription
       if (eventListenerRegistered.current && pubNubServiceRef.current) {
         pubNubServiceRef.current.leaveGameChannel(eventListenerRegistered.current);
         eventListenerRegistered.current = null;
       }
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-        realtimeChannelRef.current = null;
+
+      // Clean up Supabase realtime subscription
+      if (subscriberIdRef.current && effectiveGameId) {
+        const subscriberId = subscriberIdRef.current.split(':')[1];
+        realtimeManager.unsubscribeFromGameUpdates(
+          effectiveGameId,
+          subscriberId,
+          handleGameUpdate
+        );
+        subscriberIdRef.current = null;
       }
     };
   }, []);
