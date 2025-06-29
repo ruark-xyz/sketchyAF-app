@@ -56,19 +56,55 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Prevent overlapping executions using database lock (skip in local development)
-    const isLocalDev = Deno.env.get('SUPABASE_URL')?.includes('127.0.0.1') ||
-                       Deno.env.get('SUPABASE_URL')?.includes('localhost');
+    // Prevent overlapping executions using database lock with improved reliability
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const isLocalDev = supabaseUrl.includes('127.0.0.1') ||
+                       supabaseUrl.includes('localhost') ||
+                       supabaseUrl.includes('kong:8000') || // Docker internal hostname
+                       supabaseUrl.includes('supabase_kong_site');
 
-    let lockKey = 'timer_monitoring_lock';
+    const lockKey = 'timer_monitoring_lock';
+    let lockAcquired = false;
+
+    console.log(`Environment check: URL=${supabaseUrl}, isLocalDev=${isLocalDev}`);
 
     if (!isLocalDev) {
-      const { data: lockResult, error: lockError } = await supabase.rpc('acquire_advisory_lock', {
+      console.log('Production environment detected, using enhanced advisory lock');
+
+      // First, clean up any stuck locks
+      try {
+        const { data: cleanupCount } = await supabase.rpc('cleanup_stuck_advisory_locks');
+        if (cleanupCount && cleanupCount > 0) {
+          console.log(`Cleaned up ${cleanupCount} stuck advisory locks`);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup stuck locks:', cleanupError);
+        // Continue anyway
+      }
+
+      // Try to acquire the lock with enhanced function
+      const { data: lockResult, error: lockError } = await supabase.rpc('acquire_advisory_lock_enhanced', {
         lock_key: lockKey,
-        timeout_seconds: 5
+        timeout_seconds: 60, // 1 minute timeout for timer monitoring
+        acquired_by: 'monitor-game-timers'
       });
 
-      if (lockError || !lockResult) {
+      if (lockError) {
+        console.error('Enhanced advisory lock error:', lockError);
+        return new Response(JSON.stringify({
+          processed: 0,
+          errors: 1,
+          skipped: 0,
+          executionTime: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+          error: 'Failed to acquire enhanced advisory lock'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      if (!lockResult) {
         console.log('Timer monitoring already in progress, skipping execution');
         return new Response(JSON.stringify({
           processed: 0,
@@ -82,6 +118,9 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+
+      lockAcquired = true;
+      console.log('Enhanced advisory lock acquired successfully');
     } else {
       console.log('Local development detected, skipping advisory lock');
     }
@@ -271,9 +310,16 @@ serve(async (req) => {
       }
 
     } finally {
-      // Always release the advisory lock (skip in local development)
-      if (!isLocalDev) {
-        await supabase.rpc('release_advisory_lock', { lock_key: lockKey });
+      // Always release the advisory lock if it was acquired
+      if (lockAcquired) {
+        console.log('Releasing enhanced advisory lock');
+        try {
+          await supabase.rpc('release_advisory_lock_enhanced', { lock_key: lockKey });
+          console.log('Enhanced advisory lock released successfully');
+        } catch (releaseError) {
+          console.error('Failed to release enhanced advisory lock:', releaseError);
+          // Don't throw here as it would mask the original error
+        }
       }
     }
 
