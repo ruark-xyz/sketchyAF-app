@@ -2,22 +2,32 @@
 
 /**
  * Booster Pack Synchronization Script
- * 
- * This script synchronizes the `booster_packs` table with image asset folders 
- * found in `./public/image-assets`. It follows the project's seed script 
+ *
+ * This script synchronizes the `booster_packs` table with image asset folders
+ * found in `./public/image-assets`. It follows the project's seed script
  * organization pattern and ensures consistency with the asset loading system.
- * 
+ *
  * Features:
  * - Scans ./public/image-assets for folders (each folder = booster pack)
  * - Infers pack data from folder name and contents
  * - Sets is_active=true for existing folders, is_active=false for missing folders
  * - Preserves manually entered data like descriptions
  * - Idempotent - safe to run multiple times
- * - Uses local Supabase database
- * 
+ * - Supports different environment configurations
+ *
  * Usage:
- *   node scripts/seed/booster-packs/sync-booster-packs.js
+ *   node scripts/seed/booster-packs/sync-booster-packs.js [--env=.env.local]
  *   npm run seed:booster-packs
+ *   npm run seed:booster-packs -- --env=.env.production
+ *
+ * Environment Files:
+ *   --env=.env.local      (default) Use local development database
+ *   --env=.env.production Use production database (requires production credentials)
+ *   --env=.env.staging    Use staging database
+ *
+ * The script will load the specified environment file to get Supabase credentials:
+ *   - NEXT_PUBLIC_SUPABASE_URL
+ *   - SUPABASE_SERVICE_ROLE_KEY
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -25,17 +35,75 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import { config } from 'dotenv';
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Parse command line arguments
+ */
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    envFile: '.env.local' // Default to .env.local
+  };
+
+  for (const arg of args) {
+    if (arg.startsWith('--env=')) {
+      options.envFile = arg.split('=')[1];
+    } else if (arg === '--help' || arg === '-h') {
+      console.log(`
+Booster Pack Synchronization Script
+
+Usage:
+  node sync-booster-packs.js [options]
+
+Options:
+  --env=<file>    Environment file to load (default: .env.local)
+  --help, -h      Show this help message
+
+Examples:
+  node sync-booster-packs.js
+  node sync-booster-packs.js --env=.env.production
+  node sync-booster-packs.js --env=.env.development
+      `);
+      process.exit(0);
+    }
+  }
+
+  return options;
+}
+
+/**
+ * Load environment configuration
+ */
+function loadEnvironment(envFile) {
+  const rootDir = path.resolve(__dirname, '../../..');
+  const envPath = path.resolve(rootDir, envFile);
+
+  console.log(`🔧 Loading environment from: ${envFile}`);
+
+  try {
+    config({ path: envPath });
+    console.log(`✅ Environment loaded successfully`);
+  } catch (error) {
+    console.warn(`⚠️  Warning: Could not load ${envFile}:`, error.message);
+    console.log('📝 Continuing with existing environment variables...');
+  }
+}
+
+// Parse command line arguments and load environment
+const options = parseArgs();
+loadEnvironment(options.envFile);
+
 // Configuration
 const CONFIG = {
-  // Local Supabase configuration
-  supabaseUrl: 'http://127.0.0.1:54321',
-  supabaseServiceKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU',
-  
+  // Supabase configuration from environment variables
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321',
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU',
+
   // Asset directory configuration (consistent with assetLoader.ts)
   assetDirectory: path.resolve(__dirname, '../../../public/image-assets'),
   supportedExtensions: ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp'],
@@ -58,6 +126,12 @@ const CONFIG = {
  * Initialize Supabase client with service role key for admin operations
  */
 function createSupabaseClient() {
+  console.log(`🔗 Connecting to Supabase: ${CONFIG.supabaseUrl}`);
+
+  if (!CONFIG.supabaseServiceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable is required');
+  }
+
   return createClient(CONFIG.supabaseUrl, CONFIG.supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -429,8 +503,10 @@ async function getExistingBoosterPacks(supabase) {
  * Main synchronization function
  */
 async function syncBoosterPacks() {
-  console.log('🚀 Starting booster pack synchronization...\n');
-  
+  console.log('🚀 Starting booster pack synchronization...');
+  console.log(`📄 Environment file: ${options.envFile}`);
+  console.log('');
+
   try {
     // Initialize Supabase client
     const supabase = createSupabaseClient();
