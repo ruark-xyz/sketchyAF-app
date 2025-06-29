@@ -1,14 +1,20 @@
 // Game Context Types
 // TypeScript definitions for the GameContext state management system
 
-import { 
-  Game, 
-  GameParticipant, 
-  Submission, 
-  Vote, 
+import {
+  Game,
+  GameParticipant,
+  Submission,
+  Vote,
   GameResults,
-  GameStatus 
+  GameStatus
 } from './game';
+
+// Extended participant type with user details
+export interface GameParticipantWithUser extends GameParticipant {
+  username: string;
+  avatar_url?: string;
+}
 import { ConnectionStatus } from './realtime';
 
 // Game Phase Enum (extending GameStatus for context-specific phases)
@@ -46,7 +52,7 @@ export interface GameState {
   hasVoted: boolean;
   
   // Game Data
-  participants: GameParticipant[];
+  participants: GameParticipantWithUser[];
   submissions: Submission[];
   votes: Vote[];
   results: GameResults | null;
@@ -75,7 +81,7 @@ export interface GameActions {
   castVote: (submissionId: string) => Promise<void>;
   
   // State Management
-  refreshGameState: () => Promise<void>;
+  refreshGameState: (gameId?: string) => Promise<void>;
   clearError: () => void;
   resetGameState: () => void;
 }
@@ -112,13 +118,8 @@ export const PHASE_TRANSITIONS: PhaseTransition[] = [
   },
   {
     from: GamePhase.VOTING,
-    to: GamePhase.RESULTS,
-    condition: (state) => state.votes.length === state.participants.length || (state.currentTimer || 0) <= 0
-  },
-  {
-    from: GamePhase.RESULTS,
     to: GamePhase.COMPLETED,
-    condition: (state) => (state.currentTimer || 0) <= 0
+    condition: (state) => state.votes.length === state.participants.length || (state.currentTimer || 0) <= 0
   }
 ];
 
@@ -178,7 +179,7 @@ export type GameContextAction =
   | { type: 'SET_SELECTED_BOOSTER_PACK'; payload: string | null }
   | { type: 'SET_HAS_SUBMITTED'; payload: boolean }
   | { type: 'SET_HAS_VOTED'; payload: boolean }
-  | { type: 'SET_PARTICIPANTS'; payload: GameParticipant[] }
+  | { type: 'SET_PARTICIPANTS'; payload: GameParticipantWithUser[] }
   | { type: 'SET_SUBMISSIONS'; payload: Submission[] }
   | { type: 'SET_VOTES'; payload: Vote[] }
   | { type: 'SET_RESULTS'; payload: GameResults | null }

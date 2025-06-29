@@ -11,6 +11,8 @@
     "analyze:bundle": "npm run build && npx vite-bundle-analyzer dist",
     "build:analyze": "vite build --mode analyze",
     "generate:manifest": "node scripts/generate-asset-manifest.js",
+    "seed:users": "node scripts/seed/seed-users.js",
+    "seed:booster-packs": "node scripts/seed/booster-packs/sync-booster-packs.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -32,7 +34,8 @@
     "react-dom": "^18.3.1",
     "react-helmet-async": "^2.0.4",
     "react-hook-form": "^7.51.0",
-    "react-router-dom": "^6.22.3"
+    "react-router-dom": "^6.22.3",
+    "sharp": "^0.34.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

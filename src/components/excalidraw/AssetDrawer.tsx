@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Image, AlertCircle, Loader2 } from 'lucide-react';
 import { ImageCollection, ImageAsset, AssetDrawerState } from '../../types/assets';
-import { loadAllCollections, searchAssets, cleanupAssetPreviews, calculateAdaptiveImageSize } from '../../utils/assetLoader';
+import { loadAllCollections, loadBoosterPackAssets, searchAssets, cleanupAssetPreviews, calculateAdaptiveImageSize } from '../../utils/assetLoader';
 import { boosterPackAnalyticsService } from '../../services/BoosterPackAnalyticsService';
+import { BoosterPackService } from '../../services/BoosterPackService';
 import { useAuth } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
+import { BoosterPack } from '../../types/game';
 import { 
   getViewportCenter, 
   imageToDataURL, 
@@ -25,7 +27,7 @@ interface AssetDrawerProps {
 
 const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAPI }) => {
   const { currentUser } = useAuth();
-  const { currentGame, drawingContext } = useGame();
+  const { currentGame, drawingContext, selectedBoosterPack } = useGame();
 
   const [state, setState] = useState<AssetDrawerState>({
     isOpen: false,
@@ -38,41 +40,80 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
   const [collections, setCollections] = useState<ImageCollection[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<ImageAsset[]>([]);
   const [convertingAsset, setConvertingAsset] = useState<string | null>(null);
+  const [selectedBoosterPackData, setSelectedBoosterPackData] = useState<BoosterPack | null>(null);
 
-  // Load collections on mount
+  // Fetch selected booster pack data when selectedBoosterPack changes
   useEffect(() => {
-    if (isOpen && collections.length === 0) {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
-      loadAllCollections()
-        .then(loadedCollections => {
-          setCollections(loadedCollections);
+    const fetchBoosterPackData = async () => {
+      if (!selectedBoosterPack) {
+        setSelectedBoosterPackData(null);
+        return;
+      }
 
-          // Set initial selected collection
-          if (loadedCollections.length > 0) {
+      try {
+        const result = await BoosterPackService.getPackById(selectedBoosterPack);
+        if (result.success && result.data) {
+          setSelectedBoosterPackData(result.data);
+        } else {
+          console.error('Failed to fetch booster pack data:', result.error);
+          setSelectedBoosterPackData(null);
+        }
+      } catch (error) {
+        console.error('Error fetching booster pack data:', error);
+        setSelectedBoosterPackData(null);
+      }
+    };
+
+    fetchBoosterPackData();
+  }, [selectedBoosterPack]);
+
+  // Load collections based on booster pack selection
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadAssets = async () => {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+      try {
+        if (selectedBoosterPackData) {
+          // Load assets only from the selected booster pack
+          const collection = await loadBoosterPackAssets(selectedBoosterPackData);
+          if (collection) {
+            setCollections([collection]);
             setState(prev => ({
               ...prev,
-              selectedCollection: loadedCollections[0].id,
+              selectedCollection: collection.id,
               isLoading: false
             }));
           } else {
             setState(prev => ({
               ...prev,
               isLoading: false,
-              error: 'No collections available'
+              error: 'No assets available in selected booster pack'
             }));
           }
-        })
-        .catch(error => {
-          console.error('Failed to load collections:', error);
+        } else {
+          // No booster pack selected - don't load any assets
+          setCollections([]);
           setState(prev => ({
             ...prev,
+            selectedCollection: null,
             isLoading: false,
-            error: 'Failed to load image collections'
+            error: null
           }));
-        });
-    }
-  }, [isOpen, collections.length]);
+        }
+      } catch (error) {
+        console.error('Failed to load assets:', error);
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: 'Failed to load assets'
+        }));
+      }
+    };
+
+    loadAssets();
+  }, [isOpen, selectedBoosterPackData]);
 
   // Update filtered assets when collection or search changes
   useEffect(() => {
@@ -251,7 +292,7 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-heading font-bold text-lg flex items-center">
                 <Image size={20} className="mr-2" />
-                Booster Packs
+                {selectedBoosterPackData ? selectedBoosterPackData.title : 'Booster Packs'}
               </h3>
               <button
                 onClick={onClose}
@@ -296,7 +337,15 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {state.isLoading ? (
+            {!selectedBoosterPackData ? (
+              <div className="p-4 text-center">
+                <AlertCircle size={24} className="text-orange mx-auto mb-2" />
+                <p className="text-sm text-medium-gray mb-2">No booster pack selected</p>
+                <p className="text-xs text-light-gray">
+                  Select a booster pack in the pre-round screen to access drawing assets
+                </p>
+              </div>
+            ) : state.isLoading ? (
               <div className="flex items-center justify-center h-32">
                 <Loader2 size={24} className="animate-spin text-purple" />
                 <span className="ml-2 text-medium-gray">Loading images...</span>
@@ -310,7 +359,7 @@ const AssetDrawer: React.FC<AssetDrawerProps> = ({ isOpen, onClose, excalidrawAP
               <div className="p-4 text-center">
                 <Image size={24} className="text-medium-gray mx-auto mb-2" />
                 <p className="text-sm text-medium-gray">
-                  {state.searchQuery ? 'No images found' : 'No images available'}
+                  {state.searchQuery ? 'No images found' : 'No images available in this pack'}
                 </p>
               </div>
             ) : (

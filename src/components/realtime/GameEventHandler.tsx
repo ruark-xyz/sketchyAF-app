@@ -16,7 +16,6 @@ import {
   GameCompletedEvent,
   ConnectionStatusEvent
 } from '../../types/realtime';
-import { GameStatus } from '../../types/game';
 
 interface GameEventHandlerProps {
   gameId?: string;

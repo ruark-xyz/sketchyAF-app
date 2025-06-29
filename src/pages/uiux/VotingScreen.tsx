@@ -1,118 +1,191 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Clock, 
-  Users, 
-  Check, 
+import {
+  Clock,
+  Users,
+  Check,
   Heart,
   Eye,
   ZoomIn,
   X,
   Vote,
-  Star
+  Star,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
+
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
-
-// Mock data for demo purposes
-const GAME_PROMPT = "A raccoon having an existential crisis";
-
-const MOCK_SUBMISSIONS = [
-  {
-    id: 1,
-    username: 'SketchLord',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/8378736/pexels-photo-8378736.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: false
-  },
-  {
-    id: 2,
-    username: 'DoodleQueen',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/9637955/pexels-photo-9637955.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: true
-  },
-  {
-    id: 3,
-    username: 'ArtisticTroll',
-    avatar: 'https://randomuser.me/api/portraits/men/15.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1616403/pexels-photo-1616403.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: true
-  },
-  {
-    id: 4,
-    username: 'You',
-    avatar: 'https://randomuser.me/api/portraits/women/63.jpg',
-    drawingUrl: 'https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=600',
-    hasVoted: false,
-    isCurrentUser: true
-  }
-];
+import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
+import { useSimpleTimer } from '../../hooks/useSimpleTimer';
+import { useRealtimeGame } from '../../hooks/useRealtimeGame';
+import { useAuth } from '../../context/AuthContext';
+import { VotingService } from '../../services/VotingService';
 
 const VotingScreen: React.FC = () => {
-  const [timeLeft, setTimeLeft] = useState(45);
-  const [selectedSubmission, setSelectedSubmission] = useState<number | null>(null);
+  const { currentUser } = useAuth();
+
+  const {
+    game: currentGame,
+    gameId,
+    isLoading: gameLoading,
+    error: gameError,
+    lastUpdated,
+    refresh
+  } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
+
+
+
+  // Extract data from unified game state (memoized to prevent re-render loops)
+  const participants = useMemo(() =>
+    (currentGame as any)?.game_participants || [],
+    [currentGame]
+  );
+  const submissions = useMemo(() =>
+    (currentGame as any)?.submissions || [],
+    [currentGame]
+  );
+
+  // Local state for voting functionality
+  const [votes, setVotes] = useState<any[]>([]);
   const [hasVoted, setHasVoted] = useState(false);
-  const [showZoomedImage, setShowZoomedImage] = useState<number | null>(null);
-  const [submissions, setSubmissions] = useState(MOCK_SUBMISSIONS);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load votes when game loads or updates
+  useEffect(() => {
+    if (!currentGame?.id || !currentUser?.id) return;
+
+    const loadVotes = async () => {
+      try {
+        const result = await VotingService.getGameVotes(currentGame.id);
+        if (result.success && result.data) {
+          setVotes(result.data);
+          // Check if current user has voted
+          const userVote = result.data.find((vote: any) => vote.voter_id === currentUser.id);
+          setHasVoted(!!userVote);
+        } else {
+        }
+      } catch (error) {
+        console.error('Failed to load votes:', error);
+      }
+    };
+
+    loadVotes();
+  }, [currentGame?.id, currentUser?.id, lastUpdated]); // Add lastUpdated to trigger reload when game data changes
+
+
+
+  // Set up real-time game events for vote updates
+  const {
+    addEventListener,
+    removeEventListener,
+    isConnected: realtimeConnected
+  } = useRealtimeGame();
+
+  const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
+  const [showZoomedImage, setShowZoomedImage] = useState<string | null>(null);
   const [votingPhase, setVotingPhase] = useState<'voting' | 'waiting' | 'revealing'>('voting');
   const [showVoteBreakdown, setShowVoteBreakdown] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
 
-  // Timer countdown
+  // Simple timer display - server manages the timer, we just display it
+  const {
+    timeRemaining,
+    formattedTime,
+    isExpired,
+    redirectMessage,
+    isLoading: timerLoading,
+    error: timerError
+  } = useSimpleTimer({
+    gameId: currentGame?.id || ''
+  });
+
+  // Set up real-time event listeners for vote updates
   useEffect(() => {
-    if (timeLeft <= 0) {
-      if (!hasVoted) {
-        // Auto-skip if player hasn't voted
-        setVotingPhase('waiting');
-      }
+    if (!currentGame?.id || !realtimeConnected) {
       return;
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
+    const handleVoteCast = (event: any) => {
+      // Refresh game state to get updated vote counts
+      refresh();
+    };
 
-    return () => clearInterval(timer);
-  }, [timeLeft, hasVoted]);
+    const handleGameStatusChange = (event: any) => {
+      // Game status changes are handled by useUnifiedGameState
+    };
 
-  // Simulate other players voting
+    // Add event listeners
+    addEventListener('vote_cast', handleVoteCast);
+    addEventListener('game_status_changed', handleGameStatusChange);
+
+    return () => {
+      removeEventListener('vote_cast', handleVoteCast);
+      removeEventListener('game_status_changed', handleGameStatusChange);
+    };
+  }, [currentGame?.id, realtimeConnected, addEventListener, removeEventListener, refresh]);
+
+  // Count players who have voted and total eligible voters (memoized)
+  const { votedPlayersCount, totalEligibleVoters } = useMemo(() => {
+    const votedCount = votes?.length || 0;
+    const eligibleCount = submissions.length;
+
+    return {
+      votedPlayersCount: votedCount,
+      totalEligibleVoters: eligibleCount
+    };
+  }, [votes, submissions, participants]);
+
+  // Update voting phase based on votes and user state
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSubmissions(prev => 
-        prev.map(submission => {
-          if (!submission.isCurrentUser && !submission.hasVoted && Math.random() > 0.7) {
-            return { ...submission, hasVoted: true };
-          }
-          return submission;
-        })
-      );
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Check if all players have voted
-  useEffect(() => {
-    const allVoted = submissions.every(s => s.hasVoted || s.isCurrentUser && hasVoted);
-    if (allVoted && hasVoted) {
-      setTimeout(() => {
-        setVotingPhase('revealing');
-        setTimeout(() => {
-          setShowVoteBreakdown(true);
-        }, 1000);
-      }, 2000);
+    // If user has voted, show waiting phase
+    if (hasVoted && votingPhase === 'voting') {
+      setVotingPhase('waiting');
     }
-  }, [submissions, hasVoted]);
 
-  const handleVote = () => {
-    if (selectedSubmission === null) return;
-    
-    setHasVoted(true);
-    setVotingPhase('waiting');
-    console.log('Voted for submission:', selectedSubmission);
-  };
+    // Check if all eligible players have voted
+    const totalVotesCast = votes?.length || 0;
 
-  const handleZoomImage = (submissionId: number) => {
+    if (totalEligibleVoters > 0 && totalVotesCast >= totalEligibleVoters && votingPhase !== 'revealing') {
+      setVotingPhase('revealing');
+      setTimeout(() => {
+        setShowVoteBreakdown(true);
+      }, 1000);
+    }
+  }, [hasVoted, participants, votes, votingPhase, totalEligibleVoters]);
+
+  // Phase transitions are now handled server-side automatically
+
+  const handleVote = useCallback(async () => {
+    if (!selectedSubmission || hasVoted || isLoading || !currentGame?.id) return;
+
+    try {
+      setVoteError(null);
+      setIsLoading(true);
+
+      const result = await VotingService.castVote({
+        game_id: currentGame.id,
+        submission_id: selectedSubmission
+      });
+
+      if (result.success) {
+        setHasVoted(true);
+        setVotingPhase('waiting');
+        setSelectedSubmission(null); // Clear selection after voting
+        refresh(); // Refresh game state to get updated vote counts
+      } else {
+        setVoteError(result.error || 'Failed to cast vote');
+      }
+    } catch (err) {
+      console.error('Failed to cast vote:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to cast vote';
+      setVoteError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedSubmission, hasVoted, isLoading, currentGame?.id, refresh]);
+
+  const handleZoomImage = (submissionId: string) => {
     setShowZoomedImage(submissionId);
   };
 
@@ -120,16 +193,11 @@ const VotingScreen: React.FC = () => {
     setShowZoomedImage(null);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const votedPlayersCount = submissions.filter(s => s.hasVoted || (s.isCurrentUser && hasVoted)).length;
-
-  // Get non-current-user submissions for voting
-  const votableSubmissions = submissions.filter(s => !s.isCurrentUser);
+  // Get submissions for voting (exclude current user's submission) - memoized
+  const votableSubmissions = useMemo(() =>
+    submissions.filter((s: any) => s.user_id !== currentUser?.id),
+    [submissions, currentUser?.id]
+  );
 
   return (
     <>
@@ -144,25 +212,25 @@ const VotingScreen: React.FC = () => {
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             {/* Timer */}
             <motion.div
-              key={timeLeft}
-              initial={{ scale: timeLeft <= 10 ? 1.1 : 1 }}
+              key={timeRemaining || 0}
+              initial={{ scale: (timeRemaining !== null && timeRemaining <= 10) ? 1.1 : 1 }}
               animate={{ scale: 1 }}
               className={`flex items-center px-3 py-2 rounded-full border-2 border-dark ${
-                timeLeft <= 10 
-                  ? 'bg-red text-white animate-pulse' 
+                (timeRemaining !== null && timeRemaining <= 10)
+                  ? 'bg-red text-white animate-pulse'
                   : 'bg-secondary text-dark'
               }`}
             >
               <Clock size={18} className="mr-2" />
               <span className="font-heading font-bold text-lg">
-                {formatTime(timeLeft)}
+                {isExpired ? redirectMessage : formattedTime}
               </span>
             </motion.div>
 
             {/* Prompt */}
             <div className="flex-1 text-center px-4">
               <h1 className="font-heading font-bold text-xl md:text-2xl text-dark transform rotate-[-1deg]">
-                Vote: "{GAME_PROMPT}"
+                Vote: "{currentGame?.prompt || 'Loading prompt...'}"
               </h1>
             </div>
 
@@ -170,11 +238,37 @@ const VotingScreen: React.FC = () => {
             <div className="flex items-center">
               <Users size={18} className="text-green mr-2" />
               <span className="font-heading font-semibold text-green">
-                {votedPlayersCount}/{submissions.length}
+                {votedPlayersCount}/{participants.length}
               </span>
             </div>
           </div>
         </div>
+
+        {/* Error message */}
+        {(voteError || gameError) && (
+          <div className="mx-4 mt-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
+            >
+              <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-dark text-sm">
+                  {voteError || gameError}
+                </p>
+                {voteError && (
+                  <button
+                    onClick={() => setVoteError(null)}
+                    className="text-xs text-red/70 hover:text-red underline mt-1"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 p-4">
@@ -222,99 +316,126 @@ const VotingScreen: React.FC = () => {
                   </motion.div>
                 </div>
 
+                {/* Loading State */}
+                {(isLoading || gameLoading) && (
+                  <div className="text-center py-12">
+                    <Loader2 size={32} className="animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-medium-gray font-heading">
+                      {gameLoading ? 'Loading game data...' : 'Loading submissions...'}
+                    </p>
+                  </div>
+                )}
+
+                {/* No Submissions State */}
+                {!isLoading && !gameLoading && votableSubmissions.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="bg-off-white border-2 border-light-gray rounded-lg p-8">
+                      <AlertCircle size={48} className="text-medium-gray mx-auto mb-4" />
+                      <h3 className="font-heading font-bold text-lg text-dark mb-2">
+                        No Submissions to Vote On
+                      </h3>
+                      <p className="text-medium-gray">
+                        {submissions.length === 0
+                          ? 'No drawings have been submitted yet.'
+                          : 'All submissions are your own - you cannot vote for yourself!'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Submissions Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {votableSubmissions.map((submission, index) => (
-                    <motion.div
-                      key={submission.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1, duration: 0.5 }}
-                      className={`bg-white rounded-lg border-2 border-dark p-4 hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)] transition-all cursor-pointer ${
-                        selectedSubmission === submission.id
-                          ? 'ring-4 ring-primary transform scale-105'
-                          : 'hover:transform hover:scale-102'
-                      }`}
-                      onClick={() => setSelectedSubmission(submission.id)}
-                    >
-                      {/* Artist Info */}
-                      <div className="flex items-center mb-3">
-                        <img 
-                          src={submission.avatar} 
-                          alt={submission.username}
-                          className="w-8 h-8 rounded-full border-2 border-dark mr-3"
-                        />
-                        <div className="flex-1">
-                          <p className="font-heading font-semibold text-dark">
-                            {submission.username}
-                          </p>
-                          {submission.hasVoted && (
-                            <div className="flex items-center text-xs text-green">
-                              <Check size={12} className="mr-1" />
-                              Voted
+                {!isLoading && !gameLoading && votableSubmissions.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {votableSubmissions.map((submission, index) => {
+                    // Use user data directly from submission (loaded via unified game state)
+                    const userInfo = (submission as any)?.users;
+
+                    return (
+                      <motion.div
+                        key={submission.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1, duration: 0.5 }}
+                        className={`bg-white rounded-lg border-2 border-dark p-4 hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)] transition-all cursor-pointer ${
+                          selectedSubmission === submission.id
+                            ? 'ring-4 ring-primary transform scale-105'
+                            : 'hover:transform hover:scale-102'
+                        }`}
+                        onClick={() => setSelectedSubmission(submission.id)}
+                      >
+                        {/* Artist Info */}
+                        <div className="flex items-center mb-3">
+                          <img
+                            src={userInfo?.avatar_url || `https://ui-avatars.com/api/?name=${userInfo?.username || 'User'}&background=random`}
+                            alt={userInfo?.username || 'User'}
+                            className="w-8 h-8 rounded-full border-2 border-dark mr-3"
+                          />
+                          <div className="flex-1">
+                            <p className="font-heading font-semibold text-dark">
+                              {userInfo?.username || 'Anonymous'}
+                            </p>
+                          </div>
+                          {selectedSubmission === submission.id && (
+                            <div className="bg-primary text-white rounded-full p-1">
+                              <Check size={16} />
                             </div>
                           )}
                         </div>
-                        {selectedSubmission === submission.id && (
-                          <div className="bg-primary text-white rounded-full p-1">
-                            <Check size={16} />
+
+                        {/* Drawing */}
+                        <div 
+                          className="relative mb-4 cursor-pointer group"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleZoomImage(submission.id);
+                          }}
+                        >
+                          <img
+                            src={submission.drawing_url || 'https://via.placeholder.com/400x300?text=Loading+Drawing'}
+                            alt={`Drawing by ${userInfo?.username || 'Anonymous'}`}
+                            className="w-full h-48 object-cover rounded-lg border border-light-gray"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-lg flex items-center justify-center">
+                            <ZoomIn className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={24} />
+                          </div>
+                        </div>
+
+                        {/* Vote Button - Only show when this submission is selected */}
+                        {selectedSubmission === submission.id && !hasVoted && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-center"
+                          >
+                            <Button
+                              variant="primary"
+                              size="md"
+                              onClick={() => handleVote()}
+                              className="w-full animate-pulse"
+                              disabled={isLoading}
+                            >
+                              <Vote size={18} className="mr-2" />
+                              {isLoading ? 'Voting...' : 'Vote for this drawing!'}
+                            </Button>
+                          </motion.div>
+                        )}
+
+                        {/* Selection prompt when not selected */}
+                        {selectedSubmission !== submission.id && !hasVoted && (
+                          <div className="text-center">
+                            <div className="bg-off-white border border-light-gray rounded-lg p-3">
+                              <p className="text-sm text-medium-gray font-heading">
+                                Tap to select this drawing
+                              </p>
+                            </div>
                           </div>
                         )}
-                      </div>
-
-                      {/* Drawing */}
-                      <div 
-                        className="relative mb-4 cursor-pointer group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleZoomImage(submission.id);
-                        }}
-                      >
-                        <img 
-                          src={submission.drawingUrl} 
-                          alt={`Drawing by ${submission.username}`}
-                          className="w-full h-48 object-cover rounded-lg border border-light-gray"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-lg flex items-center justify-center">
-                          <ZoomIn className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={24} />
-                        </div>
-                      </div>
-
-                      {/* Vote Button - Only show when this submission is selected */}
-                      {selectedSubmission === submission.id && !hasVoted && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="text-center"
-                        >
-                          <Button 
-                            variant="primary" 
-                            size="md" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleVote();
-                            }}
-                            className="w-full animate-pulse"
-                          >
-                            <Vote size={18} className="mr-2" />
-                            Vote for this drawing!
-                          </Button>
-                        </motion.div>
-                      )}
-
-                      {/* Selection prompt when not selected */}
-                      {selectedSubmission !== submission.id && !hasVoted && (
-                        <div className="text-center">
-                          <div className="bg-off-white border border-light-gray rounded-lg p-3">
-                            <p className="text-sm text-medium-gray font-heading">
-                              Tap to select this drawing
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
+                      </motion.div>
+                    );
+                    })}
+                  </div>
+                )}
 
                 {/* Bottom instruction */}
                 {selectedSubmission && !hasVoted && (
@@ -325,7 +446,7 @@ const VotingScreen: React.FC = () => {
                   >
                     <div className="bg-primary/10 border border-primary rounded-lg p-4 max-w-md mx-auto">
                       <p className="text-primary font-heading font-semibold">
-                        You've selected {votableSubmissions.find(s => s.id === selectedSubmission)?.username}'s drawing
+                        You've selected a drawing
                       </p>
                       <p className="text-sm text-dark mt-1">
                         Tap the "Vote" button on the card to cast your vote!
@@ -367,7 +488,7 @@ const VotingScreen: React.FC = () => {
                   
                   <div className="bg-secondary/10 p-3 rounded-lg border border-secondary/30">
                     <p className="text-sm text-dark">
-                      {votedPlayersCount}/{submissions.length} players have voted
+                      {votedPlayersCount}/{totalEligibleVoters} players have voted
                     </p>
                   </div>
                 </div>
@@ -417,41 +538,40 @@ const VotingScreen: React.FC = () => {
                     </h3>
                     
                     <div className="space-y-3">
-                      {votableSubmissions.map((submission, index) => (
-                        <motion.div
-                          key={submission.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.2 }}
-                          className="flex items-center p-3 bg-off-white rounded-lg border border-light-gray"
-                        >
-                          <img 
-                            src={submission.avatar} 
-                            alt={submission.username}
-                            className="w-10 h-10 rounded-full border-2 border-dark mr-3"
-                          />
-                          <div className="flex-1">
-                            <p className="font-heading font-semibold">{submission.username}</p>
-                            <div className="w-full bg-light-gray rounded-full h-2 mt-1">
-                              <motion.div 
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.random() * 60 + 20}%` }}
-                                transition={{ delay: index * 0.2 + 0.5, duration: 0.8 }}
-                                className="bg-primary h-2 rounded-full"
-                              />
-                            </div>
-                          </div>
-                          <span className="font-heading font-bold text-lg ml-3">
-                            {Math.floor(Math.random() * 3) + 1}
-                          </span>
-                        </motion.div>
-                      ))}
-                    </div>
+                      {votableSubmissions.map((submission, index) => {
+                        // Use user data directly from submission
+                        const userInfo = (submission as any)?.users;
 
-                    <div className="mt-6 text-center">
-                      <Button variant="primary" size="lg" onClick={() => console.log('Go to results')}>
-                        View Results
-                      </Button>
+                        return (
+                          <motion.div
+                            key={submission.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.2 }}
+                            className="flex items-center p-3 bg-off-white rounded-lg border border-light-gray"
+                          >
+                            <img
+                              src={userInfo?.avatar_url || `https://ui-avatars.com/api/?name=${userInfo?.username || 'User'}&background=random`}
+                              alt={userInfo?.username || 'User'}
+                              className="w-10 h-10 rounded-full border-2 border-dark mr-3"
+                            />
+                            <div className="flex-1">
+                              <p className="font-heading font-semibold">{userInfo?.username || 'Anonymous'}</p>
+                              <div className="w-full bg-light-gray rounded-full h-2 mt-1">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${(submission.vote_count / participants.length) * 100}%` }}
+                                  transition={{ delay: index * 0.2 + 0.5, duration: 0.8 }}
+                                  className="bg-primary h-2 rounded-full"
+                                />
+                              </div>
+                            </div>
+                            <span className="font-heading font-bold text-lg ml-3">
+                              {submission.vote_count}
+                            </span>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )}
@@ -484,15 +604,21 @@ const VotingScreen: React.FC = () => {
                   <X size={20} />
                 </button>
                 
-                <img 
-                  src={submissions.find(s => s.id === showZoomedImage)?.drawingUrl}
-                  alt="Zoomed drawing"
-                  className="w-full h-full object-contain rounded-lg border-2 border-white"
-                />
+                {submissions.find(s => s.id === showZoomedImage)?.drawing_url ? (
+                  <img 
+                    src={submissions.find(s => s.id === showZoomedImage)?.drawing_url}
+                    alt="Zoomed drawing"
+                    className="w-full h-full object-contain rounded-lg border-2 border-white"
+                  />
+                ) : (
+                  <div className="w-full h-64 bg-white rounded-lg border-2 border-white flex items-center justify-center">
+                    <p className="text-medium-gray">Image not available</p>
+                  </div>
+                )}
                 
                 <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 border border-dark">
                   <p className="font-heading font-semibold text-dark">
-                    By {submissions.find(s => s.id === showZoomedImage)?.username}
+                    By {submissions.find(s => s.id === showZoomedImage)?.users?.username || 'Anonymous'}
                   </p>
                 </div>
               </motion.div>

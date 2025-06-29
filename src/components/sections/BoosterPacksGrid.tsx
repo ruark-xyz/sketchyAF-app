@@ -1,10 +1,10 @@
 import React, { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import BoosterPackCard from '../ui/BoosterPackCard';
-import { BoosterPack } from '../../types';
+import { LegacyBoosterPack } from '../../types';
 
 interface BoosterPacksGridProps {
-  packs: BoosterPack[];
+  packs: LegacyBoosterPack[];
 }
 
 const BoosterPacksGrid = forwardRef<HTMLDivElement, BoosterPacksGridProps>(({ packs }, ref) => {

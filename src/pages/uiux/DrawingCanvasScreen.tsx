@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
@@ -13,17 +13,25 @@ import {
   X, 
   Users,
   AlertTriangle,
-  Check
+  Check,
+  AlertCircle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
+import { useSimpleTimer } from '../../hooks/useSimpleTimer';
+import { useAuth } from '../../context/AuthContext';
+import { useGame } from '../../context/GameContext';
 
 // Mock data for demo purposes
-const MOCK_PLAYERS = [
-  { id: 1, username: 'SketchLord', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', status: 'drawing' },
-  { id: 2, username: 'DoodleQueen', avatar: 'https://randomuser.me/api/portraits/women/44.jpg', status: 'drawing' },
-  { id: 3, username: 'ArtisticTroll', avatar: 'https://randomuser.me/api/portraits/men/15.jpg', status: 'submitted' },
-  { id: 4, username: 'You', avatar: 'https://randomuser.me/api/portraits/women/63.jpg', status: 'drawing', isCurrentUser: true },
+const BOOSTER_STENCILS = [
+  { id: 'meme1', name: 'Drake Meme', icon: '🤷‍♂️', pack: 'Meme Lords' },
+  { id: 'meme2', name: 'Cat Reaction', icon: '😸', pack: 'Meme Lords' },
+  { id: 'classic1', name: 'Trollface', icon: '😈', pack: 'Internet Classics' },
+  { id: 'classic2', name: 'Nyan Cat', icon: '🌈', pack: 'Internet Classics' },
+  { id: 'emoji1', name: 'Heart Eyes', icon: '😍', pack: 'Emoji Explosion' },
+  { id: 'emoji2', name: 'Fire', icon: '🔥', pack: 'Emoji Explosion' },
 ];
 
 const DRAWING_COLORS = [
@@ -41,17 +49,26 @@ const DRAWING_COLORS = [
   '#FFFFFF', // White
 ];
 
-const BOOSTER_STENCILS = [
-  { id: 'meme1', name: 'Drake Meme', icon: '🤷‍♂️', pack: 'Meme Lords' },
-  { id: 'meme2', name: 'Cat Reaction', icon: '😸', pack: 'Meme Lords' },
-  { id: 'classic1', name: 'Trollface', icon: '😈', pack: 'Internet Classics' },
-  { id: 'classic2', name: 'Nyan Cat', icon: '🌈', pack: 'Internet Classics' },
-  { id: 'emoji1', name: 'Heart Eyes', icon: '😍', pack: 'Emoji Explosion' },
-  { id: 'emoji2', name: 'Fire', icon: '🔥', pack: 'Emoji Explosion' },
-];
-
 const DrawingCanvasScreen: React.FC = () => {
-  const [timeLeft, setTimeLeft] = useState(60);
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const {
+    game: currentGame,
+    isLoading,
+    error
+  } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
+
+  // For now, we'll need to keep some GameContext usage for drawing-specific state
+  // TODO: Move drawing state to a separate hook or context
+  const {
+    participants,
+    submissions,
+    hasSubmitted,
+    selectedBoosterPack,
+    actions,
+    drawingContext
+  } = useGame();
+  
   const [selectedTool, setSelectedTool] = useState<'pen' | 'eraser'>('pen');
   const [selectedColor, setSelectedColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(3);
@@ -62,24 +79,31 @@ const DrawingCanvasScreen: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  
+  // Simple timer display (no auto-submit logic)
+  const {
+    timeRemaining,
+    formattedTime,
+    isExpired,
+    redirectMessage,
+    isLoading: timerLoading,
+    error: timerError
+  } = useSimpleTimer({
+    gameId: currentGame?.id || ''
+  });
 
-  // Timer countdown
+  // Initialize from game context
   useEffect(() => {
-    if (timeLeft <= 0 || isSubmitted) return;
+    if (hasSubmitted) {
+      setIsSubmitted(true);
+    }
+  }, [hasSubmitted]);
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          // Auto-submit when time runs out
-          setIsSubmitted(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  // Navigation is now handled by useUnifiedGameState in SimpleGameRoute
 
-    return () => clearInterval(timer);
-  }, [timeLeft, isSubmitted]);
+  // Auto-submit logic is now handled server-side via timer expiration
 
   // Simulate drawing activity (for demo)
   useEffect(() => {
@@ -98,15 +122,38 @@ const DrawingCanvasScreen: React.FC = () => {
     }
   };
 
-  const handleSubmit = () => {
-    if (!hasDrawn) {
-      alert('Draw something first!');
-      return;
+  const handleSubmit = useCallback(async () => {
+    if (!hasDrawn || isSubmitted || isLoading) return;
+    
+    setSubmissionError(null);
+    
+    try {
+      // In a real implementation, this would get the actual drawing data
+      const mockDrawingData = {
+        elements: [{ type: 'freedraw', points: [[100, 100], [200, 200]] }],
+        appState: { viewBackgroundColor: '#ffffff' }
+      };
+      
+      // Create a mock drawing URL (in real app, this would be generated from canvas)
+      const mockDrawingUrl = 'https://images.pexels.com/photos/1266302/pexels-photo-1266302.jpeg?auto=compress&cs=tinysrgb&w=600';
+      
+      // Submit drawing
+      await actions.submitDrawing(mockDrawingData, mockDrawingUrl);
+      
+      setIsSubmitted(true);
+      setShowSuccessMessage(true);
+      
+      // Hide success message after 5 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 5000);
+      
+      // Phase transitions are now handled server-side automatically
+    } catch (err) {
+      console.error('Failed to submit drawing:', err);
+      setSubmissionError(err instanceof Error ? err.message : 'Failed to submit drawing');
     }
-    setIsSubmitted(true);
-    // In real app, this would navigate to voting screen
-    console.log('Drawing submitted!');
-  };
+  }, [hasDrawn, isSubmitted, isLoading, actions, submissions.length, participants.length, currentGame, navigate]);
 
   const handleExit = () => {
     setShowExitConfirm(true);
@@ -114,8 +161,7 @@ const DrawingCanvasScreen: React.FC = () => {
 
   const confirmExit = () => {
     // In real app, this would navigate back to lobby
-    console.log('Exiting game...');
-    window.history.back();
+    navigate('/uiux/lobby');
   };
 
   const handleUndo = () => {
@@ -140,13 +186,8 @@ const DrawingCanvasScreen: React.FC = () => {
     setZoomLevel(prev => Math.max(50, prev - 25));
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const submittedPlayersCount = MOCK_PLAYERS.filter(p => p.status === 'submitted').length;
+  // Count submitted players
+  const submittedPlayersCount = submissions.length;
 
   return (
     <>
@@ -160,27 +201,29 @@ const DrawingCanvasScreen: React.FC = () => {
         <div className="bg-white border-b-2 border-dark p-3 flex items-center justify-between relative z-20">
           {/* Timer */}
           <motion.div
-            key={timeLeft}
-            initial={{ scale: timeLeft <= 10 ? 1.1 : 1 }}
+            key={timeRemaining}
+            initial={{ scale: timeRemaining <= 10 ? 1.1 : 1 }}
             animate={{ scale: 1 }}
             className={`flex items-center px-3 py-2 rounded-full border-2 border-dark ${
-              timeLeft <= 10 
-                ? 'bg-red text-white animate-pulse' 
-                : timeLeft <= 30 
-                ? 'bg-accent text-dark' 
+              isWarning
+                ? warningLevel === 'high'
+                  ? 'bg-red text-white animate-pulse'
+                  : warningLevel === 'medium'
+                  ? 'bg-orange text-dark'
+                  : 'bg-yellow-100 text-dark'
                 : 'bg-green text-dark'
             }`}
           >
             <Clock size={18} className="mr-2" />
             <span className="font-heading font-bold text-lg">
-              {formatTime(timeLeft)}
+              {isExpired ? redirectMessage : formattedTime}
             </span>
           </motion.div>
 
           {/* Prompt */}
           <div className="flex-1 text-center px-4">
             <p className="font-heading font-bold text-lg text-dark truncate">
-              "A raccoon having an existential crisis"
+              "{currentGame?.prompt || 'Loading prompt...'}"
             </p>
           </div>
 
@@ -341,11 +384,11 @@ const DrawingCanvasScreen: React.FC = () => {
                   variant="primary" 
                   size="lg" 
                   onClick={handleSubmit}
-                  disabled={!hasDrawn}
+                  disabled={!hasDrawn || isLoading}
                   className="shadow-lg"
                 >
                   <Send size={20} className="mr-2" />
-                  Submit Drawing
+                  {isLoading ? 'Submitting...' : 'Submit Drawing'}
                 </Button>
               </motion.div>
             )}
@@ -390,19 +433,21 @@ const DrawingCanvasScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Booster Packs Toggle */}
-            <div className="p-2">
-              <button
-                onClick={() => setShowBoosterPacks(!showBoosterPacks)}
-                className={`w-12 h-12 rounded-lg border-2 border-dark flex items-center justify-center transition-all ${
-                  showBoosterPacks 
-                    ? 'bg-purple text-white' 
-                    : 'bg-off-white hover:bg-purple/10'
-                }`}
-              >
-                <Package size={20} />
-              </button>
-            </div>
+            {/* Booster Packs Toggle - Only show if a booster pack is selected */}
+            {selectedBoosterPack && (
+              <div className="p-2">
+                <button
+                  onClick={() => setShowBoosterPacks(!showBoosterPacks)}
+                  className={`w-12 h-12 rounded-lg border-2 border-dark flex items-center justify-center transition-all ${
+                    showBoosterPacks
+                      ? 'bg-purple text-white'
+                      : 'bg-off-white hover:bg-purple/10'
+                  }`}
+                >
+                  <Package size={20} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -412,25 +457,25 @@ const DrawingCanvasScreen: React.FC = () => {
             <div className="flex items-center space-x-3">
               <Users size={18} className="text-medium-gray" />
               <span className="font-heading font-semibold text-sm">
-                Players: {submittedPlayersCount}/{MOCK_PLAYERS.length} submitted
+                Players: {submittedPlayersCount}/{participants.length} submitted
               </span>
             </div>
 
             <div className="flex items-center space-x-2">
-              {MOCK_PLAYERS.map(player => (
-                <div key={player.id} className="flex items-center">
+              {participants.map(participant => (
+                <div key={participant.id} className="flex items-center">
                   <div className="relative">
                     <img 
-                      src={player.avatar} 
-                      alt={player.username}
+                      src={participant.avatar_url || `https://ui-avatars.com/api/?name=${participant.username}&background=random`} 
+                      alt={participant.username}
                       className={`w-8 h-8 rounded-full border-2 ${
-                        player.status === 'submitted' 
+                        submissions.some(s => s.user_id === participant.user_id)
                           ? 'border-green' 
                           : 'border-orange'
                       }`}
                     />
                     <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white ${
-                      player.status === 'submitted' ? 'bg-green' : 'bg-orange'
+                      submissions.some(s => s.user_id === participant.user_id) ? 'bg-green' : 'bg-orange'
                     }`} />
                   </div>
                 </div>
@@ -539,6 +584,43 @@ const DrawingCanvasScreen: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Bottom Notification Area */}
+        {(submissionError || showSuccessMessage) && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 max-w-md">
+            {submissionError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-red-800">Submission Failed</h4>
+                    <p className="text-sm text-red-700 mt-1">{submissionError}</p>
+                    <div className="mt-3">
+                      <button
+                        onClick={() => setSubmissionError(null)}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showSuccessMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg">
+                <div className="flex items-center space-x-3">
+                  <Check size={20} className="text-green-500" />
+                  <div>
+                    <h4 className="text-sm font-medium text-green-800">Success!</h4>
+                    <p className="text-sm text-green-700">Your drawing has been submitted successfully.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

@@ -42,6 +42,12 @@ export class UnifiedGameService {
    */
   async initialize(user: User): Promise<ServiceResponse<void>> {
     try {
+      // Clear any previous user state to prevent cross-user contamination
+      if (this.currentUser && this.currentUser.id !== user.id) {
+        console.log('Switching users in UnifiedGameService, clearing previous state');
+        this.currentUser = null;
+      }
+
       this.currentUser = user;
 
       // Initialize real-time service
@@ -407,42 +413,6 @@ export class UnifiedGameService {
   }
 
   /**
-<<<<<<< HEAD
-   * Get available games for joining (instance method)
-   */
-  async getAvailableGames(limit = 20): Promise<ServiceResponse<any>> {
-    return await GameService.getAvailableGames(limit);
-  }
-
-  /**
-   * Get user's games (instance method)
-   */
-  async getUserGames(limit = 20): Promise<ServiceResponse<any>> {
-    return await GameService.getUserGames(limit);
-  }
-
-  /**
-   * Broadcast player ready status (instance method)
-   */
-  async broadcastPlayerReady(isReady: boolean, selectedBoosterPack?: string): Promise<ServiceResponse<void>> {
-    return await this.realtimeService.broadcastPlayerReady(isReady, selectedBoosterPack);
-  }
-
-  /**
-   * Broadcast timer sync (instance method)
-   */
-  async broadcastTimerSync(timeRemaining: number, phase: GameStatus, totalDuration: number): Promise<ServiceResponse<void>> {
-    return await this.realtimeService.broadcastTimerSync(timeRemaining, phase, totalDuration);
-  }
-
-  /**
-   * Get real-time service for direct access to event handling (instance method)
-   */
-  getRealtimeService(): RealtimeGameService {
-    return this.realtimeService;
-  }
-
-  /**
    * Enable presence tracking for a game (static method)
    */
   private static async enablePresenceTracking(gameId: string): Promise<void> {
@@ -470,7 +440,6 @@ export class UnifiedGameService {
   }
 
   /**
-<<<<<<< HEAD
    * Check if user is authenticated (instance method)
    */
   isAuthenticated(): boolean {

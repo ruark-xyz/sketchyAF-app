@@ -2,10 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Award } from 'lucide-react';
-import { BoosterPack } from '../../types';
+import { LegacyBoosterPack } from '../../types';
 
 interface BoosterPackCardProps {
-  pack: BoosterPack;
+  pack: LegacyBoosterPack;
 }
 
 const BoosterPackCard: React.FC<BoosterPackCardProps> = ({ pack }) => {

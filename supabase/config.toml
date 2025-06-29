@@ -294,8 +294,11 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 1
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+[edge_runtime.secrets]
+PUBNUB_PUBLISH_KEY = "env(VITE_PUBNUB_PUBLISH_KEY)"
+PUBNUB_SUBSCRIBE_KEY = "env(VITE_PUBNUB_SUBSCRIBE_KEY)"
+PUBNUB_SECRET_KEY = "env(VITE_PUBNUB_SECRET_KEY)"
+CRON_SECRET = "env(CRON_SECRET)"
 
 [analytics]
 enabled = true

@@ -3,7 +3,8 @@
 
 import { PubNubGameService } from './PubNubService';
 import { GameService } from './GameService';
-import { 
+import { supabase } from '../utils/supabase';
+import {
   GameEvent,
   GameEventType,
   PresenceEvent,
@@ -14,6 +15,8 @@ import {
   GameStartedEvent,
   GamePhaseChangedEvent,
   TimerSyncEvent,
+  ServerTimerSyncEvent,
+  TimerExpiredEvent,
   DrawingSubmittedEvent,
   VoteCastEvent,
   GameCompletedEvent,
@@ -55,9 +58,14 @@ export class RealtimeGameService {
    */
   async initialize(user: User): Promise<ServiceResponse<void>> {
     try {
+      // Clear any previous user state to prevent cross-user contamination
+      if (this.currentUser && this.currentUser.id !== user.id) {
+        await this.cleanup();
+      }
+
       this.currentUser = user;
       await this.pubNubService.initialize(user.id);
-      
+
       // Set up connection status monitoring
       this.pubNubService.onConnectionStatusChange((status) => {
         this.handleConnectionStatusChange(status);
@@ -65,9 +73,8 @@ export class RealtimeGameService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to initialize real-time service:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         code: 'INITIALIZATION_FAILED'
       };
@@ -107,7 +114,6 @@ export class RealtimeGameService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to join game:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -136,7 +142,6 @@ export class RealtimeGameService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to leave game:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -170,7 +175,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast player ready:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -205,7 +209,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast phase change:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -240,9 +243,85 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast timer sync:', error);
       return { 
         success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'BROADCAST_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Broadcast server-authoritative timer sync
+   */
+  async broadcastServerTimerSync(gameId: string): Promise<ServiceResponse<void>> {
+    try {
+      // Get timer data from server
+      const { data } = await supabase.functions.invoke('get-game-timer', {
+        body: { gameId }
+      });
+
+      if (!data) {
+        return { success: false, error: 'Failed to get timer data from server', code: 'SERVER_ERROR' };
+      }
+
+      const event: ServerTimerSyncEvent = {
+        type: 'server_timer_sync',
+        gameId,
+        userId: 'server',
+        timestamp: Date.now(),
+        version: REALTIME_CONSTANTS.EVENT_VERSION,
+        data: {
+          phaseStartedAt: data.phaseStartedAt || new Date().toISOString(),
+          phaseDuration: data.phaseDuration || 0,
+          serverTime: data.serverTime,
+          timeRemaining: data.timeRemaining || 0,
+          phase: data.phase,
+          phaseExpiresAt: data.phaseExpiresAt || new Date().toISOString()
+        }
+      };
+
+      await this.pubNubService.publishGameEvent(event);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'BROADCAST_FAILED'
+      };
+    }
+  }
+
+  /**
+   * Broadcast timer expiration event
+   */
+  async broadcastTimerExpired(
+    gameId: string,
+    expiredPhase: GameStatus,
+    nextPhase: GameStatus,
+    executionId?: string
+  ): Promise<ServiceResponse<void>> {
+    try {
+      const event: TimerExpiredEvent = {
+        type: 'timer_expired',
+        gameId,
+        userId: 'server',
+        timestamp: Date.now(),
+        version: REALTIME_CONSTANTS.EVENT_VERSION,
+        data: {
+          expiredPhase,
+          nextPhase,
+          expiredAt: new Date().toISOString(),
+          transitionTriggeredBy: 'server_timer',
+          executionId
+        }
+      };
+
+      await this.pubNubService.publishGameEvent(event);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         code: 'BROADCAST_FAILED'
       };
@@ -276,7 +355,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast drawing submitted:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -311,7 +389,6 @@ export class RealtimeGameService {
       await this.pubNubService.publishGameEvent(event);
       return { success: true };
     } catch (error) {
-      console.error('Failed to broadcast vote cast:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -332,7 +409,6 @@ export class RealtimeGameService {
       const presence = await this.pubNubService.getGamePresence(this.activeGameId);
       return { success: true, data: presence };
     } catch (error) {
-      console.error('Failed to get game presence:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -352,10 +428,22 @@ export class RealtimeGameService {
    * Add event handler for specific game event type
    */
   addEventListener(eventType: GameEventType, handler: GameEventHandler): void {
+    console.log('🔗 RealtimeGameService addEventListener called:', {
+      eventType,
+      currentHandlers: this.gameEventHandlers.get(eventType)?.size || 0,
+      totalEventTypes: this.gameEventHandlers.size,
+      timestamp: new Date().toISOString()
+    });
+
     if (!this.gameEventHandlers.has(eventType)) {
       this.gameEventHandlers.set(eventType, new Set());
     }
     this.gameEventHandlers.get(eventType)!.add(handler);
+
+    console.log('✅ Event handler added to RealtimeGameService:', {
+      eventType,
+      totalHandlers: this.gameEventHandlers.get(eventType)!.size
+    });
   }
 
   /**
@@ -458,14 +546,29 @@ export class RealtimeGameService {
 
   private handleGameEvent(event: GameEvent): void {
     const handlers = this.gameEventHandlers.get(event.type);
+    console.log('🎯 RealtimeGameService handleGameEvent called:', {
+      eventType: event.type,
+      gameId: event.gameId,
+      hasHandlers: this.gameEventHandlers.has(event.type),
+      handlerCount: handlers?.size || 0,
+      actualHandlers: handlers ? Array.from(handlers).length : 0,
+      allEventTypes: Array.from(this.gameEventHandlers.keys()),
+      timestamp: new Date().toISOString()
+    });
+
     if (handlers) {
-      handlers.forEach(handler => {
+      console.log(`🚀 Calling ${handlers.size} handlers for event type: ${event.type}`);
+      handlers.forEach((handler, index) => {
         try {
+          console.log(`📞 Calling handler ${index + 1}/${handlers.size} for ${event.type}`);
           handler(event);
+          console.log(`✅ Handler ${index + 1} completed successfully`);
         } catch (error) {
-          console.error('Error in game event handler:', error);
+          console.error(`❌ Error in game event handler ${index + 1}:`, error);
         }
       });
+    } else {
+      console.log(`❌ No handlers found for event type: ${event.type}`);
     }
   }
 
@@ -487,5 +590,33 @@ export class RealtimeGameService {
         console.error('Error in connection status handler:', error);
       }
     });
+  }
+
+  /**
+   * Clean up user-specific state (to prevent cross-user contamination)
+   */
+  private async cleanup(): Promise<void> {
+    try {
+      // Leave current game if any
+      if (this.activeGameId) {
+        await this.leaveGame(this.activeGameId);
+      }
+
+      // Clear user-specific state
+      this.currentUser = null;
+      this.activeGameId = null;
+
+      // Clear event handlers (they may contain user-specific callbacks)
+      this.gameEventHandlers.clear();
+      this.presenceHandlers.clear();
+      this.connectionStatusHandlers.clear();
+
+      // Cleanup PubNub service
+      await this.pubNubService.cleanup?.();
+
+      console.log('RealtimeGameService: Cleaned up user-specific state');
+    } catch (error) {
+      console.error('Error during RealtimeGameService cleanup:', error);
+    }
   }
 }

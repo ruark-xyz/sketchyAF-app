@@ -22,17 +22,13 @@ export class GameService {
    */
   static async createGame(request: CreateGameRequest): Promise<ServiceResponse<Game>> {
     try {
-      console.log('GameService: Attempting to create game...');
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('GameService: getUser() result:', { user: user ? 'authenticated' : 'not authenticated', error: authError });
 
       if (authError) {
-        console.error('GameService: Auth error:', authError);
         return { success: false, error: `Authentication error: ${authError.message}`, code: 'UNAUTHENTICATED' };
       }
 
       if (!user) {
-        console.error('GameService: No user found');
         return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
       }
 
@@ -48,6 +44,7 @@ export class GameService {
         round_duration: request.round_duration || GAME_CONSTANTS.DEFAULT_ROUND_DURATION,
         voting_duration: request.voting_duration || GAME_CONSTANTS.DEFAULT_VOTING_DURATION,
         created_by: user.id,
+        status: 'waiting' as const, // Start games in waiting status, then transition to briefing
         expires_at: new Date(Date.now() + GAME_CONSTANTS.GAME_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       };
 
@@ -58,23 +55,23 @@ export class GameService {
         .single();
 
       if (error) {
-        console.error('Error creating game:', error);
         return { success: false, error: 'Failed to create game', code: 'DATABASE_ERROR' };
       }
 
       // Automatically join the creator to the game
-      console.log('GameService: Auto-joining creator to game:', data.id);
       const joinResult = await this.joinGame({ game_id: data.id });
       if (!joinResult.success) {
         // Game was created but creator couldn't join - this is a problem
-        console.error('GameService: Creator failed to join their own game:', joinResult.error);
-      } else {
-        console.log('GameService: Creator successfully joined game');
+      }
+
+      // Transition to briefing status to properly set timer fields
+      const transitionResult = await this.transitionGameStatus(data.id, 'briefing', 'waiting');
+      if (!transitionResult.success) {
+        // Don't fail the entire operation, but log the issue
       }
 
       return { success: true, data };
     } catch (error) {
-      console.error('Unexpected error creating game:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -100,7 +97,8 @@ export class GameService {
         return { success: false, error: 'Game not found', code: 'GAME_NOT_FOUND' };
       }
 
-      if (game.status !== 'waiting') {
+      // Allow joining games in 'waiting' or 'briefing' status (briefing is for matchmaking games)
+      if (game.status !== 'waiting' && game.status !== 'briefing') {
         return { success: false, error: 'Game is no longer accepting players', code: 'INVALID_STATUS' };
       }
 
@@ -117,7 +115,6 @@ export class GameService {
 
       // Handle query errors (but not "no results" which is expected)
       if (participantError) {
-        console.error('Error checking existing participation:', participantError);
         return { success: false, error: 'Failed to check game participation', code: 'DATABASE_ERROR' };
       }
 
@@ -153,7 +150,6 @@ export class GameService {
         .single();
 
       if (error) {
-        console.error('Error joining game:', error);
         return { success: false, error: 'Failed to join game', code: 'DATABASE_ERROR' };
       }
 
@@ -163,13 +159,11 @@ export class GameService {
         // Note: Real-time service will handle the player_joined event when they actually join the channel
         // This is just for database consistency
       } catch (realtimeError) {
-        console.warn('Failed to broadcast player joined event:', realtimeError);
         // Don't fail the join operation if real-time broadcast fails
       }
 
       return { success: true, data };
     } catch (error) {
-      console.error('Unexpected error joining game:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -193,13 +187,11 @@ export class GameService {
         .is('left_at', null);
 
       if (error) {
-        console.error('Error leaving game:', error);
         return { success: false, error: 'Failed to leave game', code: 'DATABASE_ERROR' };
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Unexpected error leaving game:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -222,7 +214,6 @@ export class GameService {
         .is('left_at', null);
 
       if (error) {
-        console.error('Error updating ready status:', error);
         return { success: false, error: 'Failed to update ready status', code: 'DATABASE_ERROR' };
       }
 
@@ -231,14 +222,48 @@ export class GameService {
         const realtimeService = RealtimeGameService.getInstance();
         await realtimeService.broadcastPlayerReady(isReady);
       } catch (realtimeError) {
-        console.warn('Failed to broadcast player ready status:', realtimeError);
         // Don't fail the operation if real-time broadcast fails
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Unexpected error updating ready status:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
+    }
+  }
+
+  /**
+   * Update player's selected booster pack
+   */
+  static async updateSelectedBoosterPack(gameId: string, boosterPackId: string | null): Promise<ServiceResponse<void>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'User not authenticated', code: 'UNAUTHENTICATED' };
+      }
+
+      // Validate booster pack if provided
+      if (boosterPackId) {
+        const packValidation = await this.validateBoosterPackAccess(user.id, boosterPackId);
+        if (!packValidation.success) {
+          return packValidation;
+        }
+      }
+
+      const { error } = await supabase
+        .from('game_participants')
+        .update({ selected_booster_pack: boosterPackId })
+        .eq('game_id', gameId)
+        .eq('user_id', user.id)
+        .is('left_at', null);
+
+      if (error) {
+        return { success: false, error: 'Failed to update booster pack selection', code: 'DATABASE_ERROR' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating booster pack selection:', error);
+      return { success: false, error: 'Failed to update booster pack selection', code: 'UNKNOWN_ERROR' };
     }
   }
 
@@ -270,7 +295,6 @@ export class GameService {
       });
 
       if (error) {
-        console.error('Error transitioning game status:', error);
         return { success: false, error: error.message, code: 'TRANSITION_ERROR' };
       }
 
@@ -281,13 +305,11 @@ export class GameService {
           await realtimeService.broadcastPhaseChange(newStatus, currentStatus);
         }
       } catch (realtimeError) {
-        console.warn('Failed to broadcast phase change:', realtimeError);
         // Don't fail the operation if real-time broadcast fails
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Unexpected error transitioning game status:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -325,7 +347,6 @@ export class GameService {
         .order('joined_at');
 
       if (participantsError) {
-        console.error('Error fetching participants:', participantsError);
         return { success: false, error: 'Failed to fetch game participants', code: 'DATABASE_ERROR' };
       }
 
@@ -343,7 +364,6 @@ export class GameService {
 
       return { success: true, data: gameWithParticipants };
     } catch (error) {
-      console.error('Unexpected error fetching game:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -363,7 +383,6 @@ export class GameService {
         .limit(limit);
 
       if (error) {
-        console.error('Error fetching available games:', error);
         return { success: false, error: 'Failed to fetch available games', code: 'DATABASE_ERROR' };
       }
 
@@ -378,7 +397,6 @@ export class GameService {
         },
       };
     } catch (error) {
-      console.error('Unexpected error fetching available games:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -407,13 +425,11 @@ export class GameService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching user games:', error);
         return { success: false, error: 'Failed to fetch user games', code: 'DATABASE_ERROR' };
       }
 
       return { success: true, data: data || [] };
     } catch (error) {
-      console.error('Unexpected error fetching user games:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -426,13 +442,11 @@ export class GameService {
       const { data, error } = await supabase.rpc('cleanup_expired_games');
 
       if (error) {
-        console.error('Error cleaning up expired games:', error);
         return { success: false, error: 'Failed to cleanup expired games', code: 'DATABASE_ERROR' };
       }
 
       return { success: true, data };
     } catch (error) {
-      console.error('Unexpected error cleaning up games:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }

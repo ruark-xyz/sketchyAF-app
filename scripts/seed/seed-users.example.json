@@ -1,0 +1,35 @@
+{
+  "users": [
+    {
+      "email": "alice@example.com",
+      "password": "password123",
+      "username": "alice_sketcher",
+      "avatar_url": "https://randomuser.me/api/portraits/women/1.jpg",
+      "is_subscriber": false,
+      "subscription_tier": "free"
+    },
+    {
+      "email": "bob@example.com",
+      "password": "password123",
+      "username": "bob_artist",
+      "avatar_url": "https://randomuser.me/api/portraits/men/2.jpg",
+      "is_subscriber": true,
+      "subscription_tier": "premium"
+    },
+    {
+      "email": "charlie@example.com",
+      "password": "password123",
+      "username": "charlie_draws",
+      "is_subscriber": false,
+      "subscription_tier": "free"
+    },
+    {
+      "email": "diana@example.com",
+      "password": "password123",
+      "username": "diana_creative",
+      "avatar_url": "https://randomuser.me/api/portraits/women/4.jpg",
+      "is_subscriber": true,
+      "subscription_tier": "premium"
+    }
+  ]
+}

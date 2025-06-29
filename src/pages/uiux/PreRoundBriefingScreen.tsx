@@ -1,141 +1,147 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Users, Palette, CheckCircle, ArrowRight, Zap, Star } from 'lucide-react';
-import Button from '../../components/ui/Button';
+import { motion } from 'framer-motion';
+import { Clock, Users, Palette, CheckCircle, Star, AlertCircle } from 'lucide-react';
+
+
 import Seo from '../../components/utils/Seo';
-
-// TypeScript interfaces for better type safety
-interface Player {
-  id: number;
-  username: string;
-  avatar: string;
-  isReady: boolean;
-  isCurrentUser?: boolean;
-  level: number;
-  isPremium: boolean;
-}
-
-interface BoosterPack {
-  id: string;
-  name: string;
-  icon: string;
-  available: boolean;
-  isPremium?: boolean;
-}
-
-// Mock data for demo purposes
-const MOCK_PLAYERS: Player[] = [
-  { 
-    id: 1, 
-    username: 'SketchLord', 
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg', 
-    isReady: false,
-    level: 47,
-    isPremium: true
-  },
-  { 
-    id: 2, 
-    username: 'DoodleQueen', 
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg', 
-    isReady: true,
-    level: 23,
-    isPremium: false
-  },
-  { 
-    id: 3, 
-    username: 'ArtisticTroll', 
-    avatar: 'https://randomuser.me/api/portraits/men/15.jpg', 
-    isReady: true,
-    level: 31,
-    isPremium: true
-  },
-  { 
-    id: 4, 
-    username: 'You', 
-    avatar: 'https://randomuser.me/api/portraits/women/63.jpg', 
-    isReady: false, 
-    isCurrentUser: true,
-    level: 12,
-    isPremium: false
-  },
-];
-
-const MOCK_BOOSTER_PACKS: BoosterPack[] = [
-  { id: 'meme-lords', name: 'Meme Lords', icon: '😂', available: true },
-  { id: 'internet-classics', name: 'Internet Classics', icon: '🌐', available: true },
-  { id: 'premium-chaos', name: 'Premium Chaos', icon: '⭐', available: false, isPremium: true },
-  { id: 'emoji-explosion', name: 'Emoji Explosion', icon: '🎭', available: true },
-];
-
-const GAME_PROMPTS = [
-  'A raccoon having an existential crisis',
-  'Your boss as a potato',
-  'A cat wearing a business suit',
-  'Aliens visiting a fast-food restaurant',
-  'A dinosaur riding a skateboard',
-];
+import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
+import { useGame } from '../../context/GameContext';
+import { useAuth } from '../../context/AuthContext';
+import { useSimpleTimer } from '../../hooks/useSimpleTimer';
+import { BoosterPackService } from '../../services/BoosterPackService';
+import { BoosterPackWithOwnership } from '../../types/game';
 
 const PreRoundBriefingScreen: React.FC = () => {
-  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
-  const [selectedBoosterPack, setSelectedBoosterPack] = useState<string | null>(null);
-  const [currentPrompt] = useState(GAME_PROMPTS[Math.floor(Math.random() * GAME_PROMPTS.length)]);
-  const [countdown, setCountdown] = useState(15);
-  const [isReady, setIsReady] = useState(false);
-  const [gameStarting, setGameStarting] = useState(false);
+  const { currentUser } = useAuth();
+  const {
+    game: currentGame,
+    isLoading: gameLoading,
+    error: gameError
+  } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
 
-  // Countdown timer
+
+
+  // Keep some GameContext usage for briefing-specific state
+  const {
+    participants,
+    actions,
+    selectedBoosterPack,
+    isLoading,
+    error
+  } = useGame();
+  
+  const [availableBoosterPacks, setAvailableBoosterPacks] = useState<BoosterPackWithOwnership[]>([]);
+  const [packsLoading, setPacksLoading] = useState(false);
+  const [packsError, setPacksError] = useState<string | null>(null);
+  
+  // Simple timer display
+  const {
+    timeRemaining,
+    formattedTime,
+    isExpired,
+    redirectMessage
+  } = useSimpleTimer({
+    gameId: currentGame?.id || ''
+  });
+
+  // Safe timer values
+  const safeTimeRemaining = timeRemaining ?? 0;
+  const isTimerCritical = safeTimeRemaining <= 5;
+
+  // Load available booster packs from database
   useEffect(() => {
-    if (countdown <= 0) {
-      setGameStarting(true);
-      return;
+    const loadBoosterPacks = async () => {
+      if (!currentUser) {
+        console.log('PreRoundBriefingScreen: User not authenticated, skipping booster pack loading');
+        setAvailableBoosterPacks([]);
+        setPacksError(null);
+        return;
+      }
+
+      setPacksLoading(true);
+      setPacksError(null);
+
+      try {
+        const result = await BoosterPackService.getAvailablePacks();
+
+        if (result.success && result.data) {
+          // Filter to only show packs the user owns
+          // ALL packs (both free and premium) must be explicitly added to user's account
+          const accessiblePacks = result.data.filter(pack => {
+            // User has access only if they own the pack (it's in their user_booster_packs)
+            return pack.is_owned;
+          });
+
+          setAvailableBoosterPacks(accessiblePacks);
+        } else {
+          setPacksError(result.error || 'Failed to load booster packs');
+        }
+      } catch {
+        setPacksError('An unexpected error occurred while loading booster packs');
+      } finally {
+        setPacksLoading(false);
+      }
+    };
+
+    loadBoosterPacks();
+  }, [currentUser]);
+
+  // Sync GameContext when currentGame changes
+  useEffect(() => {
+    if (currentGame?.id && actions?.refreshGameState) {
+      actions.refreshGameState(currentGame.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentGame?.id]); // Intentionally exclude actions to prevent infinite loop
 
-    const timer = setInterval(() => {
-      setCountdown(prev => prev - 1);
-    }, 1000);
+  // Start timer when component mounts - but only if all players are present
+  // Timer and phase transitions are now handled server-side automatically
 
-    return () => clearInterval(timer);
-  }, [countdown]);
 
-  // Simulate other players getting ready
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPlayers(prev => 
-        prev.map(player => {
-          if (!player.isCurrentUser && !player.isReady && Math.random() > 0.7) {
-            return { ...player, isReady: true };
-          }
-          return player;
-        })
-      );
-    }, 2000);
 
-    return () => clearInterval(interval);
-  }, []);
 
-  const handleReadyUp = () => {
-    setIsReady(!isReady);
-    setPlayers(prev => 
-      prev.map(player => 
-        player.isCurrentUser ? { ...player, isReady: !isReady } : player
-      )
-    );
+
+  const handleBoosterPackSelect = async (packId: string) => {
+    try {
+      // If already selected, deselect it
+      if (selectedBoosterPack === packId) {
+        await actions.selectBoosterPack(null);
+      } else {
+        await actions.selectBoosterPack(packId);
+      }
+    } catch (err) {
+      console.error('Failed to select booster pack:', err);
+
+      // Show user-friendly error message
+      if (err instanceof Error) {
+        if (err.message.includes('No active game') || err.message.includes('real-time service not initialized')) {
+          // This is likely a timing issue - the selection was saved but real-time broadcast failed
+          console.warn('Booster pack selection saved locally, but real-time sync failed. This is usually temporary.');
+        } else {
+          // Re-throw other errors to show them to the user
+          throw err;
+        }
+      }
+    }
   };
 
-  const handleBoosterPackSelect = (packId: string) => {
-    setSelectedBoosterPack(packId === selectedBoosterPack ? null : packId);
+
+
+  // Get icon for booster pack based on category or asset directory name
+  const getIconForBoosterPack = (pack: BoosterPackWithOwnership): string => {
+    const name = pack.category || pack.asset_directory_name || '';
+    switch (name.toLowerCase()) {
+      case 'shapes':
+      case 'basics': return '🔷';
+      case 'troll':
+      case 'memes': return '😈';
+      case 'premium': return '⭐';
+      case 'emoji': return '😎';
+      default: return '🎨';
+    }
   };
 
-  const handleStartGame = () => {
-    // In real app, this would navigate to drawing canvas
-    console.log('Starting game with:', { 
-      prompt: currentPrompt, 
-      boosterPack: selectedBoosterPack 
-    });
-  };
 
-  const readyPlayersCount = players.filter(p => p.isReady).length;
-  const allPlayersReady = readyPlayersCount === players.length;
 
   return (
     <>
@@ -148,17 +154,31 @@ const PreRoundBriefingScreen: React.FC = () => {
         {/* Header with countdown */}
         <div className="p-4 text-center">
           <motion.div
-            key={countdown}
-            initial={{ scale: 1.2, color: countdown <= 5 ? '#ff5a5a' : '#2d2d2d' }}
-            animate={{ scale: 1, color: countdown <= 5 ? '#ff5a5a' : '#2d2d2d' }}
-            className="inline-flex items-center bg-white rounded-full px-4 py-2 border-2 border-dark hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)]"
+            key={safeTimeRemaining}
+            initial={{ scale: isTimerCritical ? 1.1 : 1 }}
+            animate={{ scale: 1 }}
+            className={`inline-flex items-center bg-white rounded-full px-4 py-2 border-2 border-dark hand-drawn shadow-[4px_4px_0px_0px_rgba(0,0,0,0.8)]`}
           >
             <Clock size={20} className="mr-2" />
             <span className="font-heading font-bold text-xl">
-              {countdown <= 5 ? '🔥 ' : ''}{countdown}s
+              {isExpired ? redirectMessage : (isTimerCritical ? '🔥 ' : '') + formattedTime}
             </span>
           </motion.div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-4 mb-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red/10 border border-red rounded-lg p-3 flex items-center"
+            >
+              <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+              <p className="text-dark text-sm">{error}</p>
+            </motion.div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center px-4 pb-8">
@@ -216,11 +236,11 @@ const PreRoundBriefingScreen: React.FC = () => {
                 className="bg-primary/10 p-4 rounded-lg border border-primary/30 mb-4"
               >
                 <p className="font-heading font-bold text-xl text-primary">
-                  "{currentPrompt}"
+                  "{currentGame?.prompt || 'Loading prompt...'}"
                 </p>
               </motion.div>
               <p className="text-medium-gray text-sm">
-                You have 60 seconds to draw this. Make it sketchy! 🎨
+                You have {currentGame?.round_duration || 60} seconds to draw this. Make it sketchy! 🎨
               </p>
             </motion.div>
 
@@ -234,72 +254,60 @@ const PreRoundBriefingScreen: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-heading font-bold text-xl text-dark">Players</h2>
                 <div className="flex items-center">
-                  <Users size={18} className="text-green mr-1" />
-                  <span className="font-heading font-semibold text-green">
-                    {readyPlayersCount}/{players.length} Ready
+                  <Users size={18} className="text-primary mr-1" />
+                  <span className="font-heading font-semibold text-primary">
+                    {participants.length} Players
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {players.map((player, index) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 * index, duration: 0.3 }}
-                    className={`flex items-center p-3 rounded-lg border-2 ${
-                      player.isReady 
-                        ? 'bg-green/10 border-green' 
-                        : 'bg-orange/10 border-orange'
-                    }`}
-                  >
-                    <div className="relative mr-3">
-                      <img 
-                        src={player.avatar} 
-                        alt={player.username}
-                        className="w-10 h-10 rounded-full border-2 border-dark"
-                      />
-                      {/* Level badge on avatar */}
-                      <div className="absolute -bottom-1 -right-1 bg-dark text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-heading font-bold">
-                        {player.level}
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {/* Username with premium badge */}
-                      <div className="flex items-center gap-1 mb-1">
-                        <p className="font-heading font-semibold text-sm truncate">
-                          {player.username}
-                          {player.isCurrentUser && ' (You)'}
-                        </p>
-                        {player.isPremium && (
-                          <div className="bg-primary text-white px-2 py-0.5 rounded-full text-xs font-heading font-bold flex items-center">
-                            <Star size={8} className="mr-1 fill-white" />
-                            PRO
-                          </div>
-                        )}
+                {participants.map((participant, index) => {
+                  const isCurrentUser = participant.user_id === currentUser?.id;
+                  return (
+                    <motion.div
+                      key={participant.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 * index, duration: 0.3 }}
+                      className="flex items-center p-3 rounded-lg border-2 bg-primary/10 border-primary"
+                    >
+                      <div className="relative mr-3">
+                        <img 
+                          src={participant.avatar_url || `https://ui-avatars.com/api/?name=${participant.username}&background=random`} 
+                          alt={participant.username}
+                          className="w-10 h-10 rounded-full border-2 border-dark"
+                        />
                       </div>
                       
-                      {/* Ready status */}
-                      <div className="flex items-center">
-                        {player.isReady ? (
-                          <>
-                            <CheckCircle size={12} className="text-green mr-1" />
-                            <span className="text-xs text-green font-heading font-semibold">Ready</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock size={12} className="text-orange mr-1" />
-                            <span className="text-xs text-orange font-heading font-semibold">
-                              {player.isCurrentUser ? 'Ready up!' : 'Waiting...'}
-                            </span>
-                          </>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        {/* Username with premium badge */}
+                        <div className="flex items-center gap-1 mb-1">
+                          <p className="font-heading font-semibold text-sm truncate">
+                            {participant.username}
+                            {isCurrentUser && ' (You)'}
+                          </p>
+                        </div>
+                        
+                        {/* Booster pack display */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Users size={12} className="text-primary mr-1" />
+                            <span className="text-xs text-primary font-heading font-semibold">Joined</span>
+                          </div>
+
+                          {/* Show selected booster pack if any */}
+                          {participant.selected_booster_pack && (
+                            <div className="flex items-center">
+                              <span className="text-xs text-purple mr-1">🎨</span>
+                              <span className="text-xs text-purple font-heading font-semibold">Pack</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
             </motion.div>
 
@@ -319,142 +327,140 @@ const PreRoundBriefingScreen: React.FC = () => {
                 Select a booster pack to spice up your drawing (optional)
               </p>
 
-              <div className="grid grid-cols-2 gap-3">
-                {MOCK_BOOSTER_PACKS.map(pack => (
-                  <motion.button
-                    key={pack.id}
-                    whileHover={{ scale: pack.available ? 1.05 : 1 }}
-                    whileTap={{ scale: pack.available ? 0.95 : 1 }}
-                    onClick={() => pack.available && handleBoosterPackSelect(pack.id)}
-                    disabled={!pack.available}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      selectedBoosterPack === pack.id
-                        ? 'bg-purple/20 border-purple'
-                        : pack.available
-                        ? 'bg-off-white border-light-gray hover:border-purple'
-                        : 'bg-light-gray/30 border-light-gray opacity-50 cursor-not-allowed'
-                    }`}
+              {/* Loading state */}
+              {packsLoading && (
+                <div className="text-center py-6">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-8 h-8 border-2 border-purple border-t-transparent rounded-full mx-auto mb-2"
+                  />
+                  <p className="text-medium-gray text-sm">Loading your booster packs...</p>
+                </div>
+              )}
+
+              {/* Error state */}
+              {packsError && !packsLoading && (
+                <div className="text-center py-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red/10 border border-red rounded-lg p-3 flex items-center justify-center"
                   >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-2">{pack.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-heading font-semibold text-sm truncate">
-                          {pack.name}
-                        </p>
-                        {pack.isPremium && (
-                          <div className="flex items-center mt-1">
-                            <Star size={10} className="text-primary mr-1" />
-                            <span className="text-xs text-primary">Premium</span>
+                    <AlertCircle size={18} className="text-red mr-2 flex-shrink-0" />
+                    <p className="text-dark text-sm">{packsError}</p>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!packsLoading && !packsError && availableBoosterPacks.length === 0 && currentUser && (
+                <div className="text-center py-6">
+                  <div className="text-4xl mb-2">🛍️</div>
+                  <p className="text-medium-gray text-sm mb-2">No booster packs in your collection</p>
+                  <p className="text-medium-gray text-xs mb-3">
+                    Visit the store to add booster packs to your account. Both free and premium packs need to be added before you can use them in games.
+                  </p>
+                  <button
+                    onClick={() => window.open('/premium', '_blank')}
+                    className="text-primary text-xs underline hover:text-primary/80"
+                  >
+                    Browse Booster Packs →
+                  </button>
+                </div>
+              )}
+
+              {/* Not authenticated state */}
+              {!currentUser && (
+                <div className="text-center py-6">
+                  <div className="text-4xl mb-2">🔒</div>
+                  <p className="text-medium-gray text-sm">
+                    Please log in to see your booster packs
+                  </p>
+                </div>
+              )}
+
+              {/* Booster packs grid */}
+              {!packsLoading && !packsError && availableBoosterPacks.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {availableBoosterPacks.map(pack => {
+                    // Since we've already filtered for accessible packs, all should be available
+                    const isSelected = selectedBoosterPack === pack.id;
+
+                    return (
+                      <motion.button
+                        key={pack.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleBoosterPackSelect(pack.id)}
+                        disabled={isLoading}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          isSelected
+                            ? 'bg-purple/20 border-purple shadow-[2px_2px_0px_0px_rgba(147,51,234,0.3)]'
+                            : 'bg-off-white border-light-gray hover:border-purple hover:shadow-[2px_2px_0px_0px_rgba(147,51,234,0.2)]'
+                        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className="flex items-center">
+                          <span className="text-2xl mr-2">{getIconForBoosterPack(pack)}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-heading font-semibold text-sm truncate">
+                              {pack.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {pack.is_premium && (
+                                <div className="flex items-center">
+                                  <Star size={10} className="text-primary mr-1" />
+                                  <span className="text-xs text-primary">Premium</span>
+                                </div>
+                              )}
+                              {pack.is_owned && pack.is_premium && (
+                                <span className="text-xs text-green">Owned</span>
+                              )}
+                              {!pack.is_premium && (
+                                <span className="text-xs text-blue">Free</span>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                      {selectedBoosterPack === pack.id && (
-                        <CheckCircle size={16} className="text-purple ml-2" />
-                      )}
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            >
+                              <CheckCircle size={16} className="text-purple ml-2" />
+                            </motion.div>
+                          )}
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
 
-            {/* Ready Up Button */}
+            {/* Game Information */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="space-y-3"
+              className="text-center bg-primary/10 p-4 rounded-lg border border-primary"
             >
-              <Button 
-                variant={isReady ? "secondary" : "primary"}
-                size="lg" 
-                onClick={handleReadyUp}
-                className="w-full"
-              >
-                {isReady ? (
-                  <>
-                    <CheckCircle size={20} className="mr-2" />
-                    Ready to Draw!
-                  </>
-                ) : (
-                  <>
-                    <Zap size={20} className="mr-2" />
-                    Ready Up
-                  </>
-                )}
-              </Button>
-
-              {allPlayersReady && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center"
-                >
-                  <Button 
-                    variant="primary" 
-                    size="lg" 
-                    onClick={handleStartGame}
-                    className="w-full bg-green hover:bg-green/90"
-                  >
-                    <ArrowRight size={20} className="mr-2" />
-                    Start Drawing Now!
-                  </Button>
-                </motion.div>
-              )}
+              <div className="flex items-center justify-center mb-2">
+                <Clock size={20} className="text-primary mr-2" />
+                <h3 className="font-heading font-bold text-lg text-primary">Game Starting Soon</h3>
+              </div>
+              <p className="text-sm text-dark mb-2">
+                The drawing phase will begin automatically when the timer reaches zero.
+              </p>
+              <p className="text-xs text-medium-gray">
+                Use this time to review the prompt and select your booster pack!
+              </p>
             </motion.div>
-
-            {/* Auto-start indicator */}
-            {countdown <= 10 && !allPlayersReady && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center bg-accent/20 p-3 rounded-lg border border-accent"
-              >
-                <p className="text-sm text-dark">
-                  ⚡ Game auto-starts in {countdown}s even if not everyone is ready!
-                </p>
-              </motion.div>
-            )}
           </div>
         </div>
 
-        {/* Game Starting Overlay */}
-        <AnimatePresence>
-          {gameStarting && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50"
-            >
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="text-center text-white"
-              >
-                <motion.h1
-                  animate={{ 
-                    scale: [1, 1.2, 1],
-                    rotate: [0, 5, -5, 0]
-                  }}
-                  transition={{ 
-                    duration: 0.8,
-                    repeat: Infinity,
-                    repeatDelay: 1
-                  }}
-                  className="font-heading font-bold text-6xl mb-4"
-                >
-                  🎨
-                </motion.h1>
-                <h2 className="font-heading font-bold text-3xl mb-2">
-                  Game Starting!
-                </h2>
-                <p className="text-xl">
-                  Time to get sketchy...
-                </p>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+
       </div>
     </>
   );

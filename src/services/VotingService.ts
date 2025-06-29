@@ -98,22 +98,27 @@ export class VotingService {
         .single();
 
       if (error) {
-        console.error('Error casting vote:', error);
         return { success: false, error: 'Failed to cast vote', code: 'DATABASE_ERROR' };
       }
+
+      // Get updated vote count for the submission
+      const { data: voteCount, error: countError } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('submission_id', request.submission_id);
+
+      const totalVotes = voteCount?.length || 1; // At least 1 since we just cast a vote
 
       // Broadcast vote cast event via real-time service
       try {
         const realtimeService = RealtimeGameService.getInstance();
-        await realtimeService.broadcastVoteCast(request.submission_id);
+        await realtimeService.broadcastVoteCast(request.submission_id, totalVotes);
       } catch (realtimeError) {
-        console.warn('Failed to broadcast vote cast:', realtimeError);
         // Don't fail the vote operation if real-time broadcast fails
       }
 
       return { success: true, data };
     } catch (error) {
-      console.error('Unexpected error casting vote:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -152,8 +157,8 @@ export class VotingService {
         return { success: false, error: 'Game not found', code: 'GAME_NOT_FOUND' };
       }
 
-      if (!['results', 'completed'].includes(game.status)) {
-        return { success: false, error: 'Vote details are only available after voting is complete', code: 'INVALID_STATUS' };
+      if (!['voting', 'results', 'completed'].includes(game.status)) {
+        return { success: false, error: 'Vote details are only available during voting or after voting is complete', code: 'INVALID_STATUS' };
       }
 
       // Get votes with user details
@@ -167,7 +172,6 @@ export class VotingService {
         .eq('game_id', gameId);
 
       if (error) {
-        console.error('Error fetching game votes:', error);
         return { success: false, error: 'Failed to fetch votes', code: 'DATABASE_ERROR' };
       }
 
@@ -181,7 +185,6 @@ export class VotingService {
 
       return { success: true, data: votesWithDetails };
     } catch (error) {
-      console.error('Unexpected error fetching votes:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -204,13 +207,11 @@ export class VotingService {
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error fetching user vote:', error);
         return { success: false, error: 'Failed to fetch vote', code: 'DATABASE_ERROR' };
       }
 
       return { success: true, data: data || null };
     } catch (error) {
-      console.error('Unexpected error fetching user vote:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }
@@ -264,7 +265,6 @@ export class VotingService {
       });
 
       if (resultError) {
-        console.error('Error calculating game results:', resultError);
         return { success: false, error: 'Failed to calculate game results', code: 'DATABASE_ERROR' };
       }
 
@@ -275,7 +275,6 @@ export class VotingService {
         .eq('game_id', gameId);
 
       if (voteError) {
-        console.error('Error counting votes:', voteError);
         return { success: false, error: 'Failed to count votes', code: 'DATABASE_ERROR' };
       }
 
@@ -287,7 +286,6 @@ export class VotingService {
         .is('left_at', null);
 
       if (countError) {
-        console.error('Error counting participants:', countError);
         return { success: false, error: 'Failed to count participants', code: 'DATABASE_ERROR' };
       }
 
@@ -298,7 +296,6 @@ export class VotingService {
         .eq('game_id', gameId);
 
       if (subCountError) {
-        console.error('Error counting submissions:', subCountError);
         return { success: false, error: 'Failed to count submissions', code: 'DATABASE_ERROR' };
       }
 
@@ -329,7 +326,6 @@ export class VotingService {
 
       return { success: true, data: gameResults };
     } catch (error) {
-      console.error('Unexpected error getting game results:', error);
       return { success: false, error: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' };
     }
   }

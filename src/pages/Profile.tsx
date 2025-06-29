@@ -11,9 +11,11 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Seo from '../components/utils/Seo';
 import CountrySelect from '../components/ui/CountrySelect';
-import { userPaymentMethods, userBillingHistory, boosterPacks } from '../data/mockData';
+import { userPaymentMethods, userBillingHistory } from '../data/mockData';
 import BoosterPacksGrid from '../components/sections/BoosterPacksGrid';
-import { Country } from '../types';
+import { Country, LegacyBoosterPack } from '../types';
+import { BoosterPackService } from '../services/BoosterPackService';
+import { transformBoosterPackForUI } from '../utils/boosterPackAdapter';
 
 // Tabs
 const tabs = [
@@ -34,6 +36,8 @@ const Profile: React.FC = () => {
   const { currentUser, isLoggedIn, isLoading, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const boosterPacksRef = useRef<HTMLDivElement>(null);
+  const [userOwnedPacks, setUserOwnedPacks] = useState<LegacyBoosterPack[]>([]);
+  const [packsLoading, setPacksLoading] = useState(true);
 
   // If not logged in, redirect to login
   React.useEffect(() => {
@@ -44,6 +48,35 @@ const Profile: React.FC = () => {
       setEmail(currentUser.email);
     }
   }, [isLoggedIn, currentUser, navigate, isLoading]);
+
+  // Fetch user's owned booster packs
+  React.useEffect(() => {
+    const fetchUserPacks = async () => {
+      if (!isLoggedIn || !currentUser) {
+        setPacksLoading(false);
+        return;
+      }
+
+      try {
+        setPacksLoading(true);
+        const response = await BoosterPackService.getAvailablePacks();
+
+        if (response.success && response.data) {
+          // Filter only owned packs and transform to UI format
+          const ownedPacks = response.data
+            .filter(pack => pack.is_owned)
+            .map(pack => transformBoosterPackForUI(pack));
+          setUserOwnedPacks(ownedPacks);
+        }
+      } catch (error) {
+        console.error('Error fetching user packs:', error);
+      } finally {
+        setPacksLoading(false);
+      }
+    };
+
+    fetchUserPacks();
+  }, [isLoggedIn, currentUser]);
 
   if (isLoading) {
     return (
@@ -169,10 +202,7 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Filter booster packs to simulate user's owned packs
-  const userOwnedPacks = boosterPacks.filter(pack => 
-    pack.type === 'free' || pack.type === 'premium'
-  );
+
   
   return (
     <>
@@ -494,17 +524,41 @@ const Profile: React.FC = () => {
                       <h2 className="font-heading font-bold text-2xl">Your Booster Packs</h2>
                     </div>
                     
-                    <BoosterPacksGrid packs={userOwnedPacks} ref={boosterPacksRef} />
-                    
-                    <div className="mt-8 text-center">
-                      <Button 
-                        variant="secondary" 
-                        size="md" 
-                        to="/premium#booster-packs"
-                      >
-                        Get More Packs
-                      </Button>
-                    </div>
+                    {packsLoading ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                        <p className="text-medium-gray">Loading your booster packs...</p>
+                      </div>
+                    ) : userOwnedPacks.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="bg-off-white border-2 border-light-gray rounded-lg p-6">
+                          <Package size={48} className="text-medium-gray mx-auto mb-4" />
+                          <h3 className="font-heading font-bold text-lg text-dark mb-2">No Booster Packs Yet</h3>
+                          <p className="text-medium-gray mb-4">You haven't unlocked any booster packs yet.</p>
+                          <Button
+                            variant="primary"
+                            size="md"
+                            to="/premium#booster-packs"
+                          >
+                            Browse Booster Packs
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <BoosterPacksGrid packs={userOwnedPacks} ref={boosterPacksRef} />
+
+                        <div className="mt-8 text-center">
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            to="/premium#booster-packs"
+                          >
+                            Get More Packs
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,16 +1,22 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import PremiumHero from '../components/sections/PremiumHero';
 import PricingSection from '../components/sections/PricingSection';
 import BoosterPacksGrid from '../components/sections/BoosterPacksGrid';
 import BottomCTA from '../components/sections/BottomCTA';
 import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
-import { boosterPacks, subscriptionBenefits } from '../data/mockData';
+import { subscriptionBenefits } from '../data/mockData';
+import { BoosterPackService } from '../services/BoosterPackService';
+import { transformBoosterPackForUI } from '../utils/boosterPackAdapter';
+import { LegacyBoosterPack } from '../types';
 
 const Premium: React.FC = () => {
   const boosterPacksRef = useRef<HTMLDivElement>(null);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  
+  const [boosterPacks, setBoosterPacks] = useState<LegacyBoosterPack[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const openEmailModal = () => setIsEmailModalOpen(true);
   const closeEmailModal = () => setIsEmailModalOpen(false);
   
@@ -19,6 +25,33 @@ const Premium: React.FC = () => {
       boosterPacksRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  // Fetch booster packs from database
+  useEffect(() => {
+    const fetchBoosterPacks = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await BoosterPackService.getAllPacks();
+
+        if (response.success && response.data) {
+          // Transform database packs to legacy UI format
+          const transformedPacks = response.data.map(pack => transformBoosterPackForUI(pack));
+          setBoosterPacks(transformedPacks);
+        } else {
+          setError(response.error || 'Failed to load booster packs');
+        }
+      } catch (err) {
+        console.error('Error fetching booster packs:', err);
+        setError('An unexpected error occurred while loading booster packs');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBoosterPacks();
+  }, []);
   
   return (
     <>
@@ -50,7 +83,34 @@ const Premium: React.FC = () => {
             </p>
           </div>
           
-          <BoosterPacksGrid packs={boosterPacks} />
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-medium-gray text-lg">Loading booster packs...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="bg-red/10 border border-red text-red p-6 rounded-lg max-w-md mx-auto">
+                <h3 className="font-heading font-bold text-lg mb-2">Failed to Load Packs</h3>
+                <p className="text-sm">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-4 py-2 bg-red text-white rounded-lg hover:bg-red/80 transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          ) : boosterPacks.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="bg-off-white border-2 border-light-gray rounded-lg p-8 max-w-md mx-auto">
+                <h3 className="font-heading font-bold text-lg text-dark mb-2">No Packs Available</h3>
+                <p className="text-medium-gray">No booster packs are currently available.</p>
+              </div>
+            </div>
+          ) : (
+            <BoosterPacksGrid packs={boosterPacks} />
+          )}
         </div>
       </section>
       

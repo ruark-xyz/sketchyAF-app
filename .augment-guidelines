@@ -1,0 +1,3 @@
+- Always run tests with `npm run test:run` to prevent watch mode.
+- Always first apply changes to local supabase.
+- Always use psql when checking the local database instead of writing test scripts.

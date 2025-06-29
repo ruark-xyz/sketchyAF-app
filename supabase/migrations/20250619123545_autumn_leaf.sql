@@ -702,30 +702,3 @@ CREATE OR REPLACE TRIGGER trigger_handle_vote_delete
 CREATE OR REPLACE TRIGGER trigger_update_booster_pack_timestamp
   BEFORE UPDATE ON booster_packs
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- =====================================================
--- INITIAL DATA
--- =====================================================
-
--- Insert default free booster packs
-INSERT INTO booster_packs (title, description, is_premium, asset_directory_name, category, sort_order)
-VALUES 
-  ('Basic Shapes', 'Essential geometric shapes for your drawings', false, 'shapes', 'basics', 1),
-  ('Meme Collection', 'Classic internet memes and reaction faces', false, 'troll', 'memes', 2)
-ON CONFLICT (asset_directory_name) DO NOTHING;
-
--- Grant free packs to all existing users (only if users exist)
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM users LIMIT 1) THEN
-    INSERT INTO user_booster_packs (user_id, booster_pack_id, purchase_method)
-    SELECT
-      u.id,
-      bp.id,
-      'free'::purchase_method
-    FROM users u
-    CROSS JOIN booster_packs bp
-    WHERE bp.is_premium = false
-    ON CONFLICT (user_id, booster_pack_id) DO NOTHING;
-  END IF;
-END $$;

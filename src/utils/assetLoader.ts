@@ -2,6 +2,7 @@
 
 import { ImageAsset, ImageCollection, ImageFormat, IMAGE_MIME_TYPES } from '../types/assets';
 import { AssetManifest } from '../types/manifest';
+import { BoosterPack } from '../types/game';
 
 // Configuration for image asset loading
 const ASSET_CONFIG = {
@@ -232,6 +233,51 @@ export async function loadAllCollections(): Promise<ImageCollection[]> {
   }
 
   return collections;
+}
+
+/**
+ * Load assets from a specific booster pack's directory
+ */
+export async function loadBoosterPackAssets(boosterPack: BoosterPack): Promise<ImageCollection | null> {
+  if (!boosterPack.asset_directory_name) {
+    console.warn('Booster pack has no asset directory name:', boosterPack);
+    return null;
+  }
+
+  try {
+    const assets = await loadCollectionAssets(boosterPack.asset_directory_name);
+
+    const collection: ImageCollection = {
+      id: boosterPack.asset_directory_name,
+      name: boosterPack.asset_directory_name,
+      displayName: boosterPack.title,
+      assets,
+      totalCount: assets.length,
+    };
+
+    return collection;
+  } catch (error) {
+    console.error(`Failed to load booster pack assets for ${boosterPack.title}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Validate if a booster pack has available assets
+ */
+export async function validateBoosterPackAssets(boosterPack: BoosterPack): Promise<boolean> {
+  if (!boosterPack.asset_directory_name) {
+    return false;
+  }
+
+  try {
+    const manifest = await loadManifest();
+    const collection = manifest.collections[boosterPack.asset_directory_name];
+    return collection && collection.files.length > 0;
+  } catch (error) {
+    console.error(`Failed to validate booster pack assets for ${boosterPack.title}:`, error);
+    return false;
+  }
 }
 
 /**

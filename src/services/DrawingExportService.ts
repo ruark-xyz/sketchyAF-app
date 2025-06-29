@@ -64,25 +64,6 @@ export class DrawingExportService {
     files?: BinaryFiles | null
   ): Promise<ServiceResponse<Blob>> {
     try {
-      console.log('DrawingExportService: Exporting with:', {
-        elementCount: elements.length,
-        filesCount: files ? Object.keys(files).length : 0,
-        files: files,
-        options: options
-      });
-
-      // Debug: Check for image elements and their file references
-      const imageElements = elements.filter(el => el.type === 'image' && !el.isDeleted);
-      console.log('DrawingExportService: Image elements found:', imageElements.map(el => ({
-        id: el.id,
-        fileId: (el as any).fileId,
-        type: el.type
-      })));
-
-      if (files) {
-        console.log('DrawingExportService: Available file IDs:', Object.keys(files));
-      }
-
       // Validate elements
       const validation = this.validateDrawing(elements);
       if (!validation.isValid) {
@@ -152,7 +133,6 @@ export class DrawingExportService {
 
       return { success: true, data: blob };
     } catch (error) {
-      console.error('Failed to export drawing to image:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown export error',
@@ -186,7 +166,6 @@ export class DrawingExportService {
         });
 
       if (uploadError) {
-        console.error('Failed to upload drawing:', uploadError);
         return { 
           success: false, 
           error: uploadError.message,
@@ -222,17 +201,13 @@ export class DrawingExportService {
               .getPublicUrl(thumbnailFileName);
             
             result.thumbnailUrl = thumbUrlData.publicUrl;
-          } else {
-            console.warn('Failed to upload thumbnail:', thumbUploadError);
           }
         } catch (thumbError) {
-          console.warn('Failed to generate thumbnail:', thumbError);
         }
       }
 
       return { success: true, data: result };
     } catch (error) {
-      console.error('Failed to upload to storage:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown upload error',
@@ -471,9 +446,9 @@ export class DrawingExportService {
   ): DrawingMetadata {
     const validation = this.validateDrawing(elements);
 
-    // Extract canvas dimensions
-    const canvasWidth = appState.width || 800;
-    const canvasHeight = appState.height || 600;
+    // Extract canvas dimensions and ensure they are integers
+    const canvasWidth = Math.round(appState.width || 800);
+    const canvasHeight = Math.round(appState.height || 600);
 
     // Extract assets used from image elements
     const assetsUsed: string[] = [];
@@ -490,7 +465,7 @@ export class DrawingExportService {
     return {
       elementCount: validation.elementCount,
       complexity: validation.complexity,
-      drawingTime,
+      drawingTime: Math.round(drawingTime),
       canvasWidth,
       canvasHeight,
       fileSize,
