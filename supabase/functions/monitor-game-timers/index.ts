@@ -84,9 +84,9 @@ serve(async (req) => {
 
       // Try to acquire the lock with enhanced function
       const { data: lockResult, error: lockError } = await supabase.rpc('acquire_advisory_lock_enhanced', {
-        lock_key: lockKey,
-        timeout_seconds: 60, // 1 minute timeout for timer monitoring
-        acquired_by: 'monitor-game-timers'
+        p_lock_key: lockKey,
+        p_timeout_seconds: 60, // 1 minute timeout for timer monitoring
+        p_acquired_by: 'monitor-game-timers'
       });
 
       if (lockError) {
@@ -313,7 +313,7 @@ serve(async (req) => {
       if (lockAcquired) {
         console.log('Releasing enhanced advisory lock');
         try {
-          await supabase.rpc('release_advisory_lock_enhanced', { lock_key: lockKey });
+          await supabase.rpc('release_advisory_lock_enhanced', { p_lock_key: lockKey });
           console.log('Enhanced advisory lock released successfully');
         } catch (releaseError) {
           console.error('Failed to release enhanced advisory lock:', releaseError);

@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS advisory_lock_metadata (
 
 -- Enhanced function to acquire advisory lock with metadata tracking
 CREATE OR REPLACE FUNCTION acquire_advisory_lock_enhanced(
-  lock_key TEXT, 
-  timeout_seconds INTEGER DEFAULT 10,
-  acquired_by TEXT DEFAULT 'unknown'
+  p_lock_key TEXT,
+  p_timeout_seconds INTEGER DEFAULT 10,
+  p_acquired_by TEXT DEFAULT 'unknown'
 )
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -33,49 +33,49 @@ DECLARE
 BEGIN
   -- First, check if there's an existing lock that has timed out
   SELECT EXTRACT(EPOCH FROM (now() - acquired_at))::INTEGER INTO existing_lock_age
-  FROM advisory_lock_metadata 
-  WHERE advisory_lock_metadata.lock_key = acquire_advisory_lock_enhanced.lock_key;
-  
+  FROM advisory_lock_metadata
+  WHERE lock_key = p_lock_key;
+
   -- If lock exists and is older than its timeout, force release it
   IF existing_lock_age IS NOT NULL AND existing_lock_age > (
-    SELECT m.timeout_seconds FROM advisory_lock_metadata m
-    WHERE m.lock_key = acquire_advisory_lock_enhanced.lock_key
+    SELECT timeout_seconds FROM advisory_lock_metadata
+    WHERE lock_key = p_lock_key
   ) THEN
-    RAISE NOTICE 'Forcing release of stuck advisory lock: % (age: %s)', lock_key, existing_lock_age;
-    PERFORM pg_advisory_unlock(hashtext(lock_key));
-    DELETE FROM advisory_lock_metadata WHERE lock_key = acquire_advisory_lock_enhanced.lock_key;
+    RAISE NOTICE 'Forcing release of stuck advisory lock: % (age: %s)', p_lock_key, existing_lock_age;
+    PERFORM pg_advisory_unlock(hashtext(p_lock_key));
+    DELETE FROM advisory_lock_metadata WHERE lock_key = p_lock_key;
   END IF;
-  
+
   -- Try to acquire the lock
-  SELECT pg_try_advisory_lock(hashtext(lock_key)) INTO lock_acquired;
-  
+  SELECT pg_try_advisory_lock(hashtext(p_lock_key)) INTO lock_acquired;
+
   -- If successful, record metadata
   IF lock_acquired THEN
     INSERT INTO advisory_lock_metadata (lock_key, acquired_at, acquired_by, timeout_seconds)
-    VALUES (lock_key, now(), acquired_by, timeout_seconds)
-    ON CONFLICT (lock_key) 
-    DO UPDATE SET 
+    VALUES (p_lock_key, now(), p_acquired_by, p_timeout_seconds)
+    ON CONFLICT (lock_key)
+    DO UPDATE SET
       acquired_at = now(),
       acquired_by = EXCLUDED.acquired_by,
       timeout_seconds = EXCLUDED.timeout_seconds;
   END IF;
-  
+
   RETURN lock_acquired;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Enhanced function to release advisory lock with metadata cleanup
-CREATE OR REPLACE FUNCTION release_advisory_lock_enhanced(lock_key TEXT)
+CREATE OR REPLACE FUNCTION release_advisory_lock_enhanced(p_lock_key TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
   lock_released BOOLEAN;
 BEGIN
   -- Release the lock
-  SELECT pg_advisory_unlock(hashtext(lock_key)) INTO lock_released;
-  
+  SELECT pg_advisory_unlock(hashtext(p_lock_key)) INTO lock_released;
+
   -- Clean up metadata regardless of release result
-  DELETE FROM advisory_lock_metadata WHERE lock_key = release_advisory_lock_enhanced.lock_key;
-  
+  DELETE FROM advisory_lock_metadata WHERE lock_key = p_lock_key;
+
   RETURN lock_released;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -139,17 +139,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- =====================================================
 
 -- Update the original functions to use enhanced versions for backward compatibility
-CREATE OR REPLACE FUNCTION acquire_advisory_lock(lock_key TEXT, timeout_seconds INTEGER DEFAULT 10)
+CREATE OR REPLACE FUNCTION acquire_advisory_lock(p_lock_key TEXT, p_timeout_seconds INTEGER DEFAULT 10)
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN acquire_advisory_lock_enhanced(lock_key, timeout_seconds, 'legacy_caller');
+  RETURN acquire_advisory_lock_enhanced(p_lock_key, p_timeout_seconds, 'legacy_caller');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION release_advisory_lock(lock_key TEXT)
+CREATE OR REPLACE FUNCTION release_advisory_lock(p_lock_key TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN release_advisory_lock_enhanced(lock_key);
+  RETURN release_advisory_lock_enhanced(p_lock_key);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
