@@ -247,15 +247,7 @@ const ExcalidrawDraw = () => {
           <ExcalidrawCanvas gameContext={drawingContext} />
         </Suspense>
 
-        {/* Debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 right-4 bg-black text-white p-2 text-xs rounded z-50">
-            <div>Game: {currentGame?.id}</div>
-            <div>Status: {currentGame?.status}</div>
-            <div>Drawing Context: {drawingContext ? 'Yes' : 'No'}</div>
-            <div>Time Remaining: {drawingContext?.timeRemaining || 0}s</div>
-          </div>
-        )}
+
       </div>
     </>
   );

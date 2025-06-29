@@ -86,7 +86,6 @@ export function useSimpleTimer({ gameId, refreshInterval = 15 }: UseSimpleTimerO
     if (!gameId || !addEventListener || !removeEventListener) return;
 
     const handlePhaseChanged = (event: GameEvent) => {
-      console.log('🕐 Timer: Phase changed event received', event);
 
       // If the event includes full game data, extract timer info
       if (event.data?.game) {
@@ -103,12 +102,6 @@ export function useSimpleTimer({ gameId, refreshInterval = 15 }: UseSimpleTimerO
             phase: game.status,
             error: null
           }));
-
-          console.log('🕐 Timer: Updated from PubNub event', {
-            timeRemaining,
-            phaseDuration: game.current_phase_duration,
-            phase: game.status
-          });
           return; // Skip API fetch since we have fresh data
         }
       }
@@ -118,7 +111,6 @@ export function useSimpleTimer({ gameId, refreshInterval = 15 }: UseSimpleTimerO
     };
 
     const handleTimerExpired = (event: GameEvent) => {
-      console.log('⏰ Timer: Timer expired event received', event);
       // Trigger immediate refresh when timer expires
       fetchTimerState(true);
     };

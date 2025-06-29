@@ -34,13 +34,7 @@ const VotingScreen: React.FC = () => {
     refresh
   } = useUnifiedGameState({ autoNavigate: true }); // Enable auto-navigation for server-driven transitions
 
-  // Debug game loading
-  console.log('VotingScreen: Game loading state:', {
-    gameId,
-    currentGame: !!currentGame,
-    gameLoading,
-    gameError
-  });
+
 
   // Extract data from unified game state (memoized to prevent re-render loops)
   const participants = useMemo(() =>
@@ -63,16 +57,13 @@ const VotingScreen: React.FC = () => {
 
     const loadVotes = async () => {
       try {
-        console.log('🗳️ Loading votes for game:', currentGame.id);
         const result = await VotingService.getGameVotes(currentGame.id);
         if (result.success && result.data) {
-          console.log('🗳️ Votes loaded:', result.data.length, 'votes');
           setVotes(result.data);
           // Check if current user has voted
           const userVote = result.data.find((vote: any) => vote.voter_id === currentUser.id);
           setHasVoted(!!userVote);
         } else {
-          console.log('🗳️ No votes found or error loading votes:', result.error);
         }
       } catch (error) {
         console.error('Failed to load votes:', error);
@@ -82,14 +73,7 @@ const VotingScreen: React.FC = () => {
     loadVotes();
   }, [currentGame?.id, currentUser?.id, lastUpdated]); // Add lastUpdated to trigger reload when game data changes
 
-  // Debug: Log the game data to see what submissions look like
-  console.log('VotingScreen: currentGame data:', {
-    gameId: currentGame?.id,
-    status: currentGame?.status,
-    submissions: submissions.length,
-    participants: participants.length,
-    submissionsData: submissions
-  });
+
 
   // Set up real-time game events for vote updates
   const {
@@ -118,35 +102,24 @@ const VotingScreen: React.FC = () => {
 
   // Set up real-time event listeners for vote updates
   useEffect(() => {
-    console.log('VotingScreen: Setting up real-time listeners', {
-      gameId: currentGame?.id,
-      realtimeConnected,
-      hasAddEventListener: !!addEventListener
-    });
-
     if (!currentGame?.id || !realtimeConnected) {
-      console.log('VotingScreen: Skipping real-time setup - missing requirements');
       return;
     }
 
     const handleVoteCast = (event: any) => {
-      console.log('🗳️ Vote cast event received:', event);
       // Refresh game state to get updated vote counts
       refresh();
     };
 
     const handleGameStatusChange = (event: any) => {
-      console.log('🎮 Game status change event received:', event);
       // Game status changes are handled by useUnifiedGameState
     };
 
     // Add event listeners
-    console.log('VotingScreen: Adding event listeners for vote_cast and game_status_changed');
     addEventListener('vote_cast', handleVoteCast);
     addEventListener('game_status_changed', handleGameStatusChange);
 
     return () => {
-      console.log('VotingScreen: Removing event listeners');
       removeEventListener('vote_cast', handleVoteCast);
       removeEventListener('game_status_changed', handleGameStatusChange);
     };
@@ -156,15 +129,6 @@ const VotingScreen: React.FC = () => {
   const { votedPlayersCount, totalEligibleVoters } = useMemo(() => {
     const votedCount = votes?.length || 0;
     const eligibleCount = submissions.length;
-
-    // Debug vote counts (only when values change)
-    console.log('Vote counts:', {
-      votedPlayersCount: votedCount,
-      totalEligibleVoters: eligibleCount,
-      totalSubmissions: submissions.length,
-      totalParticipants: participants.length,
-      votes: votes.length
-    });
 
     return {
       votedPlayersCount: votedCount,
@@ -617,7 +581,6 @@ const VotingScreen: React.FC = () => {
                         onClick={() => {
                           // Navigation is handled automatically by server-side transitions
                           // This button is just for display, the server will transition automatically
-                          console.log('Results will be shown automatically when server transitions the game');
                         }}
                         disabled={isLoading}
                       >

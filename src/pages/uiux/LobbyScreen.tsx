@@ -197,49 +197,7 @@ const LobbyScreen: React.FC = () => {
           </div>
         )}
 
-        {/* Debug Info */}
-        <div className="mx-4 mb-4">
-          <div className="bg-gray-100 border rounded-lg p-3 text-xs">
-            <div><strong>User:</strong> {currentUser?.id?.slice(0, 8)}... ({currentUser?.email})</div>
-            <div><strong>Queue Status:</strong> {isInQueue ? 'In Queue' : 'Not in Queue'}</div>
-            <div><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</div>
-            <div><strong>Listening for Matches:</strong> {isListening ? 'Yes' : 'No'}</div>
-            <div><strong>Error:</strong> {error || 'None'}</div>
-            <div className="mt-2 space-x-2">
-              <button
-                onClick={async () => {
-                  const queueState = await (MatchmakingService as any).getQueueState();
-                  console.log('Manual queue check:', queueState);
-                  alert(`Queue has ${queueState.count} players: ${queueState.players.map((p: string) => p.slice(0, 8)).join(', ')}`);
-                }}
-                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-              >
-                Check Queue
-              </button>
-              <button
-                onClick={async () => {
-                  console.log('Manually triggering queue processing...');
-                  const result = await MatchmakingService.triggerQueueProcessing();
-                  console.log('Queue processing result:', result);
-                  alert(result.success ? 'Queue processing triggered!' : `Error: ${result.error}`);
-                }}
-                className="bg-green-500 text-white px-2 py-1 rounded text-xs"
-              >
-                Process Queue
-              </button>
-              <button
-                onClick={async () => {
-                  const matchResult = await (MatchmakingService as any).checkMatchStatus();
-                  console.log('Match status:', matchResult);
-                  alert(`Match found: ${matchResult.data?.match_found ? 'YES' : 'NO'}${matchResult.data?.game_id ? ` - Game: ${matchResult.data.game_id}` : ''}`);
-                }}
-                className="bg-purple-500 text-white px-2 py-1 rounded text-xs"
-              >
-                Check Match
-              </button>
-            </div>
-          </div>
-        </div>
+
 
         {/* Match notifications now handled by server events */}
 
