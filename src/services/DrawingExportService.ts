@@ -446,9 +446,9 @@ export class DrawingExportService {
   ): DrawingMetadata {
     const validation = this.validateDrawing(elements);
 
-    // Extract canvas dimensions
-    const canvasWidth = appState.width || 800;
-    const canvasHeight = appState.height || 600;
+    // Extract canvas dimensions and ensure they are integers
+    const canvasWidth = Math.round(appState.width || 800);
+    const canvasHeight = Math.round(appState.height || 600);
 
     // Extract assets used from image elements
     const assetsUsed: string[] = [];
@@ -465,7 +465,7 @@ export class DrawingExportService {
     return {
       elementCount: validation.elementCount,
       complexity: validation.complexity,
-      drawingTime,
+      drawingTime: Math.round(drawingTime),
       canvasWidth,
       canvasHeight,
       fileSize,

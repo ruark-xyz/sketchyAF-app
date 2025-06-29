@@ -62,10 +62,10 @@ export class SubmissionService {
         drawing_data: request.drawing_data,
         drawing_url: request.drawing_url,
         drawing_thumbnail_url: request.drawing_thumbnail_url,
-        canvas_width: request.canvas_width,
-        canvas_height: request.canvas_height,
-        element_count: request.element_count,
-        drawing_time_seconds: request.drawing_time_seconds,
+        canvas_width: request.canvas_width ? Math.round(request.canvas_width) : null,
+        canvas_height: request.canvas_height ? Math.round(request.canvas_height) : null,
+        element_count: request.element_count ? Math.round(request.element_count) : null,
+        drawing_time_seconds: request.drawing_time_seconds ? Math.round(request.drawing_time_seconds) : null,
       };
 
       // Use upsert to allow updating submissions during drawing phase
