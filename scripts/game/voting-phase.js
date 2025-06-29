@@ -274,10 +274,10 @@ const MOCK_DRAWINGS = [
 
 // Placeholder image URLs for submissions
 const PLACEHOLDER_IMAGES = [
-  'https://via.placeholder.com/400x300/ff6b6b/ffffff?text=Robot+Drawing+1',
-  'https://via.placeholder.com/400x300/4ecdc4/ffffff?text=Robot+Drawing+2',
-  'https://via.placeholder.com/400x300/9b59b6/ffffff?text=Robot+Drawing+3',
-  'https://via.placeholder.com/400x300/f1c40f/000000?text=Robot+Drawing+4'
+  'https://placehold.co/600x400/ff6b6b/ffffff?text=Robot+Drawing+1',
+  'https://placehold.co/600x400/4ecdc4/ffffff?text=Robot+Drawing+2',
+  'https://placehold.co/600x400/9b59b6/ffffff?text=Robot+Drawing+3',
+  'https://placehold.co/600x400/f1c40f/000000?text=Robot+Drawing+4'
 ];
 
 /**
