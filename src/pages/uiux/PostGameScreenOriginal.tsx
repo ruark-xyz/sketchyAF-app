@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Download,
-  Share2,
-  User,
-  Play,
-  Trophy,
-  Heart,
-  AlertCircle,
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  TrendingUp, 
+  Download, 
+  Share2, 
+  User, 
+  Play, 
+  Package, 
+  Trophy, 
+  Star, 
+  Zap, 
   Crown,
   Medal,
+  Target,
+  Gift,
+  ArrowRight,
   Eye,
+  Heart,
   Users,
-  Zap
+  Calendar,
+  ChevronRight,
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
@@ -21,7 +30,66 @@ import { useGame } from '../../context/GameContext';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useAuth } from '../../context/AuthContext';
 
-// Note: Achievement and booster pack data will be implemented when backend APIs are ready
+// Achievement data (would come from backend in production)
+const ACHIEVEMENT_PROGRESS = [
+  {
+    id: 'games-played',
+    name: 'Sketch Addict',
+    description: 'Play 150 games',
+    progress: 1,
+    maxProgress: 150,
+    icon: '🎮',
+    category: 'Participation'
+  },
+  {
+    id: 'win-streak',
+    name: 'Hot Streak',
+    description: 'Win 3 games in a row',
+    progress: 1,
+    maxProgress: 3,
+    icon: '🔥',
+    category: 'Performance'
+  },
+  {
+    id: 'vote-getter',
+    name: 'Vote Magnet',
+    description: 'Get 100 total votes',
+    progress: 1,
+    maxProgress: 100,
+    icon: '❤️',
+    category: 'Social'
+  }
+];
+
+// Featured booster packs (would come from backend in production)
+const FEATURED_BOOSTER_PACKS = [
+  {
+    id: 'weekly-special',
+    name: 'Weekly Special',
+    description: '50% off premium packs',
+    originalPrice: '$4.99',
+    salePrice: '$2.49',
+    icon: '⚡',
+    isLimitedTime: true,
+    timeLeft: '2 days'
+  },
+  {
+    id: 'trending-pack',
+    name: 'Trending Memes',
+    description: 'Latest viral content',
+    price: '$3.99',
+    icon: '📈',
+    isNew: true
+  },
+  {
+    id: 'free-pack',
+    name: 'Daily Free Pack',
+    description: 'Claim your daily reward',
+    price: 'FREE',
+    icon: '🎁',
+    isFree: true
+  }
+];
 
 const PostGameScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -41,14 +109,20 @@ const PostGameScreen: React.FC = () => {
   // Get actions from GameContext for resetGameState
   const { actions } = useGame();
 
+  const [showFullStats, setShowFullStats] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   const [userSubmission, setUserSubmission] = useState<any>(null);
-  const [gameResults, setGameResults] = useState<{
-    placement: number;
-    voteCount: number;
-    xpGained: number;
-    isWinner: boolean;
-  } | null>(null);
+  const [userStats, setUserStats] = useState({
+    totalGames: 1,
+    totalWins: 0,
+    winRate: 0,
+    currentRank: 0,
+    previousRank: 0,
+    level: 1,
+    currentXP: 0,
+    nextLevelXP: 100,
+    xpToNextLevel: 100
+  });
 
   // Calculate user stats when data is available
   useEffect(() => {
@@ -66,20 +140,16 @@ const PostGameScreen: React.FC = () => {
         });
 
         const placement = sortedSubmissions.findIndex((s: any) => s.id === submission.id) + 1;
-        const voteCount = votes.filter((v: any) => v.submission_id === submission.id).length;
-
-        // Calculate XP based on placement and votes
-        const baseXP = 10;
-        const placementBonus = Math.max(0, (submissions.length - placement + 1) * 5);
-        const voteBonus = voteCount * 2;
-        const xpGained = baseXP + placementBonus + voteBonus;
-
-        setGameResults({
-          placement,
-          voteCount,
-          xpGained,
-          isWinner: placement === 1
-        });
+        
+        // Update user stats
+        setUserStats(prev => ({
+          ...prev,
+          totalWins: placement === 1 ? prev.totalWins + 1 : prev.totalWins,
+          winRate: Math.round((placement === 1 ? prev.totalWins + 1 : prev.totalWins) / (prev.totalGames) * 100),
+          currentRank: 847 - (placement === 1 ? 50 : placement === 2 ? 30 : placement === 3 ? 15 : 5),
+          previousRank: 847,
+          currentXP: prev.currentXP + (placement === 1 ? 100 : placement === 2 ? 75 : placement === 3 ? 50 : 25),
+        }));
       }
     }
   }, [submissions, votes, currentUser]);
@@ -128,15 +198,16 @@ const PostGameScreen: React.FC = () => {
     setTimeout(() => setShareSuccess(false), 3000);
   };
 
-  // Helper function for ordinal suffixes
-  const getOrdinalSuffix = (num: number): string => {
-    const j = num % 10;
-    const k = num % 100;
-    if (j === 1 && k !== 11) return num + "st";
-    if (j === 2 && k !== 12) return num + "nd";
-    if (j === 3 && k !== 13) return num + "rd";
-    return num + "th";
+  const handleBoosterPackClick = (packId: string) => {
+    // In a real app, this would navigate to purchase flow
+    console.log('Selected booster pack:', packId);
   };
+
+  // Calculate level progress
+  const levelProgress = ((userStats.currentXP - (userStats.nextLevelXP - userStats.xpToNextLevel)) / userStats.xpToNextLevel) * 100;
+  
+  // Calculate rank improvement
+  const rankImprovement = userStats.previousRank - userStats.currentRank;
 
   return (
     <>
@@ -177,59 +248,106 @@ const PostGameScreen: React.FC = () => {
         <div className="p-4 pb-8">
           <div className="max-w-6xl mx-auto space-y-6">
             
-            {/* Game Results */}
-            {gameResults && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-              >
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-4">
-                    <Trophy size={24} className="text-accent mr-2" />
-                    <h2 className="font-heading font-bold text-xl text-dark">Your Results</h2>
+            {/* Player Level & Rank Summary */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Rank Progress */}
+                <div>
+                  <div className="flex items-center mb-4">
+                    <TrendingUp size={24} className="text-primary mr-2" />
+                    <h2 className="font-heading font-bold text-xl text-dark">Leaderboard Progress</h2>
                   </div>
-
-                  <div className={`p-4 rounded-lg border mb-4 ${
-                    gameResults.isWinner
-                      ? 'bg-accent/10 border-accent/30'
-                      : 'bg-primary/10 border-primary/30'
-                  }`}>
-                    <motion.p
-                      initial={{ scale: 0.8 }}
-                      animate={{ scale: 1 }}
-                      className={`font-heading font-bold text-3xl mb-2 ${
-                        gameResults.isWinner ? 'text-accent' : 'text-primary'
-                      }`}
-                    >
-                      {gameResults.isWinner ? '🏆 Winner!' : `#${gameResults.placement}`}
-                    </motion.p>
-                    <p className="text-medium-gray mb-2">
-                      {gameResults.isWinner ? 'Congratulations!' : `${getOrdinalSuffix(gameResults.placement)} Place`}
-                    </p>
-
-                    <div className="flex items-center justify-center text-sm text-dark">
-                      <Heart size={16} className="text-red mr-1" />
-                      <span>{gameResults.voteCount} vote{gameResults.voteCount !== 1 ? 's' : ''}</span>
+                  
+                  <div className="bg-primary/10 p-4 rounded-lg border border-primary/30 mb-4">
+                    <div className="text-center">
+                      <motion.p 
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        className="font-heading font-bold text-3xl text-primary"
+                      >
+                        #{userStats.currentRank}
+                      </motion.p>
+                      <p className="text-medium-gray">Global Rank</p>
+                      
+                      {rankImprovement > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="flex items-center justify-center mt-2 text-green"
+                        >
+                          <TrendingUp size={16} className="mr-1" />
+                          <span className="text-sm font-heading font-semibold">
+                            +{rankImprovement} spots!
+                          </span>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-3 text-sm">
                     <div className="text-center">
-                      <p className="font-heading font-bold text-lg text-green">+{gameResults.xpGained}</p>
-                      <p className="text-medium-gray">XP Earned</p>
+                      <p className="font-heading font-bold text-lg">{userStats.totalGames}</p>
+                      <p className="text-medium-gray">Games</p>
                     </div>
                     <div className="text-center">
-                      <p className="font-heading font-bold text-lg text-red">{gameResults.voteCount}</p>
-                      <p className="text-medium-gray">Votes</p>
+                      <p className="font-heading font-bold text-lg">{userStats.totalWins}</p>
+                      <p className="text-medium-gray">Wins</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-heading font-bold text-lg">{userStats.winRate}%</p>
+                      <p className="text-medium-gray">Win Rate</p>
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            )}
 
-            {/* Note: Level progress and detailed stats will be implemented when user profile system is ready */}
+                {/* Level Progress */}
+                <div>
+                  <div className="flex items-center mb-4">
+                    <Star size={24} className="text-accent mr-2" />
+                    <h2 className="font-heading font-bold text-xl text-dark">Level Progress</h2>
+                  </div>
+                  
+                  <div className="bg-accent/10 p-4 rounded-lg border border-accent/30 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-heading font-bold text-2xl text-accent">
+                        Level {userStats.level}
+                      </span>
+                      <span className="text-sm text-medium-gray">
+                        {userStats.xpToNextLevel} XP to go
+                      </span>
+                    </div>
+                    
+                    <div className="w-full bg-light-gray rounded-full h-3">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${levelProgress}%` }}
+                        transition={{ duration: 1, delay: 0.5 }}
+                        className="bg-accent h-3 rounded-full"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-between text-xs text-medium-gray mt-1">
+                      <span>{userStats.currentXP} XP</span>
+                      <span>{userStats.nextLevelXP} XP</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    variant="tertiary" 
+                    size="sm" 
+                    onClick={() => setShowFullStats(!showFullStats)}
+                  >
+                    {showFullStats ? 'Hide' : 'View'} Detailed Stats
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
 
             {/* Final Rankings */}
             {submissions.length > 0 && (
@@ -463,9 +581,136 @@ const PostGameScreen: React.FC = () => {
               </motion.div>
             </div>
 
-            {/* Note: Achievement progress will be implemented when achievement system is ready */}
+            {/* Achievement Progress */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Sparkles size={24} className="text-purple mr-2" />
+                  <h2 className="font-heading font-bold text-xl text-dark">Achievement Progress</h2>
+                </div>
+                <Button variant="tertiary" size="sm">
+                  View All
+                  <ChevronRight size={16} className="ml-1" />
+                </Button>
+              </div>
 
-            {/* Note: Booster pack promotions will be implemented when store system is ready */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {ACHIEVEMENT_PROGRESS.map((achievement, index) => (
+                  <motion.div
+                    key={achievement.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + index * 0.1 }}
+                    className="bg-off-white p-4 rounded-lg border border-light-gray"
+                  >
+                    <div className="flex items-center mb-3">
+                      <span className="text-2xl mr-3">{achievement.icon}</span>
+                      <div>
+                        <p className="font-heading font-semibold text-dark">{achievement.name}</p>
+                        <p className="text-xs text-medium-gray">{achievement.category}</p>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-medium-gray mb-3">{achievement.description}</p>
+                    
+                    <div className="w-full bg-light-gray rounded-full h-2 mb-2">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(achievement.progress / achievement.maxProgress) * 100}%` }}
+                        transition={{ duration: 1, delay: 0.8 + index * 0.1 }}
+                        className="bg-purple h-2 rounded-full"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-between text-xs text-medium-gray">
+                      <span>{achievement.progress}/{achievement.maxProgress}</span>
+                      <span>{Math.round((achievement.progress / achievement.maxProgress) * 100)}%</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Booster Pack Promotions */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
+              className="bg-white rounded-lg border-2 border-dark p-6 hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Package size={24} className="text-orange mr-2" />
+                  <h2 className="font-heading font-bold text-xl text-dark">Booster Pack Store</h2>
+                </div>
+                <div className="bg-red text-white px-2 py-1 rounded-full text-xs font-heading font-bold">
+                  Limited Time!
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {FEATURED_BOOSTER_PACKS.map((pack, index) => (
+                  <motion.button
+                    key={pack.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.9 + index * 0.1 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleBoosterPackClick(pack.id)}
+                    className="bg-off-white p-4 rounded-lg border-2 border-light-gray hover:border-orange transition-all text-left relative"
+                  >
+                    {pack.isLimitedTime && (
+                      <div className="absolute -top-2 -right-2 bg-red text-white px-2 py-1 rounded-full text-xs font-heading font-bold">
+                        {pack.timeLeft}
+                      </div>
+                    )}
+                    
+                    {pack.isNew && (
+                      <div className="absolute -top-2 -right-2 bg-green text-white px-2 py-1 rounded-full text-xs font-heading font-bold">
+                        NEW
+                      </div>
+                    )}
+
+                    <div className="flex items-center mb-3">
+                      <span className="text-3xl mr-3">{pack.icon}</span>
+                      <div>
+                        <p className="font-heading font-bold text-dark">{pack.name}</p>
+                        <p className="text-xs text-medium-gray">{pack.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        {pack.originalPrice && (
+                          <span className="text-xs text-medium-gray line-through mr-2">
+                            {pack.originalPrice}
+                          </span>
+                        )}
+                        <span className={`font-heading font-bold ${
+                          pack.isFree ? 'text-green' : 'text-primary'
+                        }`}>
+                          {pack.salePrice || pack.price}
+                        </span>
+                      </div>
+                      <ArrowRight size={16} className="text-medium-gray" />
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+
+              <div className="mt-4 text-center">
+                <Button variant="secondary" size="sm">
+                  View All Packs
+                  <Package size={16} className="ml-2" />
+                </Button>
+              </div>
+            </motion.div>
 
             {/* Final CTA */}
             <motion.div
@@ -510,7 +755,57 @@ const PostGameScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Note: Detailed stats modal will be implemented when user profile system is ready */}
+        {/* Detailed Stats Modal */}
+        <AnimatePresence>
+          {showFullStats && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+              onClick={() => setShowFullStats(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                className="bg-white rounded-lg border-2 border-dark p-6 max-w-lg w-full hand-drawn shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="font-heading font-bold text-xl text-dark mb-4">Detailed Stats</h3>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-off-white p-3 rounded-lg">
+                    <p className="text-medium-gray">Favorite Category</p>
+                    <p className="font-heading font-bold">Animals</p>
+                  </div>
+                  <div className="bg-off-white p-3 rounded-lg">
+                    <p className="text-medium-gray">Best Rank</p>
+                    <p className="font-heading font-bold">#423</p>
+                  </div>
+                  <div className="bg-off-white p-3 rounded-lg">
+                    <p className="text-medium-gray">Total Votes</p>
+                    <p className="font-heading font-bold">1</p>
+                  </div>
+                  <div className="bg-off-white p-3 rounded-lg">
+                    <p className="text-medium-gray">Avg. Placement</p>
+                    <p className="font-heading font-bold">2.3</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 text-center">
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={() => setShowFullStats(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );
