@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains comprehensive technical documentation for SketchyAF's backend systems, with a focus on the high-performance Database Timer Monitoring System and real-time PubNub integration.
+This directory contains comprehensive technical documentation for SketchyAF's backend systems, with a focus on the high-performance Database Timer Monitoring System and Supabase Realtime integration.
 
 ## 🎯 Quick Navigation
 
@@ -20,8 +20,8 @@ This directory contains comprehensive technical documentation for SketchyAF's ba
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| **[PubNub Integration](pubnub-realtime-integration.md)** | Real-time communication system | Developers |
-| **[Supabase-PubNub Guide](supabase-pubnub-integration-guide.md)** | Database and real-time coordination | Technical leads |
+| **[Supabase Realtime Integration](supabase-realtime-integration.md)** | Native real-time communication system | Developers |
+| **[Enhanced Connection Management](enhanced-realtime-manager.md)** | Robust connection handling and monitoring | Technical leads |
 
 ## 🚀 Getting Started
 
@@ -31,11 +31,11 @@ This directory contains comprehensive technical documentation for SketchyAF's ba
 2. **Set up local environment**:
    ```bash
    npx supabase start
-   npx supabase functions serve
    npm run seed:users
-   npm run monitor:e2e-test
+   npm run monitor:test
    ```
 3. **Understand the system**: [System Overview](database-timer-monitoring-system.md)
+4. **Real-time integration**: [Supabase Realtime Integration](supabase-realtime-integration.md)
 
 ### For DevOps/Production
 

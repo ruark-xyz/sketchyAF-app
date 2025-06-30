@@ -8,7 +8,7 @@ The Database Timer Monitoring System is a high-performance, reliable solution fo
 
 - ⚡ **Ultra-fast execution**: 0-16ms vs 349ms Edge Function approach
 - 🛡️ **100% reliability**: No cold start issues or HTTP timeouts
-- 🔄 **Automatic PubNub broadcasting**: Database triggers handle real-time events
+- 🔄 **Automatic Realtime notifications**: Supabase Realtime handles real-time events
 - 🎯 **Advisory locking**: Prevents concurrent executions
 - 📊 **Comprehensive monitoring**: Built-in statistics and health checking
 
@@ -24,7 +24,7 @@ graph TB
     D --> E[Update Game Status]
     E --> F[Database Trigger]
     F --> G[broadcast_game_event()]
-    G --> H[PubNub Edge Function]
+    G --> H[Supabase Realtime]
     H --> I[Real-time Client Updates]
     
     J[Advisory Lock System] --> B
@@ -90,19 +90,16 @@ CREATE INDEX idx_games_active_timers_v2 ON games(phase_expires_at, status, id)
 WHERE phase_expires_at IS NOT NULL AND status IN ('briefing', 'drawing', 'voting');
 ```
 
-## PubNub Broadcasting Integration
+## Supabase Realtime Integration
 
-### Database Triggers
+### Automatic Notifications
 
-Automatic PubNub broadcasting via database triggers:
+Supabase Realtime automatically broadcasts game changes via postgres_changes events:
 
 ```sql
--- Phase change trigger
-CREATE TRIGGER trigger_broadcast_phase_change
-  AFTER UPDATE OF status ON games
-  FOR EACH ROW 
-  WHEN (OLD.status IS DISTINCT FROM NEW.status)
-  EXECUTE FUNCTION broadcast_game_event('phase_changed');
+-- Games table is included in supabase_realtime publication
+-- This enables automatic postgres_changes events for game status updates
+-- No triggers needed - Supabase handles this natively
 ```
 
 ### Production vs Local Development
