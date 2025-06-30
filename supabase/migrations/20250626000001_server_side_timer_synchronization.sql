@@ -67,18 +67,18 @@ CREATE INDEX IF NOT EXISTS idx_game_transition_log_recent
 -- =====================================================
 
 -- Function to acquire advisory lock with timeout
-CREATE OR REPLACE FUNCTION acquire_advisory_lock(lock_key TEXT, timeout_seconds INTEGER DEFAULT 10)
+CREATE OR REPLACE FUNCTION acquire_advisory_lock(p_lock_key TEXT, p_timeout_seconds INTEGER DEFAULT 10)
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN pg_try_advisory_lock(hashtext(lock_key));
+  RETURN pg_try_advisory_lock(hashtext(p_lock_key));
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to release advisory lock
-CREATE OR REPLACE FUNCTION release_advisory_lock(lock_key TEXT)
+CREATE OR REPLACE FUNCTION release_advisory_lock(p_lock_key TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN pg_advisory_unlock(hashtext(lock_key));
+  RETURN pg_advisory_unlock(hashtext(p_lock_key));
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

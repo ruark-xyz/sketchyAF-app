@@ -83,14 +83,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Update the original functions to use enhanced versions for backward compatibility
 -- Fixed parameter names to avoid column ambiguity
-CREATE FUNCTION acquire_advisory_lock(p_lock_key TEXT, p_timeout_seconds INTEGER DEFAULT 10)
+CREATE OR REPLACE FUNCTION acquire_advisory_lock(p_lock_key TEXT, p_timeout_seconds INTEGER DEFAULT 10)
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN acquire_advisory_lock_enhanced(p_lock_key, p_timeout_seconds, 'legacy_caller');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE FUNCTION release_advisory_lock(p_lock_key TEXT)
+CREATE OR REPLACE FUNCTION release_advisory_lock(p_lock_key TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN release_advisory_lock_enhanced(p_lock_key);
