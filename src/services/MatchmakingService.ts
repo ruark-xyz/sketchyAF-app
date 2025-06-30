@@ -9,6 +9,7 @@ import {
   GAME_CONSTANTS
 } from '../types/game';
 import { GameService } from './GameService';
+import { getRandomPrompt } from '../data/gamePrompts';
 
 // Note: Match notifications are now stored in the database via game_participants table
 // instead of in-memory storage to ensure persistence across browser sessions
@@ -638,20 +639,7 @@ export class MatchmakingService {
    * Get a random drawing prompt
    */
   private static async getRandomPrompt(): Promise<string> {
-    // In a real implementation, this would fetch from a database of prompts
-    const prompts = [
-      "A raccoon having an existential crisis",
-      "Your boss as a potato",
-      "A cat wearing a business suit",
-      "Aliens visiting a fast-food restaurant",
-      "A dinosaur riding a skateboard",
-      "A penguin on vacation in Hawaii",
-      "The internet if it were a person",
-      "A superhero whose power is minor inconvenience",
-      "A ghost trying to use a smartphone",
-      "Two robots falling in love"
-    ];
-    
-    return prompts[Math.floor(Math.random() * prompts.length)];
+    // Use the new prompt system from gamePrompts.ts
+    return getRandomPrompt();
   }
 }

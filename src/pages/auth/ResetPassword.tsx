@@ -82,7 +82,7 @@ const ResetPassword: React.FC = () => {
             <p className="text-medium-gray mb-6">
               Your password has been successfully updated. You will be redirected to the login page shortly.
             </p>
-            <Button variant="primary" to="/uiux/login">
+            <Button variant="primary" to={ROUTE_LOGIN}>
               Go to Login
             </Button>
           </motion.div>
