@@ -5,6 +5,8 @@ import React from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { GameStatus } from '../../types/game';
+import * as ROUTES from '../../constants/routes';
+
 // LoadingSpinner component inline since it doesn't exist
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-cream">
@@ -25,7 +27,7 @@ interface SimpleGameRouteProps {
 export const SimpleGameRoute: React.FC<SimpleGameRouteProps> = ({
   children,
   allowedStatuses,
-  fallbackPath = '/uiux/lobby',
+  fallbackPath = ROUTES.ROUTE_LOBBY,
   requireGameId = true
 }) => {
   const [searchParams] = useSearchParams();
@@ -102,14 +104,14 @@ export const SimpleGameRoute: React.FC<SimpleGameRouteProps> = ({
       switch (status) {
         case 'waiting':
         case 'briefing':
-          return `/uiux/pre-round${params}`;
+          return `${ROUTES.ROUTE_PRE_ROUND}${params}`;
         case 'drawing':
-          return `/uiux/draw${params}`;
+          return `${ROUTES.ROUTE_DRAW}${params}`;
         case 'voting':
-          return `/uiux/voting${params}`;
+          return `${ROUTES.ROUTE_VOTING}${params}`;
         case 'completed':
         case 'cancelled':
-          return `/uiux/post-game${params}`;
+          return `${ROUTES.ROUTE_POST_GAME}${params}`;
         default:
           return fallbackPath;
       }
@@ -140,5 +142,3 @@ export const VotingRoute: React.FC<{ children: React.ReactNode }> = ({ children 
     {children}
   </SimpleGameRoute>
 );
-
-

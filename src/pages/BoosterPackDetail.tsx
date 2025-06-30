@@ -308,7 +308,7 @@ const BoosterPackDetail: React.FC = () => {
                         Already in Collection
                       </Button>
                     ) : !user ? (
-                      <Button variant="primary" to="/uiux/login">
+                      <Button variant="primary" to={ROUTES.ROUTE_LOGIN}>
                         Login to Unlock
                       </Button>
                     ) : pack.is_premium ? (

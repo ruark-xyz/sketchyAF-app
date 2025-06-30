@@ -20,6 +20,7 @@ import Seo from '../../components/utils/Seo';
 import { useGame } from '../../context/GameContext';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useAuth } from '../../context/AuthContext';
+import { ROUTE_LOBBY, ROUTE_PROFILE } from '../../constants/routes';
 
 // Note: Achievement and booster pack data will be implemented when backend APIs are ready
 
@@ -115,11 +116,11 @@ const PostGameScreen: React.FC = () => {
     actions.resetGameState();
     
     // Navigate to lobby
-    navigate('/uiux/lobby');
+    navigate(ROUTE_LOBBY);
   };
 
   const handleViewProfile = () => {
-    navigate('/profile');
+    navigate(ROUTE_PROFILE);
   };
 
   const handleDownloadDrawing = () => {

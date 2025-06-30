@@ -6,6 +6,7 @@ import { useUnifiedGameState } from '../hooks/useUnifiedGameState';
 import { GameDrawingContext } from '../context/GameContext';
 import { UnifiedGameService } from '../services/UnifiedGameService';
 import { DrawingExportService } from '../services/DrawingExportService';
+import { ROUTE_LOBBY, ROUTE_LOGIN } from '../constants/routes';
 
 // Dynamic import to avoid loading Excalidraw on initial bundle
 const ExcalidrawCanvas = React.lazy(() => import('../components/excalidraw/ExcalidrawCanvas'));
@@ -144,10 +145,10 @@ const ExcalidrawDraw = () => {
       if (!gameId || !isLoggedIn || !currentUser) {
         if (!isLoggedIn && gameId) {
           console.log('User not authenticated, redirecting to login');
-          navigate('/uiux/login');
+          navigate(ROUTE_LOGIN);
         } else if (!gameId && isLoggedIn) {
           // No game ID provided, redirect to lobby
-          navigate('/uiux/lobby');
+          navigate(ROUTE_LOBBY);
         }
         return;
       }
@@ -218,7 +219,7 @@ const ExcalidrawDraw = () => {
             <h2 className="text-xl font-bold text-gray-800 mb-2">Game Not Found</h2>
             <p className="text-gray-600 mb-4">The game you're looking for doesn't exist or has ended.</p>
             <button
-              onClick={() => navigate('/uiux/lobby')}
+              onClick={() => navigate(ROUTE_LOBBY)}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Find Another Game

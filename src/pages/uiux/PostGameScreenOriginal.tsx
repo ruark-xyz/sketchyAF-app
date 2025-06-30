@@ -29,6 +29,7 @@ import Seo from '../../components/utils/Seo';
 import { useGame } from '../../context/GameContext';
 import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useAuth } from '../../context/AuthContext';
+import { ROUTE_LOBBY } from '../../constants/routes';
 
 // Achievement data (would come from backend in production)
 const ACHIEVEMENT_PROGRESS = [
@@ -161,7 +162,7 @@ const PostGameScreen: React.FC = () => {
     actions.resetGameState();
     
     // Navigate to lobby
-    navigate('/uiux/lobby');
+    navigate(ROUTE_LOBBY);
   };
 
   const handleViewProfile = () => {

@@ -16,6 +16,7 @@ import BoosterPacksGrid from '../components/sections/BoosterPacksGrid';
 import { Country, LegacyBoosterPack } from '../types';
 import { BoosterPackService } from '../services/BoosterPackService';
 import { transformBoosterPackForUI } from '../utils/boosterPackAdapter';
+import { ROUTE_LOGIN } from '../constants/routes';
 
 // Tabs
 const tabs = [
@@ -42,7 +43,7 @@ const Profile: React.FC = () => {
   // If not logged in, redirect to login
   React.useEffect(() => {
     if (!isLoggedIn && !isLoading) {
-      navigate('/uiux/login');
+      navigate(ROUTE_LOGIN);
     } else if (currentUser) {
       setUsername(currentUser.username);
       setEmail(currentUser.email);

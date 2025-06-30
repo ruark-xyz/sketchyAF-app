@@ -23,6 +23,7 @@ import { useUnifiedGameState } from '../../hooks/useUnifiedGameState';
 import { useSimpleTimer } from '../../hooks/useSimpleTimer';
 import { useAuth } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
+import { ROUTE_LOBBY } from '../../constants/routes';
 
 // Mock data for demo purposes
 const BOOSTER_STENCILS = [
@@ -161,7 +162,7 @@ const DrawingCanvasScreen: React.FC = () => {
 
   const confirmExit = () => {
     // In real app, this would navigate back to lobby
-    navigate('/uiux/lobby');
+    navigate(ROUTE_LOBBY);
   };
 
   const handleUndo = () => {

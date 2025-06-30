@@ -10,6 +10,7 @@ import Seo from '../components/utils/Seo';
 import { gameFeatures, testimonials } from '../data/mockData';
 import { motion } from 'framer-motion';
 import { Route } from 'lucide-react';
+import { ROUTE_ROADMAP } from '../constants/routes';
 
 const Home: React.FC = () => {
   const featuresRef = useRef<HTMLDivElement>(null);
@@ -27,8 +28,7 @@ const Home: React.FC = () => {
       />
       
       <HeroSection 
-        scrollToRef={emailSignupRef} 
-        onEmailSignupClick={openEmailModal}
+        scrollToRef={emailSignupRef}
       />
       
       <div ref={featuresRef}>
@@ -82,19 +82,20 @@ const Home: React.FC = () => {
             Check out our public roadmap to see what we're planning to build next,
             and vote for the features you're most excited about!
           </p>
-          <Button variant="secondary" to="/roadmap">
+          <Button variant="secondary" to={ROUTE_ROADMAP}>
             View Our Roadmap
           </Button>
         </div>
       </motion.section>
       
-      <TestimonialSection testimonials={testimonials} />
+      {/* Hide until we have testimonials */}
+      {/* <TestimonialSection testimonials={testimonials} /> */}
       
       <BottomCTA 
         heading="Ready to Get Sketchy?" 
         subheading="Join the drawing mayhem today and prove that stick figures can be art... sort of."
         buttonText="Join a Game"
-        onEmailSignupClick={openEmailModal}
+        useConditionalNavigation={true}
       />
       
       {/* Email Signup Modal */}

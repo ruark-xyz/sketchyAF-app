@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import EnhancedRealtimeManager, { type ConnectionStatus } from '../services/EnhancedRealtimeManager';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { ROUTE_PRE_ROUND, ROUTE_DRAW, ROUTE_VOTING, ROUTE_POST_GAME, getGameRoute } from '../constants/routes';
 
 interface GameState {
   game: any | null;
@@ -134,15 +135,15 @@ export function useSupabaseRealtimeGameState({
     const gameStatus = updatedGame.status;
 
     let targetPath = '';
-    
-    if (gameStatus === 'briefing' && !currentPath.includes('/uiux/pre-round-briefing')) {
-      targetPath = `/uiux/pre-round-briefing?gameId=${updatedGame.id}`;
-    } else if (gameStatus === 'drawing' && !currentPath.includes('/uiux/draw')) {
-      targetPath = `/uiux/draw?gameId=${updatedGame.id}`;
-    } else if (gameStatus === 'voting' && !currentPath.includes('/uiux/voting')) {
-      targetPath = `/uiux/voting?gameId=${updatedGame.id}`;
-    } else if (gameStatus === 'results' && !currentPath.includes('/uiux/results')) {
-      targetPath = `/uiux/results?gameId=${updatedGame.id}`;
+
+    if (gameStatus === 'briefing' && !currentPath.includes(ROUTE_PRE_ROUND)) {
+      targetPath = getGameRoute(ROUTE_PRE_ROUND, updatedGame.id);
+    } else if (gameStatus === 'drawing' && !currentPath.includes(ROUTE_DRAW)) {
+      targetPath = getGameRoute(ROUTE_DRAW, updatedGame.id);
+    } else if (gameStatus === 'voting' && !currentPath.includes(ROUTE_VOTING)) {
+      targetPath = getGameRoute(ROUTE_VOTING, updatedGame.id);
+    } else if (gameStatus === 'results' && !currentPath.includes(ROUTE_POST_GAME)) {
+      targetPath = getGameRoute(ROUTE_POST_GAME, updatedGame.id);
     }
 
     if (targetPath) {

@@ -40,10 +40,10 @@ describe('ExcalidrawDraw Test Game Logic', () => {
     const actualGameId = 'actual-game-id-456';
 
     // Simulate URL update logic
-    const newUrl = new URL('http://localhost:3000/uiux/draw?gameId=test123');
+    const newUrl = new URL('http://localhost:3000/draw?gameId=test123');
     newUrl.searchParams.set('gameId', actualGameId);
     window.history.replaceState({}, '', newUrl.toString());
 
-    expect(mockReplaceState).toHaveBeenCalledWith({}, '', 'http://localhost:3000/uiux/draw?gameId=actual-game-id-456');
+    expect(mockReplaceState).toHaveBeenCalledWith({}, '', 'http://localhost:3000/draw?gameId=actual-game-id-456');
   });
 });

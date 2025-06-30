@@ -1,17 +1,58 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import LeaderboardTable from '../components/ui/LeaderboardTable';
 import Button from '../components/ui/Button';
 import BottomCTA from '../components/sections/BottomCTA';
 import EmailSignupModal from '../components/ui/EmailSignupModal';
 import Seo from '../components/utils/Seo';
 import { leaderboardData } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { getJoinGameRoute } from '../utils/navigationHelpers';
 
 const Leaderboard: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
   
   const openEmailModal = () => setIsEmailModalOpen(true);
   const closeEmailModal = () => setIsEmailModalOpen(false);
+  
+  const handleJoinGame = () => {
+    const targetRoute = getJoinGameRoute(isLoggedIn);
+    navigate(targetRoute);
+  };
+  
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        staggerChildren: 0.1 
+      } 
+    }
+  };
+  
+  const itemVariants = {
+    hidden: { y: 30, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
+  };
+
+  // Filter drawings based on search term and filter type
+  const filteredDrawings = leaderboardData
+    .filter(drawing => {
+      const matchesSearch = drawing.username.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      if (filterType === 'all') return matchesSearch;
+      if (filterType === 'premium') return matchesSearch && drawing.country?.code === 'US';
+      if (filterType === 'winners') return matchesSearch && drawing.rank <= 3;
+      
+      return matchesSearch;
+    })
+    .sort((a, b) => a.rank - b.rank);
 
   return (
     <>
@@ -29,11 +70,10 @@ const Leaderboard: React.FC = () => {
             className="text-center mb-12 md:mb-16"
           >
             <h1 className="font-heading font-bold text-3xl md:text-5xl text-dark mb-4">
-              SketchyAF Leaderboard (Example)
+              SketchyAF Leaderboard (Coming Soon)
             </h1>
             <p className="text-medium-gray text-lg max-w-2xl mx-auto">
-              This is an example of how our leaderboard will look when the game launches.
-              Soon these will be real players with real (but probably terrible) drawings!
+              We're in the process of rolling out our algorithm for the learderboard. Get playing, get your practice in and we'll let you know when the leaderboard is ready!
             </p>
           </motion.div>
           
@@ -47,14 +87,11 @@ const Leaderboard: React.FC = () => {
               </div>
             </div>
             
-            <LeaderboardTable entries={leaderboardData} />
+            <LeaderboardTable entries={filteredDrawings} />
             
             <div className="mt-8 text-center">
-              <p className="text-medium-gray mb-4">
-                When we launch, you'll be able to compete against these artistic geniuses!
-              </p>
-              <Button variant="primary" onClick={openEmailModal}>
-                Join a Game & Prove It
+              <Button variant="primary" onClick={handleJoinGame}>
+                Get Practicing
               </Button>
             </div>
           </div>
@@ -65,7 +102,7 @@ const Leaderboard: React.FC = () => {
         heading="Ready to Join the Ranks?" 
         subheading="Your terrible drawing skills could earn you a spot on this prestigious leaderboard."
         buttonText="Start Drawing Now"
-        onEmailSignupClick={openEmailModal}
+        useConditionalNavigation={true}
       />
       
       {/* Email Signup Modal */}

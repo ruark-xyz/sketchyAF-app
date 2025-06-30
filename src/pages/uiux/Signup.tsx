@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import * as ROUTES from '../../constants/routes';
 
 interface SignupFormData {
   email: string;
@@ -269,7 +270,7 @@ const Signup: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-medium-gray">
               Already have an account?{' '}
-              <Link to="/uiux/login" className="text-primary font-semibold hover:underline">
+              <Link to={ROUTES.ROUTE_LOGIN} className="text-primary font-semibold hover:underline">
                 Log In
               </Link>
             </p>

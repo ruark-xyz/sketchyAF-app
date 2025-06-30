@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import * as ROUTES from '../../constants/routes';
 
 interface FooterSectionProps {
   title: string;
@@ -23,29 +24,29 @@ const Footer: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
         {/* Quick Links */}
         <FooterSection title="Quick Links">
-          <Link to="/" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_HOME} className="block font-body text-lg hover:text-accent transition-colors">
             Home
           </Link>
-          <Link to="/premium" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_PREMIUM} className="block font-body text-lg hover:text-accent transition-colors">
             Premium
           </Link>
-          <Link to="/leaderboard" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_LEADERBOARD} className="block font-body text-lg hover:text-accent transition-colors">
             Leaderboard
           </Link>
-          <Link to="/art" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_ART} className="block font-body text-lg hover:text-accent transition-colors">
             Art
           </Link>
-          <Link to="/roadmap" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_ROADMAP} className="block font-body text-lg hover:text-accent transition-colors">
             Roadmap
           </Link>
         </FooterSection>
 
         {/* Legal */}
         <FooterSection title="Legal">
-          <Link to="/privacy" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_PRIVACY} className="block font-body text-lg hover:text-accent transition-colors">
             Privacy Policy
           </Link>
-          <Link to="/terms" className="block font-body text-lg hover:text-accent transition-colors">
+          <Link to={ROUTES.ROUTE_TERMS} className="block font-body text-lg hover:text-accent transition-colors">
             Terms of Service
           </Link>
         </FooterSection>
