@@ -158,10 +158,15 @@ PUBNUB_SECRET_KEY=your-secret-key
 
 ### Database Configuration
 
+```bash
+# Store service role key securely in Supabase Vault
+npx supabase secrets set DATABASE_SERVICE_ROLE_KEY="your-production-service-role-key"
+```
+
 ```sql
--- Set configuration for Edge Function calls
-SELECT set_config('app.supabase_url', 'your-supabase-url', false);
-SELECT set_config('app.service_role_key', 'your-service-role-key', false);
+-- Verify vault configuration
+SELECT get_service_role_key() IS NOT NULL as vault_configured;
+SELECT get_supabase_url() as environment_detected;
 ```
 
 ## Usage Examples

@@ -20,20 +20,29 @@ npm run monitor:e2e-test
 
 ### Production Deployment
 
-```sql
--- 1. Configure production settings
-SELECT configure_timer_monitoring_production(
-  'https://your-project.supabase.co',
-  'your-service-role-key'
-);
+```bash
+# 1. Store service role key in vault
+npx supabase secrets set DATABASE_SERVICE_ROLE_KEY="your-production-service-role-key"
 
--- 2. Set up Supabase cron job (in Dashboard)
+# 2. Deploy database functions
+npx supabase db push --linked
+
+# 3. Deploy Edge Functions
+npx supabase functions deploy
+```
+
+```sql
+-- 4. Verify vault configuration
+SELECT get_service_role_key() IS NOT NULL as vault_configured;
+SELECT get_supabase_url() as environment_detected;
+
+-- 5. Verify full deployment
+SELECT * FROM verify_production_deployment();
+
+-- 6. Set up Supabase cron job (in Dashboard)
 -- Name: Timer Monitoring
 -- Schedule: */10 * * * * (every 10 seconds)
 -- Command: SELECT monitor_game_timers_db();
-
--- 3. Verify deployment
-SELECT * FROM verify_production_deployment();
 ```
 
 ## 📋 Essential Commands
@@ -82,7 +91,8 @@ SELECT * FROM get_advisory_lock_status();
 | `monitor_game_timers_db()` | Process expired games | 0-16ms |
 | `get_timer_monitoring_stats()` | System statistics | 1-5ms |
 | `verify_production_deployment()` | Deployment check | 5-15ms |
-| `configure_timer_monitoring_production()` | Production setup | 1-3ms |
+| `get_service_role_key()` | Vault key access | 1-2ms |
+| `get_supabase_url()` | Environment detection | <1ms |
 
 ## 📊 Performance Metrics
 

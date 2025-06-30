@@ -14,6 +14,7 @@ This guide covers the deployment of the Database Timer Monitoring System from lo
 | `20250630000002_fix_pubnub_broadcasting_trigger.sql` | 2025-06-30 | Fix PubNub triggers | ✅ Required |
 | `20250630000003_production_timer_monitoring_deployment.sql` | 2025-06-30 | Production config & verification | ✅ Required |
 | `20250630000004_enable_local_pubnub_testing.sql` | 2025-06-30 | Local development support | 🔧 Development only |
+| `20250630000005_use_vault_for_service_keys.sql` | 2025-06-30 | Secure vault-based key management | ✅ Required |
 
 ### Migration Details
 
@@ -60,13 +61,35 @@ DELETE FROM games WHERE prompt = 'Test trigger';
 **Purpose**: Adds production configuration, monitoring, and verification functions.
 
 **Key Components**:
-- `configure_timer_monitoring_production()` - Production setup
+- `configure_timer_monitoring_production()` - Production setup (deprecated)
 - `get_production_timer_stats()` - Enhanced monitoring
 - `verify_production_deployment()` - Deployment verification
 
 **Verification**:
 ```sql
 -- Run deployment verification
+SELECT * FROM verify_production_deployment();
+```
+
+#### 20250630000005 - Vault Security
+
+**Purpose**: Implements secure vault-based service key management, replacing hardcoded configuration.
+
+**Key Components**:
+- `get_service_role_key()` - Secure vault access
+- `get_supabase_url()` - Environment detection
+- Updated `broadcast_game_event()` and `broadcast_timer_event()` functions
+- Enhanced `verify_production_deployment()` with vault checks
+
+**Verification**:
+```sql
+-- Test vault access
+SELECT get_service_role_key() IS NOT NULL as vault_configured;
+
+-- Test environment detection
+SELECT get_supabase_url() as detected_environment;
+
+-- Full verification
 SELECT * FROM verify_production_deployment();
 ```
 
@@ -99,7 +122,8 @@ npm run monitor:e2e-test
 - [ ] Database backup completed
 - [ ] Edge Functions deployed to production
 - [ ] PubNub configuration verified
-- [ ] Service role key available
+- [ ] Service role key stored in Supabase Vault
+- [ ] Vault access verified
 - [ ] Monitoring dashboard access confirmed
 
 ## Deployment Process
@@ -120,14 +144,20 @@ npx supabase db push
 npx supabase db diff --schema public
 ```
 
-### Step 2: Production Configuration
+### Step 2: Vault Configuration
+
+```bash
+# Store service role key in Supabase Vault
+npx supabase secrets set DATABASE_SERVICE_ROLE_KEY="your-production-service-role-key"
+
+# Verify vault configuration
+npx supabase secrets list
+```
 
 ```sql
--- Configure production settings
-SELECT configure_timer_monitoring_production(
-  'https://your-project.supabase.co',
-  'your-service-role-key-here'
-);
+-- Verify vault access and environment detection
+SELECT get_service_role_key() IS NOT NULL as vault_configured;
+SELECT get_supabase_url() as detected_environment;
 ```
 
 ### Step 3: Cron Job Setup
@@ -169,12 +199,21 @@ Run these queries regularly to monitor system health:
 
 ```sql
 -- Overall system status
-SELECT 
+SELECT
   active_games,
   expired_games,
   next_expiration,
   system_health->>'configuration_status' as config_status
 FROM get_production_timer_stats();
+
+-- Vault configuration health
+SELECT
+  get_service_role_key() IS NOT NULL as vault_key_available,
+  get_supabase_url() as environment_detected,
+  CASE
+    WHEN get_supabase_url() LIKE '%127.0.0.1%' THEN 'LOCAL'
+    ELSE 'PRODUCTION'
+  END as environment_type;
 
 -- Recent execution performance
 SELECT 
@@ -207,6 +246,8 @@ Consider setting up alerts for:
 - Error rate > 5% (system issues)
 - Stuck advisory locks (concurrency issues)
 - No executions for > 60 seconds (cron job failure)
+- Vault access failures (security issues)
+- Environment detection mismatches (configuration issues)
 
 ## Rollback Procedure
 
@@ -281,15 +322,41 @@ npx supabase db reset --debug
 #### 3. PubNub Broadcasting Issues
 
 ```sql
--- Test PubNub configuration
-SELECT test_local_pubnub_broadcasting();
+-- Test vault configuration
+SELECT get_service_role_key() IS NOT NULL as vault_key_available;
+SELECT get_supabase_url() as environment_url;
 
 -- Check Edge Function deployment
-SELECT * FROM verify_production_deployment() 
+SELECT * FROM verify_production_deployment()
 WHERE check_name = 'broadcast_function';
+
+-- Test local PubNub (development only)
+SELECT test_local_pubnub_broadcasting();
 ```
 
-#### 4. Performance Issues
+#### 4. Vault Configuration Issues
+
+```bash
+# Check if vault key exists
+npx supabase secrets list | grep DATABASE_SERVICE_ROLE_KEY
+
+# Re-add vault key if missing
+npx supabase secrets set DATABASE_SERVICE_ROLE_KEY="your-service-role-key"
+```
+
+```sql
+-- Debug vault access
+SELECT
+  get_service_role_key() IS NOT NULL as vault_accessible,
+  get_supabase_url() as detected_url,
+  current_database() as db_name,
+  (SELECT setting FROM pg_settings WHERE name = 'port') as db_port;
+
+-- Check vault permissions
+SELECT name FROM vault.decrypted_secrets WHERE name = 'DATABASE_SERVICE_ROLE_KEY';
+```
+
+#### 5. Performance Issues
 
 ```sql
 -- Check database indexes

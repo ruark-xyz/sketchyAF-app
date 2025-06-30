@@ -141,6 +141,7 @@ The system includes intelligent grace period handling for the drawing phase:
 | `20250630000002_fix_pubnub_broadcasting_trigger.sql` | Fix PubNub triggers for production deployment | 2025-06-30 |
 | `20250630000003_production_timer_monitoring_deployment.sql` | Production configuration and verification | 2025-06-30 |
 | `20250630000004_enable_local_pubnub_testing.sql` | Local development PubNub testing support | 2025-06-30 |
+| `20250630000005_use_vault_for_service_keys.sql` | Secure vault-based service key management | 2025-06-30 |
 
 ### Key Functions Created
 
@@ -151,8 +152,9 @@ monitor_game_timers_db() → TABLE(processed, errors, skipped, execution_time_ms
 -- Statistics and monitoring
 get_timer_monitoring_stats() → TABLE(active_games, expired_games, games_by_status, next_expiration, advisory_locks)
 
--- Production configuration
-configure_timer_monitoring_production(supabase_url, service_role_key) → BOOLEAN
+-- Production configuration (vault-based)
+get_service_role_key() → TEXT
+get_supabase_url() → TEXT
 
 -- Deployment verification
 verify_production_deployment() → TABLE(check_name, status, details)
@@ -239,12 +241,18 @@ npx supabase db diff
 
 #### 2. Configure Production Settings
 
+```bash
+# Store service role key securely in Supabase Vault
+npx supabase secrets set DATABASE_SERVICE_ROLE_KEY="your-production-service-role-key"
+
+# Deploy vault-enabled functions
+npx supabase db push --linked
+```
+
 ```sql
--- Configure production environment
-SELECT configure_timer_monitoring_production(
-  'https://your-project.supabase.co',
-  'your-service-role-key'
-);
+-- Verify vault configuration
+SELECT get_service_role_key() IS NOT NULL as has_vault_key;
+SELECT get_supabase_url() as detected_environment;
 ```
 
 #### 3. Set Up Supabase Cron Job

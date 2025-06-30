@@ -133,30 +133,59 @@ SELECT * FROM get_production_timer_stats();
 
 ## Configuration Functions
 
-### `configure_timer_monitoring_production()`
+### `get_service_role_key()`
 
-**Purpose**: Configure production settings for timer monitoring and PubNub broadcasting.
+**Purpose**: Securely retrieve service role key from Supabase Vault for Edge Function authentication.
 
-**Parameters**:
-- `p_supabase_url` (TEXT): Production Supabase URL
-- `p_service_role_key` (TEXT): Service role key for Edge Function calls
+**Parameters**: None
 
-**Returns**: BOOLEAN (success/failure)
+**Returns**: TEXT (service role key or NULL if not available)
 
 ```sql
 -- Function signature
-configure_timer_monitoring_production(
-  p_supabase_url TEXT,
-  p_service_role_key TEXT
-) RETURNS BOOLEAN
+get_service_role_key() RETURNS TEXT
 ```
 
 **Example Usage**:
 ```sql
-SELECT configure_timer_monitoring_production(
-  'https://your-project.supabase.co',
-  'your-service-role-key'
-);
+-- Check if vault key is available
+SELECT get_service_role_key() IS NOT NULL as has_vault_key;
+```
+
+### `get_supabase_url()`
+
+**Purpose**: Auto-detect environment and return appropriate Supabase URL for Edge Function calls.
+
+**Parameters**: None
+
+**Returns**: TEXT (Supabase URL for current environment)
+
+```sql
+-- Function signature
+get_supabase_url() RETURNS TEXT
+```
+
+**Example Usage**:
+```sql
+-- Check detected environment
+SELECT get_supabase_url() as detected_environment;
+```
+
+### Vault Configuration Setup
+
+**Purpose**: Configure production environment using Supabase Vault for secure key storage.
+
+**CLI Command**:
+```bash
+# Store service role key in vault
+npx supabase secrets set DATABASE_SERVICE_ROLE_KEY="your-production-service-role-key"
+```
+
+**Verification**:
+```sql
+-- Verify vault configuration
+SELECT get_service_role_key() IS NOT NULL as vault_configured;
+SELECT get_supabase_url() as environment_detected;
 ```
 
 ### `configure_local_pubnub_testing()`
