@@ -17,7 +17,14 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run src/__tests__/integration"
+    "test:integration": "vitest run src/__tests__/integration",
+    "monitor:test": "node scripts/test-timer-monitoring.js test",
+    "monitor:stats": "node scripts/test-timer-monitoring.js stats",
+    "monitor:continuous": "node scripts/test-timer-monitoring.js continuous",
+    "monitor:full-test": "node scripts/test-timer-monitoring.js full-test",
+    "monitor:cleanup": "node scripts/test-timer-monitoring.js cleanup",
+    "monitor:e2e-test": "node scripts/test-end-to-end-timer-monitoring.js e2e",
+    "monitor:test-pubnub": "node scripts/test-end-to-end-timer-monitoring.js pubnub"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.17.6",
