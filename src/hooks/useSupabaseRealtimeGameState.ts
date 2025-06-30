@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import EnhancedRealtimeManager, { type ConnectionStatus } from '../services/EnhancedRealtimeManager';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface GameState {
@@ -9,6 +10,7 @@ interface GameState {
   isLoading: boolean;
   error: string | null;
   lastUpdated: number;
+  connectionStatus: ConnectionStatus;
 }
 
 interface UseSupabaseRealtimeGameStateOptions {
@@ -30,10 +32,16 @@ export function useSupabaseRealtimeGameState({
     game: null,
     isLoading: false,
     error: null,
-    lastUpdated: 0
+    lastUpdated: 0,
+    connectionStatus: {
+      status: 'disconnected',
+      reconnectAttempts: 0,
+      isHealthy: false
+    }
   });
 
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const realtimeManager = useRef<EnhancedRealtimeManager>(EnhancedRealtimeManager.getInstance());
+  const subscriptionIdRef = useRef<string | null>(null);
   const navigationInProgressRef = useRef(false);
 
   // Load game data
@@ -149,42 +157,39 @@ export function useSupabaseRealtimeGameState({
     }
   }, [autoNavigate, navigate]);
 
-  // Set up Supabase Realtime subscription
+  // Set up Enhanced Realtime subscription and connection monitoring
   useEffect(() => {
     if (!effectiveGameId) {
       // Clean up existing subscription
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (subscriptionIdRef.current) {
+        realtimeManager.current.unsubscribeFromGameUpdates(
+          effectiveGameId || '',
+          'useSupabaseRealtimeGameState',
+          handleGameUpdate
+        );
+        subscriptionIdRef.current = null;
       }
       return;
     }
 
-    console.log('🔗 Setting up Supabase Realtime subscription for game:', effectiveGameId);
+    console.log('🔗 Setting up Enhanced Realtime subscription for game:', effectiveGameId);
 
-    // Create a new channel for this game
-    const channel = supabase
-      .channel(`game-${effectiveGameId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'games',
-          filter: `id=eq.${effectiveGameId}`
-        },
-        (payload) => {
-          console.log('📡 Realtime game update received:', payload);
-          if (payload.new) {
-            handleGameUpdate(payload.new);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status);
-      });
+    // Subscribe to game updates with enhanced reliability
+    const subscriptionId = realtimeManager.current.subscribeToGameUpdates(
+      effectiveGameId,
+      'useSupabaseRealtimeGameState',
+      handleGameUpdate
+    );
 
-    channelRef.current = channel;
+    subscriptionIdRef.current = subscriptionId;
+
+    // Set up connection status monitoring
+    const removeConnectionListener = realtimeManager.current.addConnectionListener((status) => {
+      setState(prev => ({
+        ...prev,
+        connectionStatus: status
+      }));
+    });
 
     // Load initial game data
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -192,11 +197,19 @@ export function useSupabaseRealtimeGameState({
 
     // Cleanup function
     return () => {
-      if (channelRef.current) {
-        console.log('🔌 Cleaning up Supabase Realtime subscription');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      console.log('🔌 Cleaning up Enhanced Realtime subscription');
+
+      if (subscriptionIdRef.current && effectiveGameId) {
+        realtimeManager.current.unsubscribeFromGameUpdates(
+          effectiveGameId,
+          'useSupabaseRealtimeGameState',
+          handleGameUpdate
+        );
+        subscriptionIdRef.current = null;
       }
+
+      // Remove connection listener
+      removeConnectionListener();
     };
   }, [effectiveGameId, loadGame, handleGameUpdate]);
 
@@ -207,12 +220,25 @@ export function useSupabaseRealtimeGameState({
     }
   }, [effectiveGameId, loadGame]);
 
+  // Force reconnection
+  const forceReconnect = useCallback(() => {
+    realtimeManager.current.forceReconnect();
+  }, []);
+
+  // Get connection health metrics
+  const getHealthMetrics = useCallback(() => {
+    return realtimeManager.current.getHealthMetrics();
+  }, []);
+
   return {
     game: state.game,
     isLoading: state.isLoading,
     error: state.error,
     lastUpdated: state.lastUpdated,
+    connectionStatus: state.connectionStatus,
     refresh,
+    forceReconnect,
+    getHealthMetrics,
     hasGame: !!state.game
   };
 }

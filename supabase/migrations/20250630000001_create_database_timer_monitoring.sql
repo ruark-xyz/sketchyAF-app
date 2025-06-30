@@ -81,13 +81,14 @@ BEGIN
       FROM games g
       WHERE g.phase_expires_at IS NOT NULL
         AND g.phase_expires_at <= now()
-        AND g.status IN ('briefing', 'drawing', 'voting')
+        AND g.status IN ('waiting', 'briefing', 'drawing', 'voting')
       ORDER BY g.phase_expires_at ASC
       LIMIT 50
     LOOP
       BEGIN
         -- Determine next status
         next_status := CASE game_record.current_status
+          WHEN 'waiting' THEN 'briefing'::game_status
           WHEN 'briefing' THEN 'drawing'::game_status
           WHEN 'drawing' THEN 'voting'::game_status
           WHEN 'voting' THEN 'completed'::game_status

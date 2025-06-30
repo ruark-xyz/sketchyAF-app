@@ -15,7 +15,7 @@ npx supabase functions serve
 npm run seed:users
 
 # 4. Test the system
-npm run monitor:e2e-test
+npm run monitor:test
 ```
 
 ### Production Deployment
@@ -53,13 +53,10 @@ SELECT * FROM verify_production_deployment();
 # Core testing
 npm run monitor:test           # Single timer monitoring test
 npm run monitor:stats          # Show current statistics
-npm run monitor:e2e-test       # Complete end-to-end test with PubNub
+npm run monitor:full-test      # Complete test with game creation and transitions
 
 # Production simulation
-npm run monitor:continuous     # Run every 10 seconds like production
-
-# PubNub testing
-npm run monitor:test-pubnub    # Test PubNub Edge Function only
+npm run monitor:continuous     # Run every 10 seconds like production (Supabase Realtime)
 
 # Cleanup
 npm run monitor:cleanup        # Clean up test games
@@ -292,11 +289,11 @@ SELECT configure_local_pubnub_testing();
 
 System is working correctly when:
 
-- [ ] `npm run monitor:e2e-test` passes
+- [ ] `npm run monitor:test` passes
 - [ ] `verify_production_deployment()` shows all PASS
 - [ ] Execution time consistently < 50ms
 - [ ] No errors in monitoring logs
-- [ ] PubNub broadcasting working (timetoken responses)
+- [ ] Supabase Realtime notifications working (postgres_changes events)
 - [ ] Game phase transitions functioning normally
 
 ## 📞 Support
@@ -312,12 +309,12 @@ System is working correctly when:
 
 ```bash
 # Check if system is working
-npm run monitor:e2e-test
+npm run monitor:test
 
 # Check current status
 npm run monitor:stats
 
-# Simulate production
+# Simulate production (Supabase Realtime)
 npm run monitor:continuous
 
 # Clean up if needed

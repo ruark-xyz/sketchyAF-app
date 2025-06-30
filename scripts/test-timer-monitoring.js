@@ -217,11 +217,11 @@ async function cleanupTestGames() {
 }
 
 /**
- * Run continuous monitoring with PubNub broadcasting (simulates production)
+ * Run continuous monitoring with Supabase Realtime (simulates production)
  */
 async function runContinuousMonitoring() {
   console.log('🔄 Starting continuous timer monitoring (every 10 seconds)');
-  console.log('   This simulates the production cron job with PubNub broadcasting');
+  console.log('   This simulates the production cron job with Supabase Realtime notifications');
   console.log('   Press Ctrl+C to stop');
 
   let iteration = 0;
@@ -256,44 +256,18 @@ async function runContinuousMonitoring() {
         clientExecutionTime: `${endTime - startTime}ms`
       });
 
-      // If games were processed, simulate PubNub broadcasting
+      // If games were processed, Supabase Realtime will automatically notify clients
       if (result.processed > 0 && result.details && result.details.games) {
-        console.log('📡 Broadcasting PubNub events for processed games...');
+        console.log('📡 Supabase Realtime will automatically notify clients of game changes...');
 
         for (const gameDetail of result.details.games) {
           if (gameDetail.action === 'transitioned') {
-            try {
-              const pubNubEvent = {
-                type: 'phase_changed',
-                gameId: gameDetail.game_id,
-                timestamp: Date.now(),
-                userId: 'system',
-                version: '1.0.0',
-                data: {
-                  newPhase: gameDetail.to_status,
-                  previousPhase: gameDetail.from_status,
-                  phaseStartedAt: new Date().toISOString(),
-                  transitionTriggeredBy: 'continuous_monitor'
-                }
-              };
-
-              const { data: pubNubResult, error: pubNubError } = await supabase.functions.invoke(
-                'broadcast-pubnub-event',
-                { body: pubNubEvent }
-              );
-
-              if (pubNubError) {
-                console.error(`❌ PubNub broadcast failed for ${gameDetail.game_id}:`, pubNubError);
-              } else {
-                console.log(`✅ PubNub broadcast successful for ${gameDetail.game_id}: ${gameDetail.from_status} → ${gameDetail.to_status}`);
-                if (pubNubResult.gameChannel && pubNubResult.gameChannel.timetoken) {
-                  console.log(`   Timetoken: ${pubNubResult.gameChannel.timetoken}`);
-                }
-              }
-
-            } catch (error) {
-              console.error(`❌ PubNub broadcast error for ${gameDetail.game_id}:`, error.message);
-            }
+            console.log(`✅ Game transition: ${gameDetail.game_id} (${gameDetail.from_status} → ${gameDetail.to_status})`);
+            console.log(`   Clients subscribed to postgres_changes will receive this update automatically`);
+          } else if (gameDetail.action === 'grace_period_started') {
+            console.log(`⏳ Grace period started: ${gameDetail.game_id} (${gameDetail.grace_period_seconds}s)`);
+          } else if (gameDetail.action === 'grace_period_expired') {
+            console.log(`⏰ Grace period expired: ${gameDetail.game_id} (proceeding with transition)`);
           }
         }
       }

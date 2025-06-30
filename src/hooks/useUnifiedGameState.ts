@@ -8,13 +8,14 @@ import { useRealtimeGame } from './useRealtimeGame';
 import { Game, GameStatus } from '../types/game';
 import { PubNubGameService } from '../services/PubNubService';
 import { useAuth } from '../context/AuthContext';
-import SupabaseRealtimeManager from '../services/SupabaseRealtimeManager';
+import EnhancedRealtimeManager, { type ConnectionStatus } from '../services/EnhancedRealtimeManager';
 
 interface GameState {
   game: Game | null;
   isLoading: boolean;
   error: string | null;
   lastUpdated: number;
+  connectionStatus: ConnectionStatus;
 }
 
 interface UseUnifiedGameStateOptions {
@@ -39,15 +40,20 @@ export function useUnifiedGameState({
   const eventListenerRegistered = useRef<string | null>(null); // Track which game has listener registered
   const hookInitialized = useRef<string | null>(null); // Track which game has been fully initialized
 
-  // Supabase Realtime manager for game status updates
-  const realtimeManager = SupabaseRealtimeManager.getInstance();
-  const subscriberIdRef = useRef<string | null>(null);
+  // Enhanced Supabase Realtime manager for game status updates
+  const realtimeManager = EnhancedRealtimeManager.getInstance();
+  const subscriptionIdRef = useRef<string | null>(null);
 
   const [state, setState] = useState<GameState>({
     game: null,
     isLoading: false,
     error: null,
-    lastUpdated: 0
+    lastUpdated: 0,
+    connectionStatus: {
+      status: 'disconnected',
+      reconnectAttempts: 0,
+      isHealthy: false
+    }
   });
 
 
@@ -395,14 +401,14 @@ export function useUnifiedGameState({
   useEffect(() => {
     if (!effectiveGameId || !autoNavigate) {
       // Clean up existing subscription if gameId is removed
-      if (subscriberIdRef.current) {
-        const [gameId] = subscriberIdRef.current.split(':');
+      if (subscriptionIdRef.current) {
+        const [gameId] = subscriptionIdRef.current.split(':');
         realtimeManager.unsubscribeFromGameUpdates(
-          gameId.replace('game-status-', ''),
-          subscriberIdRef.current.split(':')[1],
+          gameId.replace('game-', ''),
+          subscriptionIdRef.current.split(':')[1],
           handleGameUpdate
         );
-        subscriberIdRef.current = null;
+        subscriptionIdRef.current = null;
       }
       return;
     }
@@ -410,25 +416,36 @@ export function useUnifiedGameState({
     // Generate unique subscriber ID for this hook instance
     const subscriberId = `unified-game-state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Subscribe using the singleton manager
+    // Subscribe using the enhanced manager
     const subscriptionId = realtimeManager.subscribeToGameUpdates(
       effectiveGameId,
       subscriberId,
       handleGameUpdate
     );
 
-    subscriberIdRef.current = subscriptionId;
+    subscriptionIdRef.current = subscriptionId;
+
+    // Set up connection status monitoring
+    const removeConnectionListener = realtimeManager.addConnectionListener((status) => {
+      setState(prev => ({
+        ...prev,
+        connectionStatus: status
+      }));
+    });
 
     return () => {
       // Clean up subscription on unmount or dependency change
-      if (subscriberIdRef.current) {
+      if (subscriptionIdRef.current) {
         realtimeManager.unsubscribeFromGameUpdates(
           effectiveGameId,
           subscriberId,
           handleGameUpdate
         );
-        subscriberIdRef.current = null;
+        subscriptionIdRef.current = null;
       }
+
+      // Remove connection listener
+      removeConnectionListener();
     };
   }, [effectiveGameId, autoNavigate, handleGameUpdate]);
 
@@ -444,14 +461,14 @@ export function useUnifiedGameState({
       }
 
       // Clean up Supabase realtime subscription
-      if (subscriberIdRef.current && effectiveGameId) {
-        const subscriberId = subscriberIdRef.current.split(':')[1];
+      if (subscriptionIdRef.current && effectiveGameId) {
+        const subscriberId = subscriptionIdRef.current.split(':')[1];
         realtimeManager.unsubscribeFromGameUpdates(
           effectiveGameId,
           subscriberId,
           handleGameUpdate
         );
-        subscriberIdRef.current = null;
+        subscriptionIdRef.current = null;
       }
     };
   }, []);
@@ -463,9 +480,10 @@ export function useUnifiedGameState({
     isLoading: state.isLoading,
     error: state.error,
     lastUpdated: state.lastUpdated,
+    connectionStatus: state.connectionStatus,
 
-    // Real-time connection
-    isConnected,
+    // Real-time connection (legacy compatibility)
+    isConnected: state.connectionStatus.isHealthy,
     connectionError: error,
     recentEvents: [], // Placeholder for events
 
