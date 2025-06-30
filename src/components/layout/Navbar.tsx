@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { NavItem } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import * as ROUTES from '../../constants/routes';
 
 const navItems: NavItem[] = [
-  { label: 'Home', path: '/' },
-  { label: 'Premium', path: '/premium' },
-  { label: 'Leaderboard', path: '/leaderboard' },
-  { label: 'Art', path: '/art' },
-  { label: 'Roadmap', path: '/roadmap' },
+  { label: 'Home', path: ROUTES.ROUTE_HOME },
+  { label: 'Premium', path: ROUTES.ROUTE_PREMIUM },
+  { label: 'Leaderboard', path: ROUTES.ROUTE_LEADERBOARD },
+  { label: 'Art', path: ROUTES.ROUTE_ART },
+  { label: 'Roadmap', path: ROUTES.ROUTE_ROADMAP },
 ];
 
 const Navbar: React.FC = () => {
@@ -23,7 +24,7 @@ const Navbar: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate(ROUTES.ROUTE_HOME);
   };
 
   useEffect(() => {
@@ -51,7 +52,7 @@ const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 text-primary">
+          <Link to={ROUTES.ROUTE_HOME} className="flex items-center space-x-2 text-primary">
             <Pencil size={32} className="transform rotate-12" />
             <span className="font-heading font-bold text-2xl rotate-[-2deg]">SketchyAF</span>
           </Link>
@@ -80,7 +81,7 @@ const Navbar: React.FC = () => {
                 <motion.div
                   whileHover={{ scale: 1.1 }}
                   className="cursor-pointer flex items-center gap-2"
-                  onClick={() => navigate('/profile')}
+                  onClick={() => navigate(ROUTES.ROUTE_PROFILE)}
                 >
                   {currentUser?.avatar ? (
                     <img 
@@ -174,13 +175,13 @@ const Navbar: React.FC = () => {
               {/* Footer links in mobile menu */}
               <div className="pt-4 border-t border-gray-200 mt-4">
                 <Link
-                  to="/privacy"
+                  to={ROUTES.ROUTE_PRIVACY}
                   className="block py-2 font-heading text-lg text-dark-gray"
                 >
                   Privacy Policy
                 </Link>
                 <Link
-                  to="/terms"
+                  to={ROUTES.ROUTE_TERMS}
                   className="block py-2 font-heading text-lg text-dark-gray"
                 >
                   Terms of Service

@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { MatchmakingService } from '../../services/MatchmakingService';
 import { useSimpleQueue } from '../../hooks/useSimpleQueue';
 import { useMatchNotifications } from '../../hooks/useMatchNotifications';
+import * as ROUTES from '../../constants/routes';
 
 // Tip and trivia data - static content that doesn't need to be fetched
 const TIPS_AND_TRIVIA = [
@@ -117,7 +118,7 @@ const LobbyScreen: React.FC = () => {
   // Handle exit queue action
   const handleExitQueue = useCallback(() => {
     leaveQueue();
-    navigate('/');
+    navigate(ROUTES.ROUTE_HOME);
   }, [leaveQueue, navigate]);
 
   // Navigation is now handled by server events via PubNub -> useUnifiedGameState
@@ -315,7 +316,7 @@ const LobbyScreen: React.FC = () => {
                 >
                   {/* Thumbnail */}
                   <Link 
-                    to={`/art/${currentSketchData.drawingId}`}
+                    to={ROUTES.getArtDetailRoute(currentSketchData.drawingId)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-shrink-0 group"
@@ -334,7 +335,7 @@ const LobbyScreen: React.FC = () => {
                       {currentSketchData.text}
                     </p>
                     <Link 
-                      to={`/art/${currentSketchData.drawingId}`}
+                      to={ROUTES.getArtDetailRoute(currentSketchData.drawingId)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-turquoise hover:underline inline-flex items-center mt-1"

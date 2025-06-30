@@ -29,6 +29,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import { BriefingRoute, DrawingRoute, VotingRoute, SimpleGameRoute } from './components/routing/SimpleGameRoute';
 import Seo from './components/utils/Seo';
 import ScrollToTop from './components/utils/ScrollToTop';
+import * as ROUTES from './constants/routes';
 
 function App() {
   return (
@@ -48,22 +49,22 @@ function App() {
           <Layout>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/premium" element={<Premium />} />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/art" element={<ArtGallery />} />
-              <Route path="/art/:drawingId" element={<ArtDetail />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/user/:username" element={<UserProfile />} />
-              <Route path="/booster-packs/:packId" element={<BoosterPackDetail />} />
-              <Route path="/roadmap" element={<Roadmap />} />
-              <Route path="/roadmap/:itemId" element={<RoadmapDetail />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path={ROUTES.ROUTE_HOME} element={<Home />} />
+              <Route path={ROUTES.ROUTE_PREMIUM} element={<Premium />} />
+              <Route path={ROUTES.ROUTE_LEADERBOARD} element={<Leaderboard />} />
+              <Route path={ROUTES.ROUTE_ART} element={<ArtGallery />} />
+              <Route path={ROUTES.ROUTE_ART_DETAIL} element={<ArtDetail />} />
+              <Route path={ROUTES.ROUTE_PRIVACY} element={<Privacy />} />
+              <Route path={ROUTES.ROUTE_TERMS} element={<Terms />} />
+              <Route path={ROUTES.ROUTE_USER_PROFILE} element={<UserProfile />} />
+              <Route path={ROUTES.ROUTE_BOOSTER_PACK_DETAIL} element={<BoosterPackDetail />} />
+              <Route path={ROUTES.ROUTE_ROADMAP} element={<Roadmap />} />
+              <Route path={ROUTES.ROUTE_ROADMAP_DETAIL} element={<RoadmapDetail />} />
+              <Route path={ROUTES.ROUTE_AUTH_CALLBACK} element={<AuthCallback />} />
+              <Route path={ROUTES.ROUTE_RESET_PASSWORD} element={<ResetPassword />} />
 
               {/* Protected Routes - Require Authentication */}
-              <Route path="/profile" element={
+              <Route path={ROUTES.ROUTE_PROFILE} element={
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
@@ -72,32 +73,32 @@ function App() {
 
 
               {/* Game Flow Routes */}
-              <Route path="/uiux/login" element={
-                <ProtectedRoute requireAuth={false} redirectTo="/">
+              <Route path={ROUTES.ROUTE_LOGIN} element={
+                <ProtectedRoute requireAuth={false} redirectTo={ROUTES.ROUTE_HOME}>
                   <Login />
                 </ProtectedRoute>
               } />
               
-              <Route path="/uiux/signup" element={
-                <ProtectedRoute requireAuth={false} redirectTo="/">
+              <Route path={ROUTES.ROUTE_SIGNUP} element={
+                <ProtectedRoute requireAuth={false} redirectTo={ROUTES.ROUTE_HOME}>
                   <Signup />
                 </ProtectedRoute>
               } />
               
-              <Route path="/uiux/forgot-password" element={
-                <ProtectedRoute requireAuth={false} redirectTo="/">
+              <Route path={ROUTES.ROUTE_FORGOT_PASSWORD} element={
+                <ProtectedRoute requireAuth={false} redirectTo={ROUTES.ROUTE_HOME}>
                   <ForgotPassword />
                 </ProtectedRoute>
               } />
               
               {/* Game Flow - Protected and Requires Game Context */}
-              <Route path="/uiux/lobby" element={
+              <Route path={ROUTES.ROUTE_LOBBY} element={
                 <ProtectedRoute>
                   <LobbyScreen />
                 </ProtectedRoute>
               } />
               
-              <Route path="/uiux/pre-round" element={
+              <Route path={ROUTES.ROUTE_PRE_ROUND} element={
                 <ProtectedRoute>
                   <BriefingRoute>
                     <PreRoundBriefingScreen />
@@ -105,7 +106,7 @@ function App() {
                 </ProtectedRoute>
               } />
 
-              <Route path="/uiux/draw" element={
+              <Route path={ROUTES.ROUTE_DRAW} element={
                 <ProtectedRoute>
                   <DrawingRoute>
                     <ExcalidrawDraw />
@@ -113,7 +114,7 @@ function App() {
                 </ProtectedRoute>
               } />
 
-              <Route path="/uiux/voting" element={
+              <Route path={ROUTES.ROUTE_VOTING} element={
                 <ProtectedRoute>
                   <VotingRoute>
                     <VotingScreen />
@@ -121,16 +122,16 @@ function App() {
                 </ProtectedRoute>
               } />
 
-              <Route path="/uiux/post-game" element={
+              <Route path={ROUTES.ROUTE_POST_GAME} element={
                 <ProtectedRoute>
-                  <SimpleGameRoute allowedStatuses={['completed', 'cancelled']} fallbackPath="/uiux/lobby">
+                  <SimpleGameRoute allowedStatuses={['completed', 'cancelled']} fallbackPath={ROUTES.ROUTE_LOBBY}>
                     <PostGameScreen />
                   </SimpleGameRoute>
                 </ProtectedRoute>
               } />
               
               {/* Catch-all redirect to home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to={ROUTES.ROUTE_HOME} replace />} />
             </Routes>
           </Layout>
         </GameProvider>
@@ -138,7 +139,5 @@ function App() {
     </Router>
   );
 }
-
-
 
 export default App;

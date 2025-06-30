@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import * as ROUTES from '../../constants/routes';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,7 +12,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requireAuth = true,
-  redirectTo = '/uiux/login'
+  redirectTo = ROUTES.ROUTE_LOGIN
 }) => {
   const { isLoggedIn, isLoading } = useAuth();
   const location = useLocation();
@@ -35,7 +36,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // If route is for non-authenticated users only (like login page) and user is logged in
   if (!requireAuth && isLoggedIn) {
-    const from = location.state?.from?.pathname || '/';
+    const from = location.state?.from?.pathname || ROUTES.ROUTE_HOME;
     return <Navigate to={from} replace />;
   }
 

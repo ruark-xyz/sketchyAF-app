@@ -1,6 +1,3 @@
-// Unified Game State Hook - Single Source of Truth
-// Eliminates dual state management between gamePhase and currentGame.status
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -9,6 +6,7 @@ import { Game, GameStatus } from '../types/game';
 import { PubNubGameService } from '../services/PubNubService';
 import { useAuth } from '../context/AuthContext';
 import EnhancedRealtimeManager, { type ConnectionStatus } from '../services/EnhancedRealtimeManager';
+import * as ROUTES from '../constants/routes';
 
 interface GameState {
   game: Game | null;
@@ -179,18 +177,18 @@ export function useUnifiedGameState({
           switch (status) {
             case 'waiting':
             case 'briefing':
-              return `/uiux/pre-round${baseParams}`;
+              return `${ROUTES.ROUTE_PRE_ROUND}${baseParams}`;
             case 'drawing':
-              return `/uiux/draw${baseParams}`;
+              return `${ROUTES.ROUTE_DRAW}${baseParams}`;
             case 'voting':
-              return `/uiux/voting${baseParams}`;
+              return `${ROUTES.ROUTE_VOTING}${baseParams}`;
             case 'results':
-              return `/uiux/results${baseParams}`;
+              return `${ROUTES.ROUTE_POST_GAME}${baseParams}`;
             case 'completed':
             case 'cancelled':
-              return `/uiux/post-game${baseParams}`;
+              return `${ROUTES.ROUTE_POST_GAME}${baseParams}`;
             default:
-              return `/uiux/lobby${baseParams}`;
+              return `${ROUTES.ROUTE_LOBBY}${baseParams}`;
           }
         };
 
@@ -302,16 +300,16 @@ export function useUnifiedGameState({
       switch (status) {
         case 'waiting':
         case 'briefing':
-          return `/uiux/pre-round${baseParams}`;
+          return `${ROUTES.ROUTE_PRE_ROUND}${baseParams}`;
         case 'drawing':
-          return `/uiux/draw${baseParams}`;
+          return `${ROUTES.ROUTE_DRAW}${baseParams}`;
         case 'voting':
-          return `/uiux/voting${baseParams}`;
+          return `${ROUTES.ROUTE_VOTING}${baseParams}`;
         case 'completed':
         case 'cancelled':
-          return `/uiux/post-game${baseParams}`;
+          return `${ROUTES.ROUTE_POST_GAME}${baseParams}`;
         default:
-          return `/uiux/lobby${baseParams}`;
+          return `${ROUTES.ROUTE_LOBBY}${baseParams}`;
       }
     };
 
@@ -378,7 +376,12 @@ export function useUnifiedGameState({
         game: null,
         isLoading: false,
         error: null,
-        lastUpdated: 0
+        lastUpdated: 0,
+        connectionStatus: {
+          status: 'disconnected',
+          reconnectAttempts: 0,
+          isHealthy: false
+        }
       });
     }
   }, [effectiveGameId]); // Removed loadGame from deps since it has stable dependencies
