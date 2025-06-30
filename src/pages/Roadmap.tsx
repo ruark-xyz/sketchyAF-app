@@ -135,29 +135,6 @@ const Roadmap: React.FC = () => {
             </p>
           </motion.div>
           
-          {/* Login prompt for non-logged-in users - DISABLED FOR LAUNCH */}
-          {!isLoggedIn && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-primary/10 border-2 border-primary rounded-lg p-4 mb-8 flex items-start"
-            >
-              <Info size={20} className="text-primary mr-3 flex-shrink-0 mt-1" />
-              <div>
-                <p className="font-heading font-semibold text-dark">Want to vote on features?</p>
-                <p className="text-medium-gray mb-3">Feature voting is coming soon! We're working on the full SketchyAF experience.</p>
-                <div className="flex gap-2">
-                  <div className="bg-accent/20 px-3 py-1 rounded-full border border-accent">
-                    <span className="text-sm font-heading font-bold text-dark">
-                      🚀 Login & Voting Coming Soon!
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-          
           {/* Filters */}
           <div className="mb-8 flex flex-wrap gap-4 justify-between">
             {/* Category Filter */}
