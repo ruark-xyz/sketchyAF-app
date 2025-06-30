@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import * as ROUTES from '../../constants/routes';
 
 interface SignupFormData {
   email: string;
