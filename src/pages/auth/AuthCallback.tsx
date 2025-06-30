@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
+import { ROUTE_LOGIN, ROUTE_HOME } from '../../constants/routes';
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -12,21 +13,21 @@ const AuthCallback: React.FC = () => {
         
         if (error) {
           console.error('Auth callback error:', error);
-          navigate('/uiux/login?error=auth_callback_failed');
+          navigate(`${ROUTE_LOGIN}?error=auth_callback_failed`);
           return;
         }
 
         if (data.session) {
           // Successfully authenticated, redirect to home or intended page
-          const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || '/';
+          const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || ROUTE_HOME;
           navigate(redirectTo);
         } else {
           // No session found, redirect to login
-          navigate('/uiux/login');
+          navigate(ROUTE_LOGIN);
         }
       } catch (err) {
         console.error('Auth callback error:', err);
-        navigate('/uiux/login?error=auth_callback_failed');
+        navigate(`${ROUTE_LOGIN}?error=auth_callback_failed`);
       }
     };
 

@@ -10,6 +10,7 @@ import Seo from '../components/utils/Seo';
 import { gameFeatures, testimonials } from '../data/mockData';
 import { motion } from 'framer-motion';
 import { Route } from 'lucide-react';
+import { ROUTE_ROADMAP } from '../constants/routes';
 
 const Home: React.FC = () => {
   const featuresRef = useRef<HTMLDivElement>(null);
@@ -82,7 +83,7 @@ const Home: React.FC = () => {
             Check out our public roadmap to see what we're planning to build next,
             and vote for the features you're most excited about!
           </p>
-          <Button variant="secondary" to="/roadmap">
+          <Button variant="secondary" to={ROUTE_ROADMAP}>
             View Our Roadmap
           </Button>
         </div>

@@ -4,6 +4,7 @@ import { Heart, ChevronRight, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RoadmapItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { getRoadmapDetailRoute } from '../../constants/routes';
 
 interface RoadmapItemCardProps {
   item: RoadmapItem;
@@ -82,8 +83,8 @@ const RoadmapItemCard: React.FC<RoadmapItemCardProps> = ({ item, onLike, isLiked
             <span>{item.likes.toLocaleString()}</span>
           </button>
           
-          <Link 
-            to={`/roadmap/${item.id}`}
+          <Link
+            to={getRoadmapDetailRoute(item.id)}
             className="text-primary text-sm hover:underline flex items-center"
           >
             Details <ChevronRight size={14} className="ml-1" />

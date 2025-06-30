@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import Banner from '../ui/Banner';
+import { ROUTE_DRAW, ROUTE_FORGOT_PASSWORD, ROUTE_LOGIN, ROUTE_SIGNUP } from '../../constants/routes';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,9 +16,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   
   // Check if current route is an auth page
-  const isAuthPage = ['/uiux/login', '/uiux/signup', '/uiux/forgot-password'].includes(location.pathname);
+  const isAuthPage = [ROUTE_LOGIN, ROUTE_SIGNUP, ROUTE_FORGOT_PASSWORD].includes(location.pathname);
 
-  const isDrawPage = location.pathname === '/uiux/draw';
+  const isDrawPage = location.pathname === ROUTE_DRAW;
   
   // Initialize banner state based on localStorage
   useEffect(() => {

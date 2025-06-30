@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PubNubGameService } from '../services/PubNubService';
 import { supabase } from '../utils/supabase';
+import { ROUTE_PRE_ROUND, ROUTE_DRAW, ROUTE_VOTING, ROUTE_POST_GAME, getGameRoute } from '../constants/routes';
 
 export function useMatchNotifications() {
   const { currentUser, isLoggedIn } = useAuth();
@@ -44,7 +45,7 @@ export function useMatchNotifications() {
 
             // Small delay to ensure game is committed to database
             setTimeout(() => {
-              const targetPath = `/uiux/pre-round?gameId=${message.gameId}`;
+              const targetPath = getGameRoute(ROUTE_PRE_ROUND, message.gameId);
               console.log(`useMatchNotifications: Navigating to ${targetPath}`);
               navigate(targetPath, { replace: true });
             }, 500); // 500ms delay
@@ -63,7 +64,7 @@ export function useMatchNotifications() {
             try {
               // Don't poll if we're already on a game page
               const currentPath = window.location.pathname;
-              if (currentPath.includes('/pre-round') || currentPath.includes('/uiux/draw') || currentPath.includes('/voting') || currentPath.includes('/results')) {
+              if (currentPath.includes(ROUTE_PRE_ROUND) || currentPath.includes(ROUTE_DRAW) || currentPath.includes(ROUTE_VOTING) || currentPath.includes(ROUTE_POST_GAME)) {
                 console.log('useMatchNotifications: Already on game page, stopping polling fallback');
                 if (pollingIntervalRef.current) {
                   clearInterval(pollingIntervalRef.current);
@@ -85,7 +86,7 @@ export function useMatchNotifications() {
                 console.log(`useMatchNotifications: Polling fallback found active game: ${game.game_id}`);
 
                 // Navigate to the game
-                const targetPath = `/uiux/pre-round?gameId=${game.game_id}`;
+                const targetPath = getGameRoute(ROUTE_PRE_ROUND, game.game_id);
                 console.log(`useMatchNotifications: Polling fallback navigating to ${targetPath}`);
                 navigate(targetPath, { replace: true });
 

@@ -7,6 +7,7 @@ import { supabase } from '../../utils/supabase';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Seo from '../../components/utils/Seo';
+import { ROUTE_LOGIN } from '../../constants/routes';
 
 interface ResetPasswordFormData {
   password: string;
@@ -50,7 +51,7 @@ const ResetPassword: React.FC = () => {
       
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/uiux/login?message=password_updated');
+        navigate(`${ROUTE_LOGIN}?message=password_updated`);
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while updating your password');
@@ -106,7 +107,7 @@ const ResetPassword: React.FC = () => {
         >
           <div className="mb-6 flex justify-between items-center">
             <button 
-              onClick={() => navigate('/uiux/login')} 
+              onClick={() => navigate(ROUTE_LOGIN)} 
               className="text-dark hover:text-primary transition-colors"
             >
               <ArrowLeft size={24} />
