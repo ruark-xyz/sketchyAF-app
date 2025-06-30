@@ -111,16 +111,21 @@ BEGIN
           DECLARE
             submission_count INTEGER;
             all_submitted BOOLEAN := FALSE;
+            grace_key TEXT;
+            grace_started_at TIMESTAMP WITH TIME ZONE;
+            grace_period_seconds INTEGER := 10; -- 10 second grace period
+            grace_expired BOOLEAN := FALSE;
+            should_skip_transition BOOLEAN := FALSE;
           BEGIN
             -- Check if all players have submitted
             SELECT COUNT(*) INTO submission_count
-            FROM submissions 
+            FROM submissions
             WHERE game_id = game_record.game_id;
-            
+
             all_submitted := (submission_count >= game_record.current_players);
-            
+
             IF all_submitted THEN
-              -- All players submitted, proceed with transition
+              -- All players submitted, proceed with transition immediately
               current_detail := jsonb_build_object(
                 'game_id', game_record.game_id,
                 'action', 'grace_period_check',
@@ -130,15 +135,84 @@ BEGIN
               );
               game_details := game_details || current_detail;
             ELSE
-              -- Not all players submitted, but timer expired - still transition
-              current_detail := jsonb_build_object(
-                'game_id', game_record.game_id,
-                'action', 'grace_period_check', 
-                'result', 'timer_expired',
-                'submission_count', submission_count,
-                'required_count', game_record.current_players
-              );
-              game_details := game_details || current_detail;
+              -- Not all players submitted, check grace period status
+              grace_key := 'drawing_grace_' || game_record.game_id::text;
+
+              -- Check if grace period is already active
+              SELECT created_at INTO grace_started_at
+              FROM game_metadata
+              WHERE game_id = game_record.game_id
+                AND key = grace_key;
+
+              IF grace_started_at IS NULL THEN
+                -- Start grace period
+                INSERT INTO game_metadata (game_id, key, value, created_at, expires_at)
+                VALUES (
+                  game_record.game_id,
+                  grace_key,
+                  'active',
+                  now(),
+                  now() + (grace_period_seconds || ' seconds')::INTERVAL
+                )
+                ON CONFLICT (game_id, key) DO UPDATE SET
+                  created_at = now(),
+                  expires_at = now() + (grace_period_seconds || ' seconds')::INTERVAL;
+
+                -- Extend the game timer by grace period
+                UPDATE games
+                SET phase_expires_at = now() + (grace_period_seconds || ' seconds')::INTERVAL
+                WHERE id = game_record.game_id;
+
+                should_skip_transition := TRUE;
+
+                current_detail := jsonb_build_object(
+                  'game_id', game_record.game_id,
+                  'action', 'grace_period_started',
+                  'result', 'timer_extended',
+                  'submission_count', submission_count,
+                  'required_count', game_record.current_players,
+                  'grace_period_seconds', grace_period_seconds
+                );
+                game_details := game_details || current_detail;
+              ELSE
+                -- Grace period already active, check if expired
+                grace_expired := (grace_started_at + (grace_period_seconds || ' seconds')::INTERVAL <= now());
+
+                IF grace_expired THEN
+                  -- Grace period expired, proceed with transition
+                  current_detail := jsonb_build_object(
+                    'game_id', game_record.game_id,
+                    'action', 'grace_period_expired',
+                    'result', 'proceeding_with_transition',
+                    'submission_count', submission_count,
+                    'required_count', game_record.current_players,
+                    'grace_started_at', grace_started_at
+                  );
+                  game_details := game_details || current_detail;
+
+                  -- Note: Grace period metadata cleanup will happen in transition_game_status function
+                ELSE
+                  -- Grace period still active, skip transition
+                  should_skip_transition := TRUE;
+
+                  current_detail := jsonb_build_object(
+                    'game_id', game_record.game_id,
+                    'action', 'grace_period_active',
+                    'result', 'transition_delayed',
+                    'submission_count', submission_count,
+                    'required_count', game_record.current_players,
+                    'grace_started_at', grace_started_at,
+                    'grace_expires_at', grace_started_at + (grace_period_seconds || ' seconds')::INTERVAL
+                  );
+                  game_details := game_details || current_detail;
+                END IF;
+              END IF;
+            END IF;
+
+            -- Skip transition if grace period is active
+            IF should_skip_transition THEN
+              skipped_count := skipped_count + 1;
+              CONTINUE;
             END IF;
           END;
         END IF;
