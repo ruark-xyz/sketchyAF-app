@@ -88,7 +88,8 @@ const Home: React.FC = () => {
         </div>
       </motion.section>
       
-      <TestimonialSection testimonials={testimonials} />
+      {/* Hide until we have testimonials */}
+      {/* <TestimonialSection testimonials={testimonials} /> */}
       
       <BottomCTA 
         heading="Ready to Get Sketchy?" 
