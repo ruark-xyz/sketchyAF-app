@@ -70,11 +70,10 @@ const Leaderboard: React.FC = () => {
             className="text-center mb-12 md:mb-16"
           >
             <h1 className="font-heading font-bold text-3xl md:text-5xl text-dark mb-4">
-              SketchyAF Leaderboard (Example)
+              SketchyAF Leaderboard (Coming Soon)
             </h1>
             <p className="text-medium-gray text-lg max-w-2xl mx-auto">
-              This is an example of how our leaderboard will look when the game launches.
-              Soon these will be real players with real (but probably terrible) drawings!
+              We're in the process of rolling out our algorithm for the learderboard. Get playing, get your practice in and we'll let you know when the leaderboard is ready!
             </p>
           </motion.div>
           
@@ -91,11 +90,8 @@ const Leaderboard: React.FC = () => {
             <LeaderboardTable entries={filteredDrawings} />
             
             <div className="mt-8 text-center">
-              <p className="text-medium-gray mb-4">
-                When we launch, you'll be able to compete against these artistic geniuses!
-              </p>
               <Button variant="primary" onClick={handleJoinGame}>
-                Join a Game & Prove It
+                Get Practicing
               </Button>
             </div>
           </div>
