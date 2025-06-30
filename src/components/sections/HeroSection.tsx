@@ -1,7 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import { useAuth } from '../../context/AuthContext';
+import * as ROUTES from '../../constants/routes';
+import { getJoinGameRoute } from '../../utils/navigationHelpers';
 
 interface HeroSectionProps {
   scrollToRef?: React.RefObject<HTMLElement>;
@@ -9,10 +13,18 @@ interface HeroSectionProps {
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({ scrollToRef, onEmailSignupClick }) => {
+  const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
+  
   const scrollToContent = () => {
     if (scrollToRef && scrollToRef.current) {
       scrollToRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  const handleJoinGame = () => {
+    const targetRoute = getJoinGameRoute(isLoggedIn);
+    navigate(targetRoute);
   };
 
   return (
@@ -76,7 +88,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ scrollToRef, onEmailSignupCli
             <Button 
               variant="primary" 
               size="lg" 
-              onClick={onEmailSignupClick}
+              onClick={handleJoinGame}
             >
               Join a Game
             </Button>

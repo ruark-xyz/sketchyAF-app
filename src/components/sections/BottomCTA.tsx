@@ -1,6 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import { useAuth } from '../../context/AuthContext';
+import * as ROUTES from '../../constants/routes';
+import { getJoinGameRoute } from '../../utils/navigationHelpers';
 
 interface BottomCTAProps {
   heading: string;
@@ -9,6 +13,7 @@ interface BottomCTAProps {
   buttonLink?: string;
   isExternalLink?: boolean;
   onEmailSignupClick?: () => void;
+  useConditionalNavigation?: boolean;
 }
 
 const BottomCTA: React.FC<BottomCTAProps> = ({
@@ -18,7 +23,20 @@ const BottomCTA: React.FC<BottomCTAProps> = ({
   buttonLink,
   isExternalLink = false,
   onEmailSignupClick,
+  useConditionalNavigation = false
 }) => {
+  const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
+
+  const handleButtonClick = () => {
+    if (useConditionalNavigation) {
+      const targetRoute = getJoinGameRoute(isLoggedIn);
+      navigate(targetRoute);
+    } else if (onEmailSignupClick) {
+      onEmailSignupClick();
+    }
+  };
+
   return (
     <section className="bg-secondary py-16 md:py-24 border-y-2 border-dark">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -40,7 +58,15 @@ const BottomCTA: React.FC<BottomCTAProps> = ({
           )}
           
           {/* Conditional rendering based on whether we have an email signup handler or a link */}
-          {onEmailSignupClick ? (
+          {useConditionalNavigation ? (
+            <Button 
+              variant="primary" 
+              size="lg" 
+              onClick={handleButtonClick}
+            >
+              {buttonText}
+            </Button>
+          ) : onEmailSignupClick ? (
             <Button 
               variant="primary" 
               size="lg" 
