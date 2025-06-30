@@ -80,12 +80,11 @@ const TopDrawings: React.FC = () => {
         </div>
       </section>
       
-      <BottomCTA 
-        heading="Think You Can Do Better?" 
+      <BottomCTA
+        heading="Think You Can Do Better?"
         subheading="Join the game and show off your artistic skills (or lack thereof)."
         buttonText="Start Drawing Now"
-        buttonLink="/#email-signup"
-        isExternalLink={false}
+        useConditionalNavigation={true}
       />
     </>
   );
