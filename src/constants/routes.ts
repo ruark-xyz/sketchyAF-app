@@ -24,14 +24,14 @@ export const ROUTE_AUTH_CALLBACK = '/auth/callback';
 export const ROUTE_RESET_PASSWORD = '/auth/reset-password';
 
 // UI/UX Routes
-export const ROUTE_LOGIN = '/uiux/login';
-export const ROUTE_SIGNUP = '/uiux/signup';
-export const ROUTE_FORGOT_PASSWORD = '/uiux/forgot-password';
-export const ROUTE_LOBBY = '/uiux/lobby';
-export const ROUTE_PRE_ROUND = '/uiux/pre-round';
-export const ROUTE_DRAW = '/uiux/draw';
-export const ROUTE_VOTING = '/uiux/voting';
-export const ROUTE_POST_GAME = '/uiux/post-game';
+export const ROUTE_LOGIN = '/login';
+export const ROUTE_SIGNUP = '/signup';
+export const ROUTE_FORGOT_PASSWORD = '/forgot-password';
+export const ROUTE_LOBBY = '/lobby';
+export const ROUTE_PRE_ROUND = '/pre-round';
+export const ROUTE_DRAW = '/draw';
+export const ROUTE_VOTING = '/voting';
+export const ROUTE_POST_GAME = '/post-game';
 
 // Protected Routes
 export const ROUTE_PROFILE = '/profile';
