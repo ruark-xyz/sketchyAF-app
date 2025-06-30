@@ -75,7 +75,7 @@ const Navbar: React.FC = () => {
               ))}
             </div>
 
-            {/* Conditional Profile/Signup Section - DISABLED FOR LAUNCH */}
+            {/* Conditional Profile/Signup Section */}
             {isLoggedIn ? (
               <div className="flex items-center gap-4">
                 <motion.div
@@ -107,8 +107,17 @@ const Navbar: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              // AUTH DISABLED FOR LAUNCH - Show coming soon message instead
               <div className="flex items-center gap-4">
+                {/* Login Button - Only visible when not logged in */}
+                <Button 
+                  variant="tertiary" 
+                  size="sm" 
+                  to={ROUTES.ROUTE_LOGIN}
+                  className="text-blue-500 hover:text-blue-700"
+                >
+                  Login
+                </Button>
+                
                 <div className="bg-accent/20 px-3 py-1 rounded-full border border-accent">
                   <span className="text-sm font-heading font-bold text-dark">
                     🚀 Coming Soon!
@@ -188,7 +197,7 @@ const Navbar: React.FC = () => {
                 </Link>
               </div>
               
-              {/* Auth buttons in mobile menu - DISABLED FOR LAUNCH */}
+              {/* Auth buttons in mobile menu */}
               <div className="pt-4 flex justify-center">
                 {isLoggedIn ? (
                    <Button 
@@ -200,11 +209,23 @@ const Navbar: React.FC = () => {
                      Logout
                    </Button>
                 ) : (
-                  // Show coming soon message in mobile menu too
-                  <div className="bg-accent/20 px-4 py-2 rounded-full border border-accent">
-                    <span className="text-sm font-heading font-bold text-dark">
-                      🚀 Login Coming Soon!
-                    </span>
+                  <div className="flex flex-col space-y-3 w-full">
+                    {/* Login Button in Mobile Menu */}
+                    <Button 
+                      variant="primary" 
+                      size="sm" 
+                      to={ROUTES.ROUTE_LOGIN}
+                      className="w-full"
+                    >
+                      Login
+                    </Button>
+                    
+                    {/* Coming Soon Message */}
+                    <div className="bg-accent/20 px-4 py-2 rounded-full border border-accent text-center">
+                      <span className="text-sm font-heading font-bold text-dark">
+                        🚀 More Features Coming Soon!
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
