@@ -28,8 +28,7 @@ const Home: React.FC = () => {
       />
       
       <HeroSection 
-        scrollToRef={emailSignupRef} 
-        onEmailSignupClick={openEmailModal}
+        scrollToRef={emailSignupRef}
       />
       
       <div ref={featuresRef}>
@@ -95,7 +94,7 @@ const Home: React.FC = () => {
         heading="Ready to Get Sketchy?" 
         subheading="Join the drawing mayhem today and prove that stick figures can be art... sort of."
         buttonText="Join a Game"
-        onEmailSignupClick={openEmailModal}
+        useConditionalNavigation={true}
       />
       
       {/* Email Signup Modal */}
