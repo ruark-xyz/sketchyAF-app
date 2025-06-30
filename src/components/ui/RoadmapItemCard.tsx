@@ -63,9 +63,11 @@ const RoadmapItemCard: React.FC<RoadmapItemCardProps> = ({ item, onLike, isLiked
         
         {/* Title */}
         <h3 className="font-heading font-bold text-xl mb-2">{item.title}</h3>
-        
-        {/* Description */}
-        <p className="text-medium-gray text-sm mb-4 flex-grow">{item.description}</p>
+
+        {/* Description - only show if not empty */}
+        {item.description && item.description.trim() && (
+          <p className="text-medium-gray text-sm mb-4 flex-grow">{item.description}</p>
+        )}
         
         {/* Like button and count */}
         <div className="flex justify-between items-center pt-2 border-t border-gray-100">

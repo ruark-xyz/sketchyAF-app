@@ -139,9 +139,9 @@ const RoadmapDetail: React.FC = () => {
 
   return (
     <>
-      <Seo 
+      <Seo
         title={`${item.title} | Roadmap`}
-        description={item.description}
+        description={item.description || `Learn more about ${item.title} on our roadmap.`}
         ogImage={item.image}
       />
       
@@ -212,11 +212,14 @@ const RoadmapDetail: React.FC = () => {
                   <span>Interest: {item.likes > 200 ? "High" : item.likes > 100 ? "Medium" : "Low"}</span>
                 </div>
               </div>
-              
-              <p className="text-dark-gray text-lg mb-8">
-                {item.description}
-              </p>
-              
+
+              {/* Description - only show if not empty */}
+              {item.description && item.description.trim() && (
+                <p className="text-dark-gray text-lg mb-8">
+                  {item.description}
+                </p>
+              )}
+
               {/* Like and Share Section */}
               <div className="flex flex-wrap justify-between items-center pt-4 border-t border-light-gray">
                 <div>
