@@ -131,7 +131,7 @@ const Roadmap: React.FC = () => {
               Our Roadmap
             </h1>
             <p className="text-dark text-xl font-body max-w-3xl mx-auto">
-              We’re still sketching this out—literally. These roadmap items are just placeholders for now. Tap the heart on what could be cool to help shape what we actually build next.
+              We’re still sketching this out- literally. These roadmap items are on the cards but we're deciding what's next. Help us by tapping the heart on what could be cool to help shape what we actually build.
             </p>
           </motion.div>
           
